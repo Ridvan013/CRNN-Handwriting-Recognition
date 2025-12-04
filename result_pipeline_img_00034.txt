@@ -1,0 +1,3 @@
+Image: img_00034.png
+Ground Truth: Sir Roy's United Federal Party is boycotting the London talks on the Protectorate's future.
+Prediction:   Sir Ray's United Federal Party is baycatting the london talks on the Rrolecorateis future
