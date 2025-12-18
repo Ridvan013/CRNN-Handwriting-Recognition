@@ -9,6 +9,15 @@ Bu proje, el yazısı tanıma için CRNN (Convolutional Recurrent Neural Network
 - **Trigram Language Model** ile hata düzeltme
 - IAM veri seti üzerinde eğitim
 
+## Örnek Çıktı
+
+![Örnek Sonuç](result_pipeline_img_00034.jpg)
+
+**Tanınan Metin:**
+```text
+A text-line is a sequence of words .
+```
+
 ## Dosya Yapısı
 
 - `pipeline_v2.py` - Ana pipeline dosyası

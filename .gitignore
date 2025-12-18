@@ -24,7 +24,7 @@ wheels/
 *.egg
 
 # PyTorch model files (büyük dosyalar)
-*.pth
+# *.pth  <-- Modelleri yüklemek için bu satırı kaldırdık
 *.pt
 
 # Jupyter Notebook

@@ -833,7 +833,7 @@ def greedy_decode(log_probs, input_lengths):
 # Training Class
 # ==========================
 class CRNNTrainer:
-    def __init__(self, model, device='auto', use_mixed_precision=True):
+    def __init__(self, model, device='auto', use_mixed_precision=True, trigram_lm=None):
         self.model = model
         self.device = device if device != 'auto' else DEVICE
         self.model.to(self.device)
@@ -891,6 +891,7 @@ class CRNNTrainer:
         
         # Input length cache - bir kez hesapla, sonra kullan (gereksiz forward pass'i önler)
         self.cached_input_length = None
+        self.trigram_lm = trigram_lm
         
     def _log_gpu_memory(self):
         """GPU memory kullanımını logla"""
@@ -1048,10 +1049,42 @@ class CRNNTrainer:
                 total_loss += loss.item()
                 num_batches += 1
                 
-                # Decode predictions for CER calculation - BEAM SEARCH kullan (GPU'da)
-                predictions = beam_search_decode(log_probs, input_lengths, beam_width=10, 
-                                                blank_index=len(CHAR_LIST), device=self.device)
-                all_predictions.extend(predictions)
+                # Decode predictions for CER calculation - GREEDY DECODE kullan (Hız için)
+                predictions = greedy_decode(log_probs, input_lengths)
+                
+                # Trigram LM Correction
+                if self.trigram_lm:
+                    corrected_predictions = []
+                    for pred in predictions:
+                        # Convert indices to text
+                        pred_text = "".join([CHAR_LIST[i] for i in pred])
+                        # Correct with Trigram
+                        corrected_text = self.trigram_lm.correct_word(pred_text)
+                        # Convert back to indices (optional, or just use text for metrics)
+                        # Here we will pass TEXT directly to calculate_metrics if we modify it, 
+                        # OR we can just keep it as text list.
+                        # Let's modify _calculate_metrics to accept text list option.
+                        corrected_predictions.append(pred_text) # We will handle text in calculate_metrics
+                        
+                    # For now, let's just replace the raw prediction with corrected TEXT 
+                    # But _calculate_metrics expects INDICES. 
+                    # Let's convert corrected text back to indices to keep it compatible?
+                    # Or better: Update _calculate_metrics to handle strings.
+                    
+                    # Hack: Store the corrected TEXT in a separate list to pass to a modified metric calculator
+                    # But to keep it simple and consistent with the existing structure:
+                    # We will re-encode the corrected text back to indices.
+                    corrected_indices_list = []
+                    for pred_indices in predictions:
+                        pred_text = "".join([CHAR_LIST[i] for i in pred_indices])
+                        corrected_text = self.trigram_lm.correct_word(pred_text)
+                        new_indices = [CHAR_LIST.index(c) for c in corrected_text if c in CHAR_LIST]
+                        corrected_indices_list.append(new_indices)
+                    
+                    all_predictions.extend(corrected_indices_list)
+                else:
+                    all_predictions.extend(predictions)
+
                 all_targets.extend(labels)
         
         # Calculate CER, WA, WER
@@ -1121,7 +1154,9 @@ class CRNNTrainer:
         print(f"  Epochs:               {epochs}")
         print(f"  Device:               {self.device}")
         print(f"  Mixed Precision:     {self.use_mixed_precision}")
-        print(f"  Beam Search Width:    10")
+        print(f"  Decoding Method:      Greedy (Fast)")
+        if self.trigram_lm:
+            print(f"  Trigram Correction:   Active (Validation Only)")
         print(f"{'=' * 63}\n")
         
         for epoch in range(epochs):
@@ -1412,7 +1447,16 @@ model = CRNNModel(img_height=32, img_width=128, num_classes=len(CHAR_LIST)+1)
 print(f"Model created: {sum(p.numel() for p in model.parameters()):,} parameters")
 
 # Create trainer
-trainer = CRNNTrainer(model, device='auto', use_mixed_precision=True)
+trigram_lm = None
+if WORDS_FILE and os.path.exists(WORDS_FILE):
+    try:
+        from trigram_lm import TrigramLanguageModel
+        print(f"[Info] Trigram LM yükleniyor: {WORDS_FILE}")
+        trigram_lm = TrigramLanguageModel(WORDS_FILE)
+    except ImportError:
+        print("[Warning] trigram_lm.py bulunamadı, validation Trigram'sız yapılacak.")
+
+trainer = CRNNTrainer(model, device='auto', use_mixed_precision=True, trigram_lm=trigram_lm)
 
 # Start training
 if len(train_images) > 0 and len(valid_images) > 0:
@@ -1432,10 +1476,14 @@ best_loss_path = os.path.join(model_dir, "best_model_loss.pth")
 best_wa_path = os.path.join(model_dir, "best_model_wa.pth")
 
 if os.path.exists('best_model_loss.pth'):
+    if os.path.exists(best_loss_path):
+        os.remove(best_loss_path)
     os.rename('best_model_loss.pth', best_loss_path)
     print(f"Best loss model saved to: {best_loss_path}")
 
 if os.path.exists('best_model_wa.pth'):
+    if os.path.exists(best_wa_path):
+        os.remove(best_wa_path)
     os.rename('best_model_wa.pth', best_wa_path)
     print(f"Best accuracy model saved to: {best_wa_path}")
 
@@ -1485,7 +1533,7 @@ def levenshtein_distance(s1, s2):
     
     return previous_row[-1]
 
-def create_detailed_analysis_csv(model, val_loader, model_dir, device='cuda'):
+def create_detailed_analysis_csv(model, val_loader, model_dir, device='cuda', trigram_lm=None):
     """Test sonuçlarını detaylı analiz eden CSV dosyası oluşturur (GPU'da)"""
     try:
         import pandas as pd
@@ -1507,9 +1555,8 @@ def create_detailed_analysis_csv(model, val_loader, model_dir, device='cuda'):
                 sequence_length = log_probs.size(0)
                 input_lengths = torch.full((batch_size,), sequence_length, dtype=torch.long, device=device)
                 
-                # Beam search decode (GPU'da)
-                predictions = beam_search_decode(log_probs, input_lengths, beam_width=10, 
-                                                blank_index=len(CHAR_LIST), device=device)
+                # Greedy decode
+                predictions = greedy_decode(log_probs, input_lengths)
                 
                 all_predictions.extend(predictions)
                 all_targets.extend(labels)
@@ -1529,6 +1576,15 @@ def create_detailed_analysis_csv(model, val_loader, model_dir, device='cuda'):
         
         pred_texts = [indices_to_text(pred) for pred in all_predictions]
         true_texts = [dense_to_text(target) for target in all_targets]
+        
+        # Trigram LM Correction (Analiz için)
+        raw_pred_texts = list(pred_texts) # Keep copy of raw texts
+        if trigram_lm:
+            print("Applying Trigram correction to analysis results...")
+            corrected_texts = []
+            for text in pred_texts:
+                corrected_texts.append(trigram_lm.correct_word(text))
+            pred_texts = corrected_texts
         
         # Analiz verilerini topla
         analysis_data = []
@@ -1551,7 +1607,8 @@ def create_detailed_analysis_csv(model, val_loader, model_dir, device='cuda'):
             analysis_data.append({
                 'Sample_ID': i,
                 'True_Text': true,
-                'Predicted_Text': pred,
+                'Predicted_Text': pred, # This is now the corrected text if Trigram is on
+                'Raw_Predicted_Text': raw_pred_texts[i], # Add raw prediction column
                 'Is_Correct': is_correct,
                 'Word_Length': word_length,
                 'Character_Errors': char_errors,
@@ -1996,7 +2053,7 @@ def create_training_plots(history, model_dir):
 if len(valid_images) > 0 and len(train_images) > 0:
     # CSV analizini oluştur
     analysis_df, pred_texts, true_texts, all_images = create_detailed_analysis_csv(
-        model, val_loader, model_dir, device=DEVICE
+        model, val_loader, model_dir, device=DEVICE, trigram_lm=trigram_lm
     )
     
     # Tahmin görselleştirmelerini oluştur

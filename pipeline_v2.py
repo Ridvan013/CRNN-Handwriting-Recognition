@@ -29,6 +29,12 @@ except ImportError as e:
     print(f"Checked path: {craft_path}")
     sys.exit(1)
 
+try:
+    from trigram_lm import TrigramLanguageModel
+except ImportError:
+    print("Warning: trigram_lm.py not found. Language Model will be disabled.")
+    TrigramLanguageModel = None
+
 # ==========================================
 # CRNN Model Definition (Standalone)
 # ==========================================
@@ -219,6 +225,39 @@ def str2bool(v):
     return v.lower() in ("yes", "y", "true", "t", "1")
 
 # ==========================================
+# IMAGE ENHANCEMENT
+# ==========================================
+def enhance_image_for_craft(image):
+    """
+    Enhance raw image before CRAFT detection
+    """
+    print("Enhancing image for better detection...")
+    
+    # Convert to grayscale
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
+    
+    # Denoise
+    gray = cv2.fastNlMeansDenoising(gray, None, h=10, templateWindowSize=7, searchWindowSize=21)
+    
+    # CLAHE for better contrast
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    gray = clahe.apply(gray)
+    
+    # Adaptive threshold to binarize
+    binary = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+        cv2.THRESH_BINARY, blockSize=15, C=5
+    )
+    
+    # Convert back to BGR for CRAFT
+    enhanced = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+    
+    return enhanced
+
+# ==========================================
 # CRAFT Detection
 # ==========================================
 def load_craft_model(args):
@@ -400,10 +439,11 @@ def sort_boxes(boxes):
         
     return lines
 
-def merge_boxes(boxes, x_threshold=30, y_threshold_ratio=0.5):
+def merge_boxes(boxes, x_threshold=20, y_threshold_ratio=0.5):
     """
     Merge boxes that are close to each other horizontally and aligned vertically.
     Fixes issues where single words are split into multiple boxes.
+    x_threshold=20 - balanced setting to avoid over-merging
     """
     if not boxes:
         return []
@@ -460,7 +500,7 @@ def merge_boxes(boxes, x_threshold=30, y_threshold_ratio=0.5):
     merged.append(current_box)
     return merged
 
-def recognize_words(image, boxes, crnn_model, device):
+def recognize_words(image, boxes, crnn_model, lm, device):
     """
     Recognize text in each bounding box.
     """
@@ -523,8 +563,16 @@ def recognize_words(image, boxes, crnn_model, device):
         results.append({
             'box': box,
             'text': pred_text,
-            'confidence': 1.0 # Placeholder, beam search doesn't return conf easily here
+            'confidence': 1.0 # Placeholder
         })
+        
+        # Apply Trigram Correction
+        corrected_text = pred_text
+        if lm:
+            corrected_text = lm.correct_word(pred_text)
+            
+        results[-1]['text'] = corrected_text
+        results[-1]['raw_text'] = pred_text
         
     return results
 
@@ -534,30 +582,59 @@ def recognize_words(image, boxes, crnn_model, device):
 def visualize_results(image, results, output_path):
     vis_img = image.copy()
     
+    # Calculate required bottom padding
+    max_y = vis_img.shape[0]
+    for res in results:
+        box = res['box']
+        poly = np.array(box).astype(np.int32)
+        x, y, w, h = cv2.boundingRect(poly)
+        # Text is drawn at y + h + 25. Font height is approx 20-30px.
+        required_y = y + h + 45 
+        if required_y > max_y:
+            max_y = required_y
+            
+    # Add padding if needed
+    if max_y > vis_img.shape[0]:
+        pad_height = max_y - vis_img.shape[0]
+        # Create white padding
+        padding = np.ones((pad_height, vis_img.shape[1], 3), dtype=np.uint8) * 255
+        vis_img = np.vstack((vis_img, padding))
+    
     for res in results:
         box = res['box']
         text = res['text']
+        raw_text = res.get('raw_text', text)
+        
+        display_text = text
+        # If correction happened, show only corrected for cleaner UI or both? 
+        # User said "model predict". Let's show final text.
         
         poly = np.array(box).astype(np.int32)
         
-        # Draw box (Green)
+        # Draw box (GREEN to match reference: BGR 0, 255, 0)
         cv2.polylines(vis_img, [poly], True, (0, 255, 0), 2)
         
-        # Draw text (Blue)
-        # Calculate position
+        # Draw text
         x, y, w, h = cv2.boundingRect(poly)
         
-        # Put text background for readability
-        (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+        # Text settings
+        font_scale = 0.4
+        font_thickness = 1
+        (text_w, text_h), _ = cv2.getTextSize(display_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
         
         # Draw text BELOW the box
         text_x = x
-        text_y = y + h + 25  # Shift down by height + padding
+        text_y = y + h + 15
         
-        cv2.rectangle(vis_img, (text_x, text_y - text_h - 5), (text_x + text_w, text_y + 5), (255, 255, 255), -1)
+        # Ensure text doesn't go off-screen
+        if text_x + text_w > vis_img.shape[1]:
+            text_x = max(0, vis_img.shape[1] - text_w - 2)
         
-        # Put text
-        cv2.putText(vis_img, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+        # Background for text (White)
+        cv2.rectangle(vis_img, (text_x, text_y - text_h - 2), (text_x + text_w, text_y + 2), (255, 255, 255), -1)
+        
+        # Draw Text (Blue for contrast against Red box)
+        cv2.putText(vis_img, display_text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 0, 0), font_thickness)
         
     cv2.imwrite(output_path, vis_img)
     print(f"Saved result to {output_path}")
@@ -565,6 +642,95 @@ def visualize_results(image, results, output_path):
 # ==========================================
 # Main
 # ==========================================
+# ==========================================
+# Main & Web Interface
+# ==========================================
+def predict_pipeline(image_path, args=None):
+    """
+    Wrapper function for web application
+    """
+    # Default args if not provided
+    if args is None:
+        class Args:
+            pass
+        args = Args()
+        args.image = image_path
+        args.craft_model = 'CRAFT-pytorch-master/CRAFT-pytorch-master/CRAFT-pytorch-master/craft_mlt_25k.pth'
+        args.crnn_model = 'Model/best_model_wa.pth'
+        args.words_file = 'HTR_Using_CRNN/IAM/processed/archive/iam_words/words.txt'
+        args.text_threshold = 0.65  # Reduced for better detection
+        args.low_text = 0.35        # Lower to catch more text
+        args.link_threshold = 0.25  # More aggressive linking
+        args.cuda = True
+        args.canvas_size = 1280
+        args.mag_ratio = 1.5
+        args.poly = False
+        args.enhance = True
+        
+    # Check inputs
+    if not os.path.exists(args.image):
+        print(f"Error: Image not found at {args.image}")
+        return None
+
+    # Load Models
+    craft_net = load_craft_model(args)
+    crnn_model = load_crnn_model(args.crnn_model, DEVICE)
+    
+    # Load Trigram LM
+    lm = None
+    args.words_file = 'HTR_Using_CRNN/IAM/processed/archive/iam_words/words.txt' # Force correct path
+    if args.words_file and os.path.exists(args.words_file) and TrigramLanguageModel:
+        print(f"Loading Trigram LM from {args.words_file}")
+        lm = TrigramLanguageModel(args.words_file)
+    else:
+        print(f"Warning: Trigram LM not loaded. Path checked: {args.words_file}")
+
+    # Load Image
+    image_original = cv2.imread(args.image)
+    if image_original is None:
+        return None
+    
+    # Smart Enhancement Strategy:
+    # 1. Try without enhancement first (for clean scans/PDFs)
+    # 2. If too few words detected, retry with enhancement (for raw photos)
+    
+    print("Attempting detection without enhancement...")
+    boxes, polys = run_craft_detection(craft_net, image_original, args)
+    
+    # Check if we got reasonable results
+    if len(boxes) < 5:  # If very few words detected
+        print(f"Only {len(boxes)} words detected. Retrying with image enhancement...")
+        image_enhanced = enhance_image_for_craft(image_original)
+        boxes, polys = run_craft_detection(craft_net, image_enhanced, args)
+        print(f"After enhancement: {len(boxes)} words detected")
+    else:
+        print(f"Good detection without enhancement: {len(boxes)} words found")
+    
+    # Recognize
+    results = recognize_words(image_original, boxes, crnn_model, lm, DEVICE)
+    
+    # Visualize
+    filename = os.path.basename(args.image)
+    name, ext = os.path.splitext(filename)
+    output_filename = f"result_web_{name}.jpg"
+    output_path = os.path.join("static", "uploads", output_filename)
+    
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    visualize_results(image_original, results, output_path)
+    
+    # Prepare result data
+    predicted_sentence = " ".join([res['text'] for res in results])
+    raw_sentence = " ".join([res.get('raw_text', '') for res in results])
+    
+    return {
+        'image_url': output_path.replace(os.sep, '/'),
+        'text': predicted_sentence,
+        'raw_text': raw_sentence,
+        'boxes': [b.tolist() for b in boxes]
+    }
+
 def main():
     # USER: Change this path to test different images
     # default_image_path = r"c:\Users\RIDVAN\Desktop\CRNN\CRNN_1\iam sentence\images\img_00001.png"
@@ -582,6 +748,8 @@ def main():
     parser.add_argument('--canvas_size', default=1280, type=int, help='image size for inference')
     parser.add_argument('--mag_ratio', default=1.5, type=float, help='image magnification ratio')
     parser.add_argument('--poly', default=False, action='store_true', help='enable polygon type')
+    parser.add_argument('--enhance', default=True, type=str2bool, help='Enhance image before CRAFT detection')
+    parser.add_argument('--words_file', default=r'HTR_Using_CRNN/IAM/processed/archive/iam_words/words.txt', type=str, help='Path to words.txt for Trigram LM')
     
     args = parser.parse_args()
     
@@ -603,32 +771,38 @@ def main():
     craft_net = load_craft_model(args)
     crnn_model = load_crnn_model(args.crnn_model, DEVICE)
     
+    # Load Trigram LM
+    lm = None
+    if args.words_file and os.path.exists(args.words_file) and TrigramLanguageModel:
+        print(f"Loading Trigram LM from {args.words_file}...")
+        lm = TrigramLanguageModel(args.words_file)
+    else:
+        print("Trigram LM not loaded (file not found or module missing).")
+
     # Load Image
-    image = imgproc.loadImage(args.image)
+    # Use cv2.imread to get BGR image directly
+    image_original = cv2.imread(args.image)
+    if image_original is None:
+        print(f"Failed to load image: {args.image}")
+        sys.exit(1)
+        
+    # Enhance if requested
+    if args.enhance:
+        image_for_craft = enhance_image_for_craft(image_original)
+    else:
+        image_for_craft = image_original.copy()
     
     # 1. Detect
     print("Running Text Detection...")
-    boxes, polys = run_craft_detection(craft_net, image, args)
+    # CRAFT expects RGB or BGR? imgproc.loadImage returns RGB. 
+    # run_craft_detection calls normalizeMeanVariance which expects standard image.
+    # Let's use image_for_craft directly.
+    boxes, polys = run_craft_detection(craft_net, image_for_craft, args)
     print(f"Detected {len(boxes)} text regions.")
     
     # 2. Recognize
     print("Running Text Recognition...")
-    # Reload image with cv2 to get raw array for cropping (imgproc.loadImage normalizes it?)
-    # imgproc.loadImage returns numpy array. Let's use it.
-    # Note: imgproc.loadImage reads via skimage or cv2.imread. 
-    # It returns RGB if skimage, BGR if cv2. 
-    # imgproc.loadImage implementation:
-    #   img = skimage.io.imread(fname)
-    #   if img.shape[0] == 2: img = img[0]
-    #   if len(img.shape) == 2 : img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-    #   if img.shape[2] == 4 : img = img[:,:,:3]
-    #   img = np.array(img)
-    # It returns RGB.
-    
-    # For visualization and cropping, let's ensure we have a standard BGR image for OpenCV
-    image_cv = cv2.imread(args.image)
-    
-    results = recognize_words(image_cv, boxes, crnn_model, DEVICE)
+    results = recognize_words(image_original, boxes, crnn_model, lm, DEVICE)
     
     # 3. Visualize
     filename = os.path.basename(args.image)
@@ -636,11 +810,12 @@ def main():
     output_path = f"result_pipeline_{name}.jpg"
     txt_output_path = f"result_pipeline_{name}.txt"
     
-    visualize_results(image_cv, results, output_path)
+    visualize_results(image_original, results, output_path)
     
     # 4. Save Text Results
     # Construct predicted sentence
     predicted_sentence = " ".join([res['text'] for res in results])
+    raw_sentence = " ".join([res.get('raw_text', '') for res in results])
     
     # Load Ground Truth
     ground_truth = "Not found in CSV"
@@ -662,11 +837,13 @@ def main():
     with open(txt_output_path, 'w', encoding='utf-8') as f:
         f.write(f"Image: {filename}\n")
         f.write(f"Ground Truth: {ground_truth}\n")
-        f.write(f"Prediction:   {predicted_sentence}\n")
+        f.write(f"Raw Prediction: {raw_sentence}\n")
+        f.write(f"Corrected:      {predicted_sentence}\n")
         
     print(f"\n--- Results ---")
     print(f"Ground Truth: {ground_truth}")
-    print(f"Prediction:   {predicted_sentence}")
+    print(f"Raw Prediction: {raw_sentence}")
+    print(f"Corrected:      {predicted_sentence}")
     print(f"Saved text results to {txt_output_path}")
     
     print("Done.")

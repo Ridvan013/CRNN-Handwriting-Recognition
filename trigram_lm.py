@@ -31,24 +31,46 @@ class TrigramLanguageModel:
         self._build_model(words_file)
         
     def _build_model(self, words_file):
-        """Build n-gram model from words.txt"""
+        """Build n-gram model from words.txt or CSV"""
         print("[TrigramLM] Building language model...")
         
         words = []
-        with open(words_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
+        
+        if words_file.endswith('.csv'):
+            import csv
+            try:
+                with open(words_file, 'r', encoding='utf-8') as f:
+                    reader = csv.reader(f)
+                    next(reader, None) # Skip header
+                    for row in reader:
+                        if len(row) >= 2:
+                            sentence = row[1]
+                            # Remove punctuation roughly to get words
+                            for char in '.,";:!?()':
+                                sentence = sentence.replace(char, ' ')
+                            sentence_words = sentence.split()
+                            words.extend(sentence_words)
+                            for w in sentence_words:
+                                self.vocabulary.add(w)
+            except Exception as e:
+                print(f"[TrigramLM] Error reading CSV: {e}")
                 
-                parts = line.split()
-                if len(parts) < 9:
-                    continue
-                
-                # Extract word (last column)
-                word = parts[-1]
-                words.append(word)
-                self.vocabulary.add(word)
+        else:
+            # Original words.txt parsing
+            with open(words_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    parts = line.split()
+                    if len(parts) < 9:
+                        continue
+                    
+                    # Extract word (last column)
+                    word = parts[-1]
+                    words.append(word)
+                    self.vocabulary.add(word)
         
         self.total_words = len(words)
         
@@ -132,18 +154,43 @@ class TrigramLanguageModel:
         if word in self.vocabulary:
             return word
         
-        # Find candidates with edit distance <= 2
+        # Dynamic max distance based on word length
+        max_dist = 2
+        if len(word) > 4:
+            max_dist = 3
+        if len(word) > 8:
+            max_dist = 4
+            
         candidates = []
         for vocab_word in self.vocabulary:
+            # Optimization: Skip words with large length difference
+            if abs(len(word) - len(vocab_word)) > max_dist:
+                continue
+                
             dist = self._edit_distance(word, vocab_word)
-            if dist <= 2:
-                score = self.score_word(vocab_word) - dist * 2.0  # Penalize by edit distance
+            if dist <= max_dist:
+                # Score = LogProb - (Distance * Penalty)
+                # We increase penalty to prefer closer words
+                score = self.score_word(vocab_word) - dist * 3.0 
                 candidates.append((vocab_word, score))
         
         # Sort by score and return best candidate
         if candidates:
             candidates.sort(key=lambda x: x[1], reverse=True)
-            return candidates[0][0]  # Return best word
+            best_word = candidates[0][0]
+            best_score = candidates[0][1]
+            
+            # Only correct if:
+            # 1. The word is not already in vocabulary (unknown word)
+            # 2. OR the improvement is significant (score difference > threshold)
+            original_score = self.score_word(word)
+            score_improvement = best_score - original_score
+            
+            # Be conservative: only correct if significant improvement or word not in vocab
+            if word not in self.vocabulary or score_improvement > 2.0:
+                return best_word
+            else:
+                return word  # Keep original if it's already decent
         else:
             return word  # Return original if no candidates found
     
