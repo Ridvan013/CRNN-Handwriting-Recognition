@@ -42,6 +42,7 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# giriş sayfası
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -85,6 +86,7 @@ def logout():
 def index():
     # Redirect to the Frontend Application
     return redirect("http://localhost:5173")
+
 
 @app.route('/profile')
 @login_required
