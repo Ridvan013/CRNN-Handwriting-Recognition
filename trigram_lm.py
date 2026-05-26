@@ -92,18 +92,35 @@ class TrigramLanguageModel:
         print(f"[TrigramLM] Total words: {self.total_words}")
         print(f"[TrigramLM] Bigrams: {len(self.bigrams)}, Trigrams: {len(self.trigrams)}")
     
-    def score_word(self, word):
+    def score_word(self, word, prev_words=None):
         """
-        Score a word using unigram probability with smoothing
+        Score a word using n-gram probability with smoothing and backoff.
+        Uses trigram if 2 previous words available, bigram if 1, unigram otherwise.
         Returns log probability
         """
+        if prev_words and len(prev_words) >= 2:
+            # Trigram: P(word | prev2, prev1)
+            trigram_key = (prev_words[-2], prev_words[-1], word)
+            if trigram_key in self.trigrams:
+                bigram_count = self.bigrams.get((prev_words[-2], prev_words[-1]), 1)
+                prob = (self.trigrams[trigram_key] + 1) / (bigram_count + len(self.vocabulary))
+                return math.log(prob)
+            # Backoff to bigram
+            prev_words = [prev_words[-1]]
+
+        if prev_words and len(prev_words) >= 1:
+            # Bigram: P(word | prev1)
+            bigram_key = (prev_words[-1], word)
+            if bigram_key in self.bigrams:
+                prob = (self.bigrams[bigram_key] + 1) / (self.unigrams.get(prev_words[-1], 1) + len(self.vocabulary))
+                return math.log(prob)
+
+        # Unigram fallback: P(word)
         if word in self.unigrams:
-            # Unigram probability with add-1 smoothing
             prob = (self.unigrams[word] + 1) / (self.total_words + len(self.vocabulary))
         else:
-            # Unknown word - very low probability
             prob = 1 / (self.total_words + len(self.vocabulary))
-        
+
         return math.log(prob)
     
     def score_sequence(self, words):
@@ -146,46 +163,50 @@ class TrigramLanguageModel:
         
         return score
     
-    def correct_word(self, word, max_candidates=5):
+    def correct_word(self, word, prev_words=None, max_candidates=5):
         """
         Find closest matching word in vocabulary using edit distance
+        and n-gram context (trigram/bigram/unigram with backoff).
+
+        Args:
+            word: The word to correct
+            prev_words: List of previous words for trigram/bigram context
         Returns the best matching word as a string
         """
         if word in self.vocabulary:
             return word
-        
+
         # Dynamic max distance based on word length
         max_dist = 2
         if len(word) > 4:
             max_dist = 3
         if len(word) > 8:
             max_dist = 4
-            
+
         candidates = []
         for vocab_word in self.vocabulary:
             # Optimization: Skip words with large length difference
             if abs(len(word) - len(vocab_word)) > max_dist:
                 continue
-                
+
             dist = self._edit_distance(word, vocab_word)
             if dist <= max_dist:
-                # Score = LogProb - (Distance * Penalty)
-                # We increase penalty to prefer closer words
-                score = self.score_word(vocab_word) - dist * 3.0 
+                # Score = LogProb (with n-gram context) - (Distance * Penalty)
+                score = self.score_word(vocab_word, prev_words=prev_words) - dist * 3.0
                 candidates.append((vocab_word, score))
-        
+
         # Sort by score and return best candidate
         if candidates:
             candidates.sort(key=lambda x: x[1], reverse=True)
             best_word = candidates[0][0]
             best_score = candidates[0][1]
-            
+
             # Only correct if:
             # 1. The word is not already in vocabulary (unknown word)
             # 2. OR the improvement is significant (score difference > threshold)
-            original_score = self.score_word(word)
+            original_score = self.score_word(word, prev_words=prev_words)
             score_improvement = best_score - original_score
-            
+
             # Be conservative: only correct if significant improvement or word not in vocab
             if word not in self.vocabulary or score_improvement > 2.0:
                 return best_word

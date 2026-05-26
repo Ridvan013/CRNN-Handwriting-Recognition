@@ -44,11 +44,11 @@ def setup_gpu():
     """GPU setup"""
     if torch.cuda.is_available():
         device = torch.device('cuda')
-        print(f"✅ GPU Found: {torch.cuda.get_device_name(0)}")
+        print(f"GPU Found: {torch.cuda.get_device_name(0)}")
         cudnn.benchmark = True
         return device
     else:
-        print("⚠️ GPU not found, using CPU")
+        print("GPU not found, using CPU")
         return torch.device('cpu')
 
 class CRNNModel(nn.Module):
@@ -566,14 +566,16 @@ def recognize_words(image, boxes, crnn_model, lm, device):
             'confidence': 1.0 # Placeholder
         })
         
-        # Apply Trigram Correction
+        # Apply Trigram Correction with n-gram context
         corrected_text = pred_text
         if lm:
-            corrected_text = lm.correct_word(pred_text)
-            
+            # Build context from previous corrected words (up to 2)
+            prev_words = [r['text'] for r in results[:-1]][-2:]
+            corrected_text = lm.correct_word(pred_text, prev_words=prev_words if prev_words else None)
+
         results[-1]['text'] = corrected_text
         results[-1]['raw_text'] = pred_text
-        
+
     return results
 
 # ==========================================
@@ -618,20 +620,20 @@ def visualize_results(image, results, output_path):
         x, y, w, h = cv2.boundingRect(poly)
         
         # Text settings
-        font_scale = 0.4
-        font_thickness = 1
+        font_scale = 0.9
+        font_thickness = 2
         (text_w, text_h), _ = cv2.getTextSize(display_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
         
         # Draw text BELOW the box
         text_x = x
-        text_y = y + h + 15
+        text_y = y + h + 30
         
         # Ensure text doesn't go off-screen
         if text_x + text_w > vis_img.shape[1]:
             text_x = max(0, vis_img.shape[1] - text_w - 2)
         
         # Background for text (White)
-        cv2.rectangle(vis_img, (text_x, text_y - text_h - 2), (text_x + text_w, text_y + 2), (255, 255, 255), -1)
+        cv2.rectangle(vis_img, (text_x, text_y - text_h - 4), (text_x + text_w, text_y + 4), (255, 255, 255), -1)
         
         # Draw Text (Blue for contrast against Red box)
         cv2.putText(vis_img, display_text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 0, 0), font_thickness)
@@ -655,9 +657,10 @@ def predict_pipeline(image_path, args=None):
             pass
         args = Args()
         args.image = image_path
-        args.craft_model = 'CRAFT-pytorch-master/CRAFT-pytorch-master/CRAFT-pytorch-master/craft_mlt_25k.pth'
-        args.crnn_model = 'Model/best_model_wa.pth'
-        args.words_file = 'HTR_Using_CRNN/IAM/processed/archive/iam_words/words.txt'
+        _base = os.path.dirname(os.path.abspath(__file__))
+        args.craft_model = os.path.join(_base, 'CRAFT-pytorch-master/CRAFT-pytorch-master/CRAFT-pytorch-master/craft_mlt_25k.pth')
+        args.crnn_model = os.path.join(_base, 'Model/best_model_wa.pth')
+        args.words_file = os.path.join(_base, 'HTR_Using_CRNN/IAM/processed/archive/iam_words/words.txt')
         args.text_threshold = 0.65  # Reduced for better detection
         args.low_text = 0.35        # Lower to catch more text
         args.link_threshold = 0.25  # More aggressive linking

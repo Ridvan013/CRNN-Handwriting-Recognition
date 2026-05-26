@@ -1,5 +1,8 @@
 import os
 import time
+import subprocess
+import threading
+import webbrowser
 from functools import wraps
 from flask import Flask, request, jsonify, session, send_from_directory, redirect
 from werkzeug.utils import secure_filename
@@ -320,23 +323,40 @@ def create_annotated_pdf(pages_data, original_filename):
         return None
 
 if __name__ == '__main__':
-    print("\n" + "="*60)
-    print("🚀 ProOCR - Handwriting Recognition API Backend")
-    print("="*60)
-    print("✅ Database initialized")
-    print("✅ Models loaded")
-    print("✅ Server starting...")
-    print("\n⚠️  NOTE: This is the Backend API only.")
-    print("    It does NOT provide a web interface directly.")
-    print("   Please use the Frontend (React) application to interact.")
-    print("\n📍 API Listener:")
-    print("   👉 http://127.0.0.1:5000 (Do NOT open in browser)")
-    print("\n💻 To start the Frontend:")
-    print("   1. Open a new terminal")
-    print("   2. cd frontend")
-    print("   3. npm run dev")
-    print("   4. Open http://localhost:5173")
-    print("\n⚠️  Press CTRL+C to stop the server")
-    print("="*60 + "\n")
+    # Only run the startup script in the main process, not the reloader
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        print("\n" + "="*60)
+        print("ProOCR - Handwriting Recognition API Backend")
+        print("="*60)
+        print("Database initialized")
+        print("Models loaded")
+        print("Server starting...")
+
+        # Start Frontend Automatically
+        print("Starting React Frontend...")
+        frontend_dir = os.path.join(os.getcwd(), 'frontend')
+        npm_cmd = 'npm.cmd' if os.name == 'nt' else 'npm'
+
+        try:
+            # Run npm run dev in background
+            subprocess.Popen([npm_cmd, 'run', 'dev'], cwd=frontend_dir, shell=True)
+            print("Frontend started!")
+
+            # Open Browser automatically after a short delay
+            print("Opening browser at http://localhost:5173...")
+            def open_browser():
+                time.sleep(3) # Wait for servers to spin up
+                webbrowser.open("http://localhost:5173")
+
+            threading.Thread(target=open_browser).start()
+
+        except Exception as e:
+            print(f"Failed to start frontend automatically: {e}")
+            print("   Please run 'cd frontend && npm run dev' manually.")
+
+        print("\nAPI Listener:")
+        print("   http://127.0.0.1:5000 (Backend)")
+        print("\nPress CTRL+C to stop the server")
+        print("="*60 + "\n")
     
     app.run(debug=True, port=5000)

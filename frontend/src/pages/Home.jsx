@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../App';
 import { Link } from 'react-router-dom';
 import api from '../api';
@@ -11,6 +11,17 @@ function Home() {
     const [modalOpen, setModalOpen] = useState(false);
     const fileInputRef = useRef(null);
     const dropZoneRef = useRef(null);
+
+    // Close modal on ESC key
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                setModalOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, []);
 
     const handleDragOver = (e) => {
         e.preventDefault();
