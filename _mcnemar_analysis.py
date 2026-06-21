@@ -3,14 +3,36 @@ McNemar testi + Wilson 95% guven araliklari
 test_results_analysis.csv uzerinden:
   - Raw_Predicted_Text  -> GREEDY decode (greedy.py:1559 greedy_decode)
   - Predicted_Text      -> GREEDY + Trigram LM (greedy.py:1586 correct_word)
+
+CSV path env degiskeniyle ovveride edilebilir:
+  $env:CRNN_CSV = "C:\\path\\to\\test_results_analysis.csv"; python _mcnemar_analysis.py
+
+Varsayilan: Aachen sonuclari (Model_aachen). Eski custom split icin Model klasorune yonlendir.
 """
+import os
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 import csv
 import math
 from collections import Counter
 
-CSV = r"c:\Users\RIDVAN\Desktop\CRNN\CRNN_1\Model\test_results_analysis.csv"
+# Default: Aachen split (Model_aachen). CRNN_CSV env ile override edilebilir.
+DEFAULT_CSV = r"c:\Users\RIDVAN\Desktop\CRNN\CRNN_1\Model_aachen\test_results_analysis.csv"
+CSV = os.environ.get("CRNN_CSV", DEFAULT_CSV)
+
+if not os.path.exists(CSV):
+    # Fallback: try old custom-split CSV
+    fallback = r"c:\Users\RIDVAN\Desktop\CRNN\CRNN_1\Model\test_results_analysis.csv"
+    if os.path.exists(fallback):
+        print(f"[Warning] Aachen CSV not found at {CSV}", file=sys.stderr)
+        print(f"[Warning] Falling back to old custom-split CSV: {fallback}", file=sys.stderr)
+        CSV = fallback
+    else:
+        print(f"[ERROR] CSV not found: {CSV}", file=sys.stderr)
+        print("Train the Aachen model first (greedy_aachen.py), or set $env:CRNN_CSV", file=sys.stderr)
+        sys.exit(1)
+
+print(f"Using CSV: {CSV}")
 
 rows = []
 with open(CSV, encoding="utf-8") as f:

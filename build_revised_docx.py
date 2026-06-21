@@ -159,14 +159,22 @@ add_para(
     "pipeline reaches a validation word accuracy of 89.68% (Wilson 95% CI: [88.66%, 90.62%]) "
     "and a character accuracy of 93.94%, with the full pipeline contributing a statistically "
     "significant +11.26 percentage-point improvement over CTC greedy decoding alone "
-    "(McNemar χ² = 416.0, p < 10⁻⁹²; exact binomial p < 10⁻¹²⁶ over 418 discordant pairs). "
+    "(McNemar χ² = 416.0, p ≈ 1.81 × 10⁻⁹²; exact binomial p ≈ 2.96 × 10⁻¹²⁶ over 418 "
+    "discordant pairs). "
     "We further conduct a paired analysis showing that the conservative trigram correction rule "
     "has zero observed regression cases (it never converts a correct prediction into an "
     "incorrect one in our test set), making it a strictly safe post-processing layer. With "
-    "approximately 8.75 M parameters, no external pretraining, and an inference cost of "
-    "<1 ms per word for the language-model layer, the proposed pipeline offers a favorable "
-    "accuracy-to-resource trade-off for educational and edge-deployment scenarios where "
-    "large-scale transformer pretraining is infeasible.",
+    "approximately 8.75 M parameters (40× fewer than TrOCR-Large), no external pretraining, "
+    "and an inference cost of <1 ms per word for the language-model layer, the proposed pipeline "
+    "offers a favorable accuracy-to-resource trade-off for educational and edge-deployment "
+    "scenarios where large-scale transformer pretraining is infeasible. "
+    "The language-model layer is deliberately a Laplace-smoothed statistical trigram rather "
+    "than a neural rescorer: contemporary multimodal LLMs benchmarked on handwriting "
+    "recognition exhibit pronounced language biases and produce hallucinated corrections that "
+    "diverge from the visual evidence [16], while adding two-to-three orders of magnitude more "
+    "compute per token. The trigram fits in approximately 6 MB of RAM, runs entirely on CPU, "
+    "and provides a hard upper bound on hallucination through its Levenshtein-bounded "
+    "candidate set—three properties we argue are essential for educational HTR deployment.",
     space_after=10
 )
 
@@ -236,22 +244,28 @@ add_para(
     "  (2) A statistically rigorous empirical evaluation of the contribution of the language-"
     "model post-processing layer. Using a paired-sample McNemar test over 3,712 validation "
     "predictions, we show that the trigram correction layer provides a +11.26 percentage-point "
-    "absolute improvement in word accuracy over greedy CTC decoding (p < 10⁻⁹²), with zero "
+    "absolute improvement in word accuracy over greedy CTC decoding (p ≈ 1.81 × 10⁻⁹²), with zero "
     "observed regression cases in our test set. This is a substantially larger effect than the "
     "marginal post-processing gains often reported in the HTR literature [8,9].",
     first_line_indent=0.5
 )
 
 add_para(
-    "  (3) A deliberate resource-efficient design choice: the entire pipeline contains "
-    "approximately 8.75 M trainable parameters, trains from scratch in under 24 hours on a "
-    "single consumer-grade GPU, and uses a CPU-only trigram model that adds less than 1 ms of "
-    "post-processing latency per word. This positions the proposed system as an accessible "
-    "baseline for educational, edge, and low-resource research contexts where transformer-scale "
-    "pretraining is infeasible [17,18]. The pipeline is not intended to compete with "
+    "  (3) A deliberate resource-efficient design choice with concrete numerical claims: the "
+    "entire pipeline contains approximately 8.75 M trainable parameters—roughly 10× fewer than "
+    "TrOCR-Base (~86 M) and 40× fewer than TrOCR-Large (~334 M)—trains from scratch in under "
+    "24 hours on a single consumer-grade GPU without any external pretraining beyond the "
+    "publicly released CRAFT weights, and uses a CPU-only trigram model that fits in "
+    "approximately 6 MB of RAM and adds less than 1 ms of post-processing latency per word. "
+    "We are explicit that this paper does not propose a new neural architecture: every "
+    "individual component (CRAFT, CRNN with CTC, Levenshtein, statistical n-gram) is "
+    "established prior art [1,2,3,4]; the contribution is the integration, statistical "
+    "evaluation, and resource budget. This positions the proposed system as an accessible "
+    "baseline for educational, edge, and low-resource research contexts where transformer-"
+    "scale pretraining is infeasible [17,18]. The pipeline is not intended to compete with "
     "transformer-scale systems on raw accuracy; rather, it offers a favorable accuracy-to-"
     "resource trade-off that is increasingly relevant as 'sustainable' and 'on-device' AI "
-    "become research priorities [17].",
+    "become research priorities [17,19,20].",
     first_line_indent=0.5
 )
 
@@ -389,8 +403,9 @@ add_para(
     "The proposed HTR pipeline comprises four sequential modules: (i) adaptive image "
     "enhancement, (ii) CRAFT-based text detection [1], (iii) CRNN-based recognition with CTC "
     "decoding [2,3], and (iv) trigram language model post-processing with Levenshtein-bounded "
-    "candidate generation [4]. A full system diagram is shown in Figure 1; a more detailed "
-    "pipeline-level dataflow is shown in Figure 2."
+    "candidate generation [4]. The CRNN backbone is shown in Figure 1, and representative "
+    "qualitative outputs of the full pipeline on a cross-writer sample are shown in "
+    "Figures 4–6 (Section 5.7)."
 )
 add_para(
     "An input document image (PDF, PNG, or JPG) first undergoes adaptive enhancement if initial "
@@ -486,9 +501,13 @@ add_para(
     "The CNN output (shape [512, 1, 31]) is squeezed and permuted to a sequence of 31 feature "
     "vectors of dimension 512, processed by a two-layer bidirectional LSTM [43]. Each direction "
     "has hidden size 256, producing concatenated outputs of 512 dimensions per timestep. "
-    "Dropout (p=0.2) is applied between layers. Bidirectionality captures both left-to-right "
-    "and right-to-left context, essential for resolving visual ambiguities (e.g., distinguishing "
-    "'rn' from 'm') where character identity depends on surrounding context [2]."
+    "We note that, because each LSTM module is instantiated with num_layers=1, PyTorch's "
+    "intra-LSTM dropout argument is inactive at runtime; the network therefore relies on the "
+    "stochastic augmentation regime (Section 3.6) rather than recurrent-layer dropout for "
+    "regularization, which is consistent with the moderate train-validation loss gap reported "
+    "in Section 5.6. Bidirectionality captures both left-to-right and right-to-left context, "
+    "essential for resolving visual ambiguities (e.g., distinguishing 'rn' from 'm') where "
+    "character identity depends on surrounding context [2]."
 )
 
 add_heading_custom("3.4.3. CTC Decoding Strategy", level=3)
@@ -522,9 +541,9 @@ add_para(
 add_heading_custom("3.5. Trigram Language Model Post-Processing", level=2)
 add_para(
     "The trigram language model corrects word-level errors by combining n-gram probability with "
-    "edit-distance-based candidate generation. The model is constructed from the IAM training "
-    "vocabulary, building unigram, bigram, and trigram frequency tables with Laplace (add-1) "
-    "smoothing:"
+    "edit-distance-based candidate generation. The model is constructed from the IAM "
+    "words.txt corpus (all status-'ok' entries, prior to the train/validation partition), "
+    "building unigram, bigram, and trigram frequency tables with Laplace (add-1) smoothing:"
 )
 add_para(
     "  P(w) = (C(w) + 1) / (N + |V|)",
@@ -580,12 +599,19 @@ add_para(
     "class [9,16]."
 )
 add_para(
-    "Second, our pipeline is explicitly targeted at single-GPU and edge-deployment scenarios. "
-    "A BERT-base post-processor adds approximately 110 M parameters and several milliseconds of "
-    "GPU compute per word; a small GPT class adds substantially more; a frontier LLM is "
-    "infeasible to run locally [17,18]. The trigram model, in contrast, is a Python "
-    "dictionary that fits in approximately 6 MB of RAM, requires no GPU, and adds less than "
-    "1 ms of latency per word."
+    "Second, our pipeline is explicitly targeted at single-GPU and edge-deployment scenarios, "
+    "where the resource asymmetry between alternatives is extreme. A BERT-base post-processor "
+    "adds approximately 110 M parameters and several milliseconds of GPU compute per word; "
+    "small GPT-class models (e.g., GPT-2 medium at 345 M parameters) add substantially more; "
+    "frontier ChatGPT-class systems are entirely infeasible to run locally—they require "
+    "either a remote API call (network latency, recurring per-call cost, data-privacy "
+    "concerns for student submissions) or dedicated multi-GPU servers that defeat the entire "
+    "edge-deployment premise of this work [17,18,19,20]. The trigram model, in contrast, is a "
+    "Python dictionary that fits in approximately 6 MB of RAM, requires no GPU, and adds less "
+    "than 1 ms of latency per word. Quantitatively, the post-processing layer is "
+    "four-to-five orders of magnitude lighter than even a small frontier-class neural "
+    "rescorer, while—as the McNemar analysis in Section 5.2 shows—delivering a large and "
+    "statistically significant accuracy gain."
 )
 add_para(
     "Third, neural language models exhibit a failure mode that is undesirable for OCR post-"
@@ -770,8 +796,9 @@ add_para("", space_after=8)
 add_para(
     "The contingency table of paired predictions is shown in Table 5. The McNemar χ² test "
     "statistic with continuity correction is χ² = 416.0 on 1 degree of freedom, corresponding "
-    "to a two-sided asymptotic p-value below 10⁻⁹²; an exact binomial test on the 418 "
-    "discordant pairs (with b = 0 and c = 418) yields a two-sided p-value below 10⁻¹²⁶. The "
+    "to a two-sided asymptotic p-value of approximately 1.81 × 10⁻⁹²; an exact binomial test "
+    "on the 418 discordant pairs (with b = 0 and c = 418) yields a two-sided p-value of "
+    "approximately 2.96 × 10⁻¹²⁶. The "
     "improvement is therefore statistically significant at any conventional threshold."
 )
 
@@ -1017,8 +1044,9 @@ add_para(
     "during training—an important question given the custom-split caveat in Section 4.1—we "
     "evaluated the deployed system on an out-of-distribution sample: a paragraph of "
     "handwritten English text contributed by a writer not present in the IAM corpus and "
-    "captured at low resolution on a scanned page. Figures 4–7 illustrate the four stages of "
-    "the pipeline operating on this sample."
+    "captured at low resolution on a scanned page. Figures 4–6 illustrate three stages of the "
+    "pipeline (CRAFT detection, raw CRNN output, and post-correction output) operating on "
+    "this sample."
 )
 
 add_figure("fig_friend_craft.png", width_cm=14.5)
@@ -1114,7 +1142,7 @@ add_para(
 add_para(
     "Two empirical findings are worth restating. First, the trigram language-model post-"
     "processing layer accounts for a +11.26 percentage-point absolute improvement over greedy "
-    "CTC decoding (McNemar p < 10⁻⁹²), with zero observed regression cases in our test set; "
+    "CTC decoding (McNemar p ≈ 1.81 × 10⁻⁹²), with zero observed regression cases in our test set; "
     "this is a substantially larger contribution than typically reported for post-processing in "
     "the HTR literature and motivates the inclusion of constrained, edit-distance-bounded LM "
     "correction in resource-constrained HTR systems. Second, the deliberate choice of a "
