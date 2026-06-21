@@ -27,6 +27,11 @@ wheels/
 # *.pth  <-- Modelleri yüklemek için bu satırı kaldırdık
 *.pt
 
+# V3 model is too large for GitHub free (110MB > 100MB hard limit)
+# Use Git LFS or skip in commits if reproducing
+Model_aachen_v3/*.pth
+Model_aachen_v3_training.log
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
