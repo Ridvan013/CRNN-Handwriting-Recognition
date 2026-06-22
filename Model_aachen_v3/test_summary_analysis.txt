@@ -1,0 +1,53 @@
+=== CRNN MODEL TEST RESULTS ANALYSIS ===
+
+TOTAL SAMPLES: 5338
+CORRECT PREDICTIONS: 4167
+OVERALL ACCURACY: 0.7806 (78.06%)
+
+=== ANALYSIS BY WORD LENGTH ===
+Length 1: 637/698 correct (0.9126) - Char Acc: 0.9097
+Length 2: 771/883 correct (0.8732) - Char Acc: 0.9128
+Length 3: 898/1033 correct (0.8693) - Char Acc: 0.9271
+Length 4: 683/873 correct (0.7824) - Char Acc: 0.8989
+Length 5: 379/559 correct (0.6780) - Char Acc: 0.8712
+Length 6: 263/421 correct (0.6247) - Char Acc: 0.8567
+Length 7: 220/321 correct (0.6854) - Char Acc: 0.8905
+Length 8: 133/213 correct (0.6244) - Char Acc: 0.8738
+Length 9: 95/157 correct (0.6051) - Char Acc: 0.8861
+Length 10: 47/91 correct (0.5165) - Char Acc: 0.8659
+Length 11: 26/40 correct (0.6500) - Char Acc: 0.9068
+Length 12: 9/25 correct (0.3600) - Char Acc: 0.8300
+Length 13: 4/13 correct (0.3077) - Char Acc: 0.8817
+Length 14: 2/6 correct (0.3333) - Char Acc: 0.8095
+Length 15: 0/1 correct (0.0000) - Char Acc: 0.6000
+Length 16: 0/3 correct (0.0000) - Char Acc: 0.6667
+Length 19: 0/1 correct (0.0000) - Char Acc: 0.3684
+
+=== ERROR TYPE ANALYSIS ===
+Substitution: 657 cases
+Under-prediction: 387 cases
+Over-prediction: 127 cases
+
+=== MOST ERROR-PRONE WORD LENGTHS ===
+Length 4: 190 errors
+Length 5: 180 errors
+Length 6: 158 errors
+Length 3: 135 errors
+Length 2: 112 errors
+Length 7: 101 errors
+Length 8: 80 errors
+Length 9: 62 errors
+Length 1: 61 errors
+Length 10: 44 errors
+
+=== CHARACTER ACCURACY ANALYSIS ===
+Mean Character Accuracy: 0.8987
+Min Character Accuracy: -1.5000
+Max Character Accuracy: 1.0000
+
+=== WORST PREDICTIONS ===
+True: 'so' | Pred: 'finer' | Acc: -1.5000
+True: ')' | Pred: 'is' | Acc: -1.0000
+True: '"' | Pred: 'It' | Acc: -1.0000
+True: 'was' | Pred: 'good' | Acc: -0.3333
+True: 'our' | Pred: 'been' | Acc: -0.3333
