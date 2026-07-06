@@ -1,0 +1,17 @@
+{
+  "phase": "v3_augmented",
+  "model": "V3_scratch_elastic_morph",
+  "greedy_trigram_wa_pct": 84.5448,
+  "greedy_trigram_cer_pct": 9.2065,
+  "greedy_trigram_wilson_95ci_pct": [
+    83.5502,
+    85.4896
+  ],
+  "wbs_wa_pct": null,
+  "wbs_cer_pct": null,
+  "wbs_wilson_95ci_pct": null,
+  "n_samples": 5338,
+  "mcnemar_vs_v3_base": {},
+  "training_best_val_wa_pct": 89.6112,
+  "test_wa_pct": 84.5448
+}

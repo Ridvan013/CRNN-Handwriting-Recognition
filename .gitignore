@@ -49,3 +49,11 @@ result_*
 
 # Datasets
 iam sentence/
+
+# Kaggle upload bundles (türetilmiş — kaynak cloud/ klasöründe)
+kaggle_upload/
+kaggle_upload.zip
+crnn-h2-code.zip
+
+# Eğitim çıktıları (model ağırlıkları + sonuçlar — git'e girmemeli)
+results.zip
