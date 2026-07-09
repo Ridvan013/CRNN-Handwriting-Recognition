@@ -563,17 +563,22 @@ class CRNNTrainer:
             if is_best_loss:
                 self.best_val_loss = val_loss
                 self.best_epoch_loss = epoch + 1
-                self._patience_counter = 0
                 torch.save(self.model.state_dict(),
                            os.path.join(self.model_dir, "best_model_loss.pth"))
-            else:
-                self._patience_counter += 1
 
             if is_best_wa:
                 self.best_val_wa = val_wa
                 self.best_epoch_wa = epoch + 1
                 torch.save(self.model.state_dict(),
                            os.path.join(self.model_dir, "best_model_wa.pth"))
+
+            # V3.1 FIX: patience'i val_loss VEYA val_wa iyileşince resetle
+            # (Discovery B1: eskiden sadece val_loss'a bakıyordu, val_wa hâlâ
+            # yükselirken model erken durdurulabiliyordu.)
+            if is_best_loss or is_best_wa:
+                self._patience_counter = 0
+            else:
+                self._patience_counter += 1
 
             star_l = " *" if is_best_loss else ""
             star_w = " *" if is_best_wa else ""
