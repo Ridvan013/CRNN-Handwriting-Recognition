@@ -8,19 +8,13 @@ V3 mimarisini sıfırdan IAM üzerinde eğitir, güçlendirilmiş augmentation i
   + Daha geniş brightness/contrast aralığı
   + Tüm orijinal V3 augmentasyonları korunur
 
-Hyperparameters (V3.1 — daha uzun eğitim + WBS iyileştirmesi):
+Hyperparameters (V3 baseline greedy_aachen_v3.py ile aynı):
   optimizer  : AdamW(lr=7e-4, weight_decay=1e-5)
   scheduler  : cosine warmup 5 epoch + cosine decay
-  epochs     : 100 (was 60) — model 51.ep'te hâlâ iyileşiyordu
-  patience   : 20 (was 15) — val_wa plateau için daha esnek
+  epochs     : 100 (early stopping patience=15)
   batch_size : 128
   CNN freeze : yok (sıfırdan eğitim)
   AMP        : enabled
-
-  WBS mode   : NGrams (was "Words") — char bigram LM decoder içinde
-  WBS beam   : 50 (was 25) — daha geniş arama
-  WBS lm     : 0.7 (was 0.01) — LM ağırlığı gerçek katkı için
-  WBS corpus : IAM + NLTK (was IAM only) — 5K -> 238K kelime
 
 Output:
   Model_aachen_v3_augmented/best_model_wa.pth
@@ -55,10 +49,10 @@ from torch.utils.data import DataLoader
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--epochs",       type=int,   default=100)  # V3.1: was 60
+    p.add_argument("--epochs",       type=int,   default=100)
     p.add_argument("--batch",        type=int,   default=128)
     p.add_argument("--lr",           type=float, default=7e-4)
-    p.add_argument("--patience",     type=int,   default=20)   # V3.1: was 15
+    p.add_argument("--patience",     type=int,   default=15)
     p.add_argument("--model-dir",    type=str,   default="Model_aachen_v3_augmented")
     p.add_argument("--seed",         type=int,   default=42)
     p.add_argument("--baseline-csv", type=str,   default="")
@@ -373,16 +367,20 @@ def save_training_log(history: dict, model_dir: Path, results_dir: Path):
     return log_path
 
 
-def _build_wbs_corpus(iam_words_path: str) -> set:
+def evaluate_wbs(model, test_loader, iam_words_path: str) -> dict:
     """
-    Professional WBS corpus:
-      1) IAM training words (yalnızca "ok" durumundakiler)
-      2) NLTK English words corpus (~235K)
-    Toplam: ~238K unique kelime (V3 Extended Trigram ile aynı sözlük).
+    Word Beam Search değerlendirmesi.
+    CTC decode sırasında sözlük kısıtlaması uygular — post-hoc trigram'dan çok daha etkili.
+    word-beam-search paketi yoksa boş dict döner.
     """
-    words = set()
+    try:
+        from word_beam_search import WordBeamSearch
+    except ImportError:
+        print("  ⚠️  word-beam-search kurulu değil, WBS atlandı")
+        return {}
 
-    # IAM ok kelimeleri
+    # IAM "ok" kelimelerinden sözlük corpus'u oluştur
+    ok_words = set()
     if iam_words_path and os.path.exists(iam_words_path):
         with open(iam_words_path, encoding="utf-8") as f:
             for line in f:
@@ -392,96 +390,29 @@ def _build_wbs_corpus(iam_words_path: str) -> set:
                 if len(parts) >= 9 and parts[1] == "ok":
                     w = "".join(parts[8:])
                     if w and all(c in CHAR_LIST for c in w):
-                        words.add(w)
-        print(f"  IAM corpus  : {len(words):,} kelime")
+                        ok_words.add(w)
 
-    # NLTK English kelimeleri (V3 trigram ile birebir aynı vocab)
-    try:
-        import nltk
-        try:
-            from nltk.corpus import words as nltk_words
-            _ = nltk_words.words()
-        except LookupError:
-            nltk.download('words', quiet=True)
-            from nltk.corpus import words as nltk_words
-        before = len(words)
-        for w in nltk_words.words():
-            if w and all(c in CHAR_LIST for c in w):
-                words.add(w)
-                # Aynı kelimenin kapitalize / lowercase varyantları da eklensin
-                if w[0].isalpha():
-                    lc = w.lower()
-                    if all(c in CHAR_LIST for c in lc):
-                        words.add(lc)
-                    cap = w[0].upper() + w[1:].lower() if len(w) > 1 else w.upper()
-                    if all(c in CHAR_LIST for c in cap):
-                        words.add(cap)
-        print(f"  NLTK corpus : +{len(words)-before:,} kelime (case variants dahil)")
-    except ImportError:
-        print("  ⚠️  NLTK yok, sadece IAM corpus kullanılıyor")
-
-    return words
-
-
-def evaluate_wbs(model, test_loader, iam_words_path: str,
-                 mode: str = "NGrams", beam_width: int = 50,
-                 lm_smoothing: float = 0.7) -> dict:
-    """
-    Professional Word Beam Search decoder değerlendirmesi.
-
-    Değişiklikler (v3_augmented → V3.1 professional):
-      - Mode: "Words" → "NGrams"        (char bigram LM decoder içinde)
-      - beam: 25    → 50                (daha geniş arama)
-      - lm  : 0.01  → 0.7               (LM gerçek katkı sağlasın)
-      - corpus: IAM(5.9K) → IAM+NLTK(~238K) — trigram ile aynı vocab
-
-    NGrams mode: WBS her adımda char bigram olasılığını da çarpar → OOV benzeri
-    yeni karakter dizilerini penalize eder, valid kelimeleri destekler.
-    """
-    try:
-        from word_beam_search import WordBeamSearch
-    except ImportError:
-        print("  ⚠️  word-beam-search kurulu değil, WBS atlandı")
+    if not ok_words:
+        print("  ⚠️  WBS: corpus boş (iam_words_path geçerli değil?), atlandı")
         return {}
 
-    corpus_words = _build_wbs_corpus(iam_words_path)
-    if not corpus_words:
-        print("  ⚠️  WBS: corpus boş, atlandı")
-        return {}
-
-    corpus = " ".join(sorted(corpus_words))
-    # Blank token: len(CHAR_LIST). word_beam_search son karakteri blank olarak
-    # ele alır → CHAR_LIST'e '|' ekleyerek blank slot oluşturuyoruz.
+    corpus = " ".join(sorted(ok_words))
+    # Blank token model'de index 84 (len(CHAR_LIST)).
+    # word_beam_search son karakteri blank sayar → '|' ekliyoruz.
     chars_str = CHAR_LIST + "|"
     word_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-    print(f"\n  WBS professional: mode={mode}, beam={beam_width}, "
-          f"lm_smoothing={lm_smoothing}, corpus={len(corpus_words):,}")
+    print(f"\n  WBS kurulumu: {len(ok_words):,} kelime, beam=25 ...")
     try:
         wbs = WordBeamSearch(
-            beam_width, mode, lm_smoothing,
+            25, "Words", 0.01,
             corpus.encode("utf8"),
             chars_str.encode("utf8"),
             word_chars.encode("utf8"),
         )
     except Exception as e:
         print(f"  ⚠️  WBS init hatası: {e}")
-        # NGrams başarısız olduysa Words fallback (bazı build'lerde NGrams yok)
-        if mode == "NGrams":
-            print(f"  Fallback: mode=Words denenecek...")
-            try:
-                wbs = WordBeamSearch(
-                    beam_width, "Words", lm_smoothing,
-                    corpus.encode("utf8"),
-                    chars_str.encode("utf8"),
-                    word_chars.encode("utf8"),
-                )
-                mode = "Words"
-            except Exception as e2:
-                print(f"  ⚠️  Fallback da başarısız: {e2}")
-                return {}
-        else:
-            return {}
+        return {}
 
     model.eval()
     all_preds, all_targets = [], []
@@ -511,10 +442,7 @@ def evaluate_wbs(model, test_loader, iam_words_path: str,
         "cer_pct": round(cer * 100, 4),
         "wilson_95ci_pct": [round(ci_lo * 100, 4), round(ci_hi * 100, 4)],
         "n_samples": n,
-        "corpus_words": len(corpus_words),
-        "wbs_mode": mode,
-        "wbs_beam": beam_width,
-        "wbs_lm_smoothing": lm_smoothing,
+        "corpus_words": len(ok_words),
     }
 
 
@@ -553,7 +481,7 @@ def main():
     model_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60)
-    print(" V3.1 Augmented — IAM Aachen (scratch, 100ep + professional WBS)")
+    print(" V3 Augmented — IAM Aachen (scratch)")
     print(f" Device    : {DEVICE}")
     print(f" Epochs    : {args.epochs}  LR: {args.lr}  Batch: {args.batch}")
     print(f" Patience  : {args.patience}")
@@ -644,14 +572,9 @@ def main():
         print(f"  McNemar baseline: {baseline_csv}")
         mcnemar_result = compare_with_baseline(test_result, baseline_csv)
 
-    # WBS evaluation — V3.1 Professional: NGrams + IAM+NLTK + beam=50 + lm=0.7
-    print("\n  Word Beam Search (V3.1 Professional) değerlendirmesi ...")
-    wbs_result = evaluate_wbs(
-        model, test_loader, args.iam_words,
-        mode="NGrams",       # was "Words"
-        beam_width=50,       # was 25
-        lm_smoothing=0.7,    # was 0.01
-    )
+    # WBS evaluation
+    print("\n  Word Beam Search değerlendirmesi ...")
+    wbs_result = evaluate_wbs(model, test_loader, args.iam_words)
 
     # Save results
     final = {
