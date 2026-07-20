@@ -19,7 +19,7 @@ try:
 except Exception:
     pass
 
-from word_beam_search import WordBeamSearchDecoder
+from wbs_pure_python import WordBeamSearchDecoder
 import nltk
 try:
     from nltk.corpus import words as nltk_words
