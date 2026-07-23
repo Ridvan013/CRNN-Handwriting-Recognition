@@ -138,10 +138,19 @@ def mcnemar_exact(preds_a: list, preds_b: list, targets: list) -> dict:
 
 # ─────────────────────── Inference core ─────────────────────────────────────
 
+def _autocast_ctx():
+    """Match training/eval AMP autocast so logits are identical to training-time evaluate."""
+    import contextlib
+    if torch.cuda.is_available():
+        return torch.amp.autocast("cuda")
+    return contextlib.nullcontext()
+
+
 def _forward_softmax(model, batch_tensor):
-    """Return softmax probs (T, B, C)."""
-    lp = model(batch_tensor)          # log_softmax
-    return torch.exp(lp)
+    """Return softmax probs (T, B, C) — AMP autocast to match training-time evaluate_test_set."""
+    with _autocast_ctx():
+        lp = model(batch_tensor)          # log_softmax (BF16/FP16 under autocast)
+    return torch.exp(lp.float())
 
 
 def _tta_softmax(model, batch_tensor):
@@ -155,7 +164,9 @@ def _tta_softmax(model, batch_tensor):
     ]
     accum = None
     for v in views:
-        p = torch.exp(model(v))
+        with _autocast_ctx():
+            lp = model(v)
+        p = torch.exp(lp.float())
         accum = p if accum is None else accum + p
     return accum / len(views)
 
@@ -483,7 +494,11 @@ def main():
     lm = TrigramLanguageModel(args.trigram_corpus)
 
     print("\nLoading Aachen test samples (ok-only)...")
-    samples = load_test_samples()
+    # IAM path'lerini CLI arg'larından load_test_samples'a geçir
+    # (Kaggle'da /kaggle/input/... yolları REPO_ROOT'ta yok)
+    iam_words_arg = args.iam_words if args.iam_words and os.path.exists(args.iam_words) else None
+    iam_root_arg = args.iam_root if args.iam_root and os.path.exists(args.iam_root) else None
+    samples = load_test_samples(img_root=iam_root_arg, words_txt=iam_words_arg)
     print(f"  {len(samples):,} sample")
 
     # Word Beam Search initialization (optional)
