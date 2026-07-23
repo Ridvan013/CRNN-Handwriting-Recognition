@@ -55,6 +55,8 @@ result_*
 # Datasets
 iam sentence/
 !sonuc_raporu.txt
+# Aachen split kelime dosyalarını AÇIK tut (Trigram LM corpus, ~1.5 MB, git limit içi)
+!aachen_splits/*.txt
 
 # Kaggle upload bundles (türetilmiş — kaynak cloud/ klasöründe)
 kaggle_upload/
