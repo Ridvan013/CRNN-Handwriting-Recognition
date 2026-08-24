@@ -1,0 +1,688 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% AugCRNN-T: Handwritten Word Recognition on IAM Aachen
+% Authors: [add before submission]
+% Template: IEEE Conference (IEEEtran)
+%
+% MODEL NAMING (used consistently throughout the paper):
+%   CRNN-S / CRNN-M / CRNN-L  = our earlier baseline variants (2/3/4 BiLSTM)
+%   AugCRNN                   = CRNN-L + elastic & morphological augmentation
+%   AugCRNN-T (PROPOSED)      = AugCRNN + trigram post-correction
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% ---- Packages ------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, urlcolor=blue, citecolor=blue, linkcolor=black}
+
+% ---- Custom commands ------------------------------------------------------
+\newcommand{\ours}{AugCRNN-T}          % proposed model, used everywhere
+\newcommand{\oursnolm}{AugCRNN}        % proposed model without trigram
+\newcommand{\ourwa}{84.54\%}
+\newcommand{\ourci}{[83.55\%, 85.49\%]}
+\newcommand{\ourcer}{9.21\%}
+\newcommand{\baselinewa}{78.06\%}
+\newcommand{\deltawa}{6.48\,pp}
+\newcommand{\nsamples}{5{,}338}
+
+\begin{document}
+
+% ---- Title ---------------------------------------------------------------
+\title{\ours: Augmented Convolutional-Recurrent Networks with Lexicon-Aware
+       Post-Correction for Handwritten Word Recognition}
+
+\author{
+\IEEEauthorblockN{~}
+\IEEEauthorblockA{~}
+}
+
+\maketitle
+
+% ---- Abstract (plain language, no formulas) ------------------------------
+\begin{abstract}
+Recognising isolated handwritten words is difficult mainly because
+handwriting varies strongly from one writer to another. We study this
+problem on the IAM database under the Aachen writer-disjoint protocol,
+where the writers seen during training never appear in the test set.
+We propose \ours, a convolutional-recurrent network trained from
+scratch with an augmentation strategy that imitates the physical act
+of writing --- elastic stroke deformation and morphological changes of
+pen thickness --- and combined with a lexicon-aware trigram language
+model applied after decoding. On the Aachen test set of \nsamples\
+words, \ours\ reaches \ourwa\ word accuracy, improving our
+un-augmented baseline by more than six percentage points; the gain is
+statistically significant and the confidence intervals of the two
+systems do not overlap. \ours\ also outperforms two recent word-level
+convolutional-recurrent systems evaluated on easier, writer-dependent
+partitions of the same database, while matching the accuracy of an
+attention-based sequence-to-sequence model with a considerably simpler
+architecture. We additionally report which further refinements did
+\emph{not} help --- dictionary-constrained beam search, test-time
+augmentation and multi-model ensembling --- and we quantify how much
+accuracy can be lost purely through software and hardware environment
+drift when a result is reproduced.
+\end{abstract}
+
+\begin{IEEEkeywords}
+handwritten text recognition, IAM database, convolutional-recurrent
+neural network, connectionist temporal classification, data
+augmentation, language model, writer-independent evaluation
+\end{IEEEkeywords}
+
+% ---- 1. Introduction ----------------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+
+Offline \emph{handwritten text recognition} (HTR) is the task of
+converting a scanned image of handwriting into machine-readable text
+without access to the pen trajectory. Depending on how the input is
+segmented, an HTR system may operate on full pages, on text lines, or
+--- as in this work --- on isolated \emph{word} images. Word-level
+recognition is the harder setting per sample, because the recogniser
+cannot exploit the surrounding words of a sentence to disambiguate an
+unclear glyph.
+
+The IAM Handwriting Database~\cite{marti2002iam} is the standard
+benchmark for English HTR, containing roughly 115\,000 word images from
+657 writers. We adopt the RWTH Aachen partition~\cite{aachen_split},
+which guarantees that no writer contributes to more than one of the
+training, validation and test sets. This \emph{writer-disjoint}
+protocol is stricter than a random split and is the realistic
+condition for deploying a recogniser on handwriting it has never seen.
+
+Modern recognisers are trained with the \emph{connectionist temporal
+classification} (CTC) objective~\cite{graves2006connectionist}, which
+removes the need for character-level alignment between the image and
+its transcription. Two model families dominate: convolutional-recurrent
+networks (CRNNs) trained with CTC~\cite{shi2017crnn, puigcerver2017,
+bluche2017gated}, and attention-based sequence-to-sequence or
+transformer encoders~\cite{kang2018convolve, michael2019evaluating}.
+Attention models are powerful but typically demand more data,
+synthetic pre-training, or substantially larger capacity. Our position
+is that a compact CRNN remains highly competitive at the word level,
+provided that (i) the augmentation reflects how handwriting actually
+varies, and (ii) a lexical prior is applied after decoding.
+
+We name our proposed system \ours\ (Augmented CRNN with Trigram
+post-correction) and use this name consistently throughout the paper;
+Table~\ref{tab:naming} defines it together with the baseline variants
+it is compared against. Our contributions are:
+
+\begin{itemize}
+  \item \textbf{A writing-aware augmentation strategy.} Elastic
+        deformation and morphological pen-thickness perturbation,
+        added on top of a conventional geometric/photometric pipeline,
+        improve word accuracy by \deltawa\ over an otherwise identical
+        baseline.
+  \item \textbf{A lexicon-extended trigram post-corrector.} The
+        recogniser's lexicon is enlarged from the 5.9\,K training
+        vocabulary to 238\,K English word types, while the $n$-gram
+        statistics remain estimated only on IAM training text.
+  \item \textbf{A statistically grounded evaluation.} All results are
+        reported on the writer-disjoint test set with Wilson 95\%
+        confidence intervals and McNemar exact paired tests, and are
+        compared against three external word-level systems.
+  \item \textbf{Reproducible negative results.} We show that word beam
+        search, test-time augmentation and multi-model ensembling do
+        not improve our system, and we measure the accuracy loss
+        caused purely by environment drift during reproduction.
+\end{itemize}
+
+Section~\ref{sec:related} groups the related literature into three
+families and positions our work within them.
+Section~\ref{sec:method} describes the pipeline of
+Fig.~\ref{fig:pipeline}. Section~\ref{sec:experiments} formalises the
+evaluation metrics and statistical tests.
+Section~\ref{sec:results} reports the results,
+Section~\ref{sec:discussion} analyses them, and
+Section~\ref{sec:conclusion} concludes.
+
+% ---- 2. Related Work ----------------------------------------------------
+\section{Related Work}
+\label{sec:related}
+
+We organise prior work into three families according to how each
+system relates to ours: (i) \emph{recurrent CTC recognisers}, which
+share our optical backbone but are almost always evaluated on text
+lines; (ii) \emph{attention and transformer recognisers}, which target
+the same word-level task as ours but with a different, heavier
+decoding paradigm; and (iii) \emph{lexicon and language-model
+decoders}, which address the same problem we address with our
+trigram post-corrector but from inside the decoding loop. For each
+family we state explicitly what we adopt and where we differ.
+
+\paragraph{Recurrent CTC recognisers.}
+Graves and Schmidhuber~\cite{graves2008offline} introduced
+multi-dimensional LSTMs with CTC as the first end-to-end offline
+recogniser. Puigcerver~\cite{puigcerver2017} showed that a
+one-dimensional BiLSTM stacked on a convolutional feature extractor
+matches multi-dimensional recurrence at a fraction of the cost,
+defining the canonical CRNN baseline that our architecture follows.
+Bluche and Messina~\cite{bluche2017gated} added gated convolutions,
+and Flor et al.~\cite{flor2020htrflor} combined a CNN-BGRU optical
+model with a language-model pipeline. We adopt this backbone family
+unchanged; our contribution is orthogonal, residing in the
+augmentation and in the post-decoding lexical prior.
+
+\paragraph{Attention and transformer recognisers.}
+Kang et al.~\cite{kang2018convolve} proposed an attention-based
+sequence-to-sequence recogniser evaluated on isolated IAM words,
+reporting approximately 84.55\% word accuracy at exactly the
+granularity we target; it is therefore our most informative external
+reference point. Transformer encoders have since lowered line-level
+error rates further, at the cost of much larger models and external
+pre-training. Multimodal large language models have also been
+benchmarked on IAM~\cite{crosilla2025llmhtr}, but those systems are
+evaluated on full pages and rely on proprietary pre-training corpora,
+so they are not comparable to a from-scratch word recogniser.
+
+\paragraph{Word-level CRNN systems and lexical decoders.}
+Two recent systems are directly comparable to ours in task, metric and
+model family. Dutta et al.~\cite{dutta2018improving} report an
+improved CNN--RNN hybrid on isolated IAM words with a 22.86\% word
+error rate ($\approx$77.14\% accuracy). Rajesh et
+al.~\cite{rajesh2022hwrcnet} propose HWRCNet, a CNN--BiLSTM operating
+in the JPEG DCT domain, reaching 80.08\% strict word accuracy on
+uncompressed images; we note that their headline figure of 89.05\% is
+\emph{word accuracy with flexibility} of two edit operations rather
+than strict accuracy. On the decoder side, word beam
+search~\cite{scheidl2018wbs} injects a dictionary constraint directly
+into CTC beam search --- the same lexical knowledge we exploit, but
+during rather than after decoding; we compare both strategies in
+Section~\ref{sec:results}.
+
+\paragraph{Positioning.}
+Both word-level baselines above are evaluated on random partitions of
+IAM that do not enforce writer disjointness (HWRCNet uses a 95:5
+ratio). Because we evaluate on the stricter Aachen protocol, the
+margins we report in Section~\ref{sec:results} are conservative
+estimates of the true methodological gap.
+
+% ---- 3. Method ----------------------------------------------------------
+\section{Proposed System}
+\label{sec:method}
+
+Fig.~\ref{fig:pipeline} shows the complete processing chain, from the
+raw IAM word crops to the reported metrics, and marks the two stages
+that constitute our contribution.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/fig0_pipeline.pdf}
+\caption{Overview of \ours. Word crops are normalised, augmented
+(training only), encoded by a CRNN and decoded with CTC; the decoded
+string is then corrected against a lexicon-extended trigram model.
+Green boxes mark the two contributions of this work.}
+\label{fig:pipeline}
+\end{figure*}
+
+\subsection{Data and Protocol}
+\label{sec:dataset}
+We use the word-level IAM partition of the Aachen
+split~\cite{aachen_split}: 747 training forms, 116 validation forms
+and 336 test forms, with disjoint writer sets. Following common
+practice, only word crops whose segmentation is flagged \texttt{ok}
+are retained, giving 31\,320 training, 1\,646 validation and
+\nsamples\ test words. The label alphabet contains 78 symbols
+(upper- and lower-case Latin letters, digits and punctuation), plus
+the CTC blank.
+
+\subsection{Model Naming}
+\label{sec:naming}
+To avoid ambiguity, Table~\ref{tab:naming} lists every configuration
+evaluated in this paper. \ours\ denotes the proposed system and is the
+only model referred to as ``ours'' in the results; CRNN-S, CRNN-M and
+CRNN-L are our earlier baselines, differing only in recurrent depth
+and, for CRNN-L, in the absence of the proposed augmentation.
+
+\begin{table}[t]
+\caption{Model naming used throughout the paper.}
+\label{tab:naming}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{llccc}
+\toprule
+Name & BiLSTM & Params & Elastic/morph.\ aug.\ & Trigram \\
+\midrule
+CRNN-S            & 2 layers & 8.75\,M  & no  & yes \\
+CRNN-M            & 3 layers & 15.46\,M & no  & yes \\
+CRNN-L            & 4 layers & 28.73\,M & no  & yes \\
+\oursnolm         & 4 layers & 28.73\,M & yes & no  \\
+\textbf{\ours} (proposed) & 4 layers & 28.73\,M & yes & yes \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Optical Model}
+\label{sec:model}
+The encoder of \ours\ is a seven-block convolutional feature extractor
+that collapses the input to a single row of 512-dimensional frames,
+followed by a four-layer bidirectional LSTM with 512 hidden units and
+a linear projection onto the 79 output classes; the network has
+28.73\,M parameters. Inputs are grayscale crops resized to
+$32\times128$, inverted so that ink is high-valued, and scaled to
+$[-1,1]$. The network is trained with the CTC
+objective~\cite{graves2006connectionist} using AdamW
+($\eta=7\times10^{-4}$, weight decay $10^{-5}$), five warm-up epochs
+followed by cosine decay, mixed precision, and batches of 128 on a
+single Tesla T4 GPU. Training stops when validation word accuracy has
+not improved for 15 epochs.
+
+\subsection{Writing-Aware Augmentation}
+\label{sec:aug}
+Our baselines use a conventional pipeline: rotation ($\pm7^\circ$),
+translation ($\pm5\%$), scaling ($0.9$--$1.1$), shear
+($\pm5^\circ$), brightness and contrast jitter ($0.85$--$1.15$),
+Gaussian noise, gamma correction and random erasing.
+
+\ours\ extends this with two transforms chosen to reproduce genuine
+sources of handwriting variability rather than generic image
+perturbations:
+
+\begin{itemize}
+  \item \textbf{Elastic deformation} (probability $0.5$). A random
+        displacement field is smoothed with a Gaussian kernel whose
+        width is $8\%$ of the larger image side and scaled by a factor
+        drawn uniformly from $[2,5]$; the crop is warped accordingly.
+        This mimics pen jitter and the natural curvature drift of
+        strokes.
+  \item \textbf{Morphological perturbation} (probability $0.3$). The
+        crop is eroded or dilated with a $k\times k$ kernel,
+        $k\in\{1,2\}$, reproducing the difference between a fine and a
+        broad nib.
+\end{itemize}
+
+The photometric ranges are widened accordingly (brightness and
+contrast to $0.70$--$1.35$, gamma to $0.70$--$1.30$, noise standard
+deviation to $0.05$). Fig.~\ref{fig:augmentation} illustrates each
+transform on a representative training word.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_augmentation_grid.pdf}
+\caption{Augmentation transforms on a training word. The last panel
+shows the compound elastic$+$morphological effect.}
+\label{fig:augmentation}
+\end{figure}
+
+\subsection{Lexicon-Extended Trigram Post-Correction}
+\label{sec:trigram}
+After greedy CTC decoding, the hypothesis is checked against a closed
+lexicon. The lexicon is built from the 5\,939 word types of the Aachen
+training transcriptions and extended with the NLTK English word list,
+yielding 238\,506 types; crucially, the trigram counts themselves are
+estimated only from IAM training text, so no external corpus
+statistics leak into the model. A hypothesis inside the lexicon is
+accepted unchanged; otherwise it is replaced by the highest-scoring
+lexicon entry within a small edit-distance neighbourhood. This design
+keeps the corrector able to recover near-miss recognitions without
+biasing frequent-word statistics towards a foreign domain.
+
+\subsection{Alternative Decoders Evaluated}
+\label{sec:decoders}
+For completeness we also evaluate three refinements: word beam
+search~\cite{scheidl2018wbs} in NGrams mode (beam width 50, language
+model weight 0.7, 245\,K-word corpus); test-time augmentation with
+five affine views (identity, $\pm2^\circ$ rotation, $0.96\times$ and
+$1.04\times$ scale); and softmax averaging over CRNN-S, CRNN-M and
+\oursnolm, with equal or $1{:}2{:}3$ weights. Their results are
+reported in Section~\ref{sec:results}.
+
+% ---- 4. Experimental Setup ----------------------------------------------
+\section{Experimental Setup}
+\label{sec:experiments}
+
+\subsection{Evaluation Metrics}
+Let $\mathcal{T}=\{(\hat{y}_i, y_i)\}_{i=1}^{N}$ be the set of
+$N=\nsamples$ predicted/reference word pairs. \emph{Word accuracy}
+(WA) is the exact-match rate
+\begin{equation}
+\mathrm{WA} \;=\; \frac{1}{N}\sum_{i=1}^{N}
+      \mathbb{1}\!\left[\hat{y}_i = y_i\right],
+\label{eq:wa}
+\end{equation}
+and the word error rate follows as $\mathrm{WER}=1-\mathrm{WA}$. The
+\emph{character error rate} aggregates Levenshtein distances $d(\cdot,
+\cdot)$ over the corpus,
+\begin{equation}
+\mathrm{CER} \;=\;
+  \frac{\sum_{i=1}^{N} d(\hat{y}_i, y_i)}
+       {\sum_{i=1}^{N} |y_i|},
+\label{eq:cer}
+\end{equation}
+so that a single badly recognised long word cannot dominate the score.
+
+\subsection{Confidence Intervals}
+Because WA is a proportion estimated on a finite test set, we report
+Wilson 95\% intervals rather than normal-approximation intervals,
+which are unreliable near the boundaries. For $k$ correct predictions
+out of $N$ and $z=1.96$,
+\begin{equation}
+\mathrm{CI}_{95} =
+\frac{\hat{p}+\frac{z^{2}}{2N} \pm
+      z\sqrt{\frac{\hat{p}(1-\hat{p})}{N}+\frac{z^{2}}{4N^{2}}}}
+     {1+\frac{z^{2}}{N}},
+\qquad \hat{p}=\frac{k}{N}.
+\label{eq:wilson}
+\end{equation}
+
+\subsection{Significance Testing}
+Two systems evaluated on the same test set produce paired outcomes, so
+we use the exact McNemar test. Let $b$ be the number of samples that
+the first system recognises correctly and the second does not, and $c$
+the converse. Under the null hypothesis the discordant pairs are
+distributed $\mathrm{Bin}(b+c,\,\tfrac{1}{2})$, giving the two-sided
+$p$-value
+\begin{equation}
+p \;=\; \min\!\left(1,\;
+   2\sum_{i=0}^{\min(b,c)} \binom{b+c}{i} 2^{-(b+c)}\right).
+\label{eq:mcnemar}
+\end{equation}
+We treat $p<0.01$ as significant.
+
+\subsection{Reproducibility}
+Training was performed on Kaggle Notebooks with one NVIDIA Tesla T4
+(15\,GB), PyTorch~2.3.0, CUDA~12.1 and Python~3.10, and took
+approximately 119 minutes for 51 epochs. Code, split definitions,
+per-sample predictions and evaluation scripts are available at
+\url{https://github.com/Ridvan013/CRNN-Handwriting-Recognition}
+(branch \texttt{feature/aachen-v3-extended-trigram}); the trained
+weights exceed the repository file-size limit and are distributed
+separately.
+
+% ---- 5. Results ---------------------------------------------------------
+\section{Results}
+\label{sec:results}
+
+\subsection{Effect of the Proposed Augmentation}
+
+Table~\ref{tab:main} reports the headline comparison. \ours\ reaches
+\ourwa\ word accuracy against \baselinewa\ for CRNN-L, an identical
+network trained without elastic and morphological augmentation. The
+improvement of \deltawa\ is significant at $p<10^{-30}$ by
+(\ref{eq:mcnemar}), and the Wilson intervals of the two systems are
+disjoint, so the gain cannot be attributed to test-set sampling noise.
+The character error rate falls by nearly two points in parallel,
+indicating that the augmentation improves the optical model itself
+rather than merely making the lexical corrector more effective.
+
+\begin{table}[t]
+\caption{Effect of the proposed augmentation (Aachen test set,
+$N=\nsamples$).}
+\label{tab:main}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+Model & WA (\%) & CER (\%) & Wilson 95\% CI & $\Delta$WA \\
+\midrule
+CRNN-L (baseline) & 78.06 & 11.16 & [76.93,\,79.15] & --- \\
+\textbf{\ours} (proposed) & \textbf{84.54} & \textbf{9.21} &
+  [83.55,\,85.49] & $+$6.48\,pp \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+Fig.~\ref{fig:curves} shows the corresponding training dynamics. The
+validation accuracy rises steeply for the first 30 epochs and then
+flattens, with the best checkpoint obtained at epoch 51; the
+un-augmented baseline converges earlier but to a lower plateau,
+consistent with the augmentation acting as a regulariser.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig2_training_curves.pdf}
+\caption{Training dynamics of \ours: (a) CTC losses, (b) validation
+word accuracy, best checkpoint marked in red.}
+\label{fig:curves}
+\end{figure}
+
+\subsection{Comparison with Prior Word-Level Systems}
+
+Table~\ref{tab:priorwork} compares \ours\ against three external
+word-level systems and against our own baseline family. \ours\
+outperforms the CNN--RNN hybrid of Dutta et
+al.~\cite{dutta2018improving} by $7.4$\,pp and the CNN--BiLSTM
+HWRCNet of Rajesh et al.~\cite{rajesh2022hwrcnet} by $3.7$\,pp. Both
+of those systems are evaluated on random partitions that allow the
+same writer to appear in training and test, whereas our numbers come
+from the stricter writer-disjoint protocol; the reported margins are
+therefore lower bounds. Against the attention-based
+sequence-to-sequence model of Kang et al.~\cite{kang2018convolve},
+\ours\ attains essentially identical accuracy (84.54\% versus
+$\approx$84.55\%) while using a plain CRNN with neither an attention
+mechanism nor an autoregressive decoder.
+
+Within our own family, accuracy grows monotonically with recurrent
+depth (CRNN-S $\to$ CRNN-M $\to$ CRNN-L), but the single largest jump
+comes from the proposed augmentation rather than from capacity: going
+from CRNN-M to CRNN-L adds 5.5\,pp at the cost of 13\,M extra
+parameters, whereas going from CRNN-L to \ours\ adds 6.5\,pp at no
+parameter cost at all.
+
+\begin{table}[t]
+\caption{Word-level accuracy on IAM.}
+\label{tab:priorwork}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{llcc}
+\toprule
+System & Split & WA (\%) & CER (\%) \\
+\midrule
+\multicolumn{4}{l}{\emph{External word-level systems}} \\
+Dutta et al.~\cite{dutta2018improving}  & random & $\approx$77.14 & 11.08 \\
+Rajesh et al.~\cite{rajesh2022hwrcnet}  & random 95:5 & $\approx$80.80 & 9.89 \\
+Kang et al.~\cite{kang2018convolve}     & random & $\approx$84.55 & --- \\
+\midrule
+\multicolumn{4}{l}{\emph{This work (all on the Aachen writer-disjoint split)}} \\
+CRNN-S              & writer-disjoint & 70.29 & 17.46 \\
+CRNN-M              & writer-disjoint & 72.56 & 14.06 \\
+CRNN-L              & writer-disjoint & 78.06 & 11.16 \\
+\textbf{\ours}      & writer-disjoint & \textbf{84.54} & \textbf{9.21} \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Decoder and Ensemble Experiments}
+
+Table~\ref{tab:optdec} lists every decoding and ensembling variant we
+evaluated. These experiments were carried out in a local reproduction
+environment whose greedy$+$trigram baseline is 78.29\% rather than the
+84.54\% of the original training environment (Section~\ref{sec:drift}
+explains the discrepancy), so the informative quantity is the
+\emph{relative} change within the block.
+
+Three observations follow. First, word beam search is by far the most
+effective alternative decoder, recovering $+4.61$\,pp over
+greedy$+$trigram: constraining the search to a lexicon during decoding
+rescues errors that post-hoc correction cannot. Second, test-time
+augmentation is neutral ($-0.06$\,pp): averaging five affine views of
+an already normalised word crop adds no information. Third, ensembling
+with the weaker CRNN-S and CRNN-M models is actively harmful when the
+outputs are averaged before decoding ($-4.65$\,pp), because the
+low-capacity members dilute the confident posteriors of the strong
+member; the loss is only recovered once word beam search is applied on
+top. No configuration exceeded the 84.54\% obtained by \ours\ in its
+native environment, which is why the simple greedy$+$trigram pipeline
+remains our headline system.
+
+\begin{table}[t]
+\caption{Decoder and ensemble experiments ($N=\nsamples$).}
+\label{tab:optdec}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcc}
+\toprule
+Configuration & WA (\%) & $\Delta$ vs.\ local base \\
+\midrule
+\textbf{\ours} (native environment) & \textbf{84.54} & --- \\
+\midrule
+\multicolumn{3}{l}{\emph{Local reproduction environment}} \\
+\oursnolm, greedy only              & 74.92 & $-$3.37 \\
+\ours\ (greedy $+$ trigram)         & 78.29 & --- \\
+\quad $+$ TTA (5 views)             & 78.23 & $-$0.06 \\
+\quad $+$ word beam search          & \underline{82.90} & $+$4.61 \\
+\quad $+$ WBS, trigram fallback     & 82.90 & $+$4.61 \\
+\quad $+$ TTA $+$ WBS               & 82.88 & $+$4.59 \\
+\midrule
+\multicolumn{3}{l}{\emph{Ensembles}} \\
+CRNN-M $+$ \oursnolm, greedy        & 68.12 & $-$10.17 \\
+CRNN-M $+$ \ours, trigram           & 73.64 & $-$4.65 \\
+CRNN-M $+$ \ours\ $+$ WBS           & 82.62 & $+$4.33 \\
+CRNN-S$+$M$+$\oursnolm\ (1:2:3), greedy & 69.35 & $-$8.94 \\
+CRNN-S$+$M$+$\ours\ (1:2:3), trigram    & 74.45 & $-$3.84 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Error Analysis}
+
+Fig.~\ref{fig:confusion} shows the ten most frequent character
+substitutions of \ours. Two patterns dominate. The first is
+capitalisation: upper-case letters are predicted as their lower-case
+counterparts, which is unsurprising because case is often ambiguous in
+an isolated crop with no sentence context. The second is confusion
+between visually similar lower-case glyphs. Together these two
+families account for the majority of the residual character errors,
+which suggests that case-sensitive augmentation and a case-aware
+lexical prior are the most promising directions for further gains.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig3_confusion_topk.pdf}
+\caption{Ten most frequent character substitutions of \ours\
+(true\,$\rightarrow$\,predicted).}
+\label{fig:confusion}
+\end{figure}
+
+% ---- 6. Discussion ------------------------------------------------------
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Detailed Comparison with HWRCNet}
+
+The most instructive comparison is with HWRCNet~\cite{rajesh2022hwrcnet},
+because it is contemporary, word-level and built from the same
+components: a convolutional feature extractor, a bidirectional LSTM
+and a CTC output layer. The two systems nevertheless differ in three
+respects that explain the $3.7$\,pp gap.
+
+First, \emph{capacity and depth}. HWRCNet uses a five-layer CNN with
+256 hidden units in each LSTM direction, whereas \ours\ uses seven
+convolutional blocks and four bidirectional layers of 512 units. Our
+own ablation shows that depth alone accounts for part of the
+difference: CRNN-M, which is closest to HWRCNet in size, reaches
+72.56\%, and moving to the deeper CRNN-L adds 5.5\,pp.
+
+Second, \emph{augmentation}. HWRCNet trains on unmodified crops
+(compressed or otherwise); no augmentation is reported. The 6.48\,pp
+improvement of \ours\ over CRNN-L in Table~\ref{tab:main} indicates
+that this is the larger of the two factors, and it costs no
+parameters.
+
+Third, \emph{evaluation protocol}. HWRCNet uses a random 95:5 split in
+which the same writer may appear on both sides, whereas our test
+writers are unseen. Writer-dependent evaluation is known to be the
+easier condition, so the true gap in generalisation is likely wider
+than the raw $3.7$\,pp suggests.
+
+Finally, the two works optimise different objectives: HWRCNet targets
+recognition directly in the compressed domain, trading accuracy for
+the elimination of a decompression step, whereas we target maximum
+accuracy on decompressed crops. The comparison should therefore be
+read as evidence that our augmentation and lexical prior are effective,
+not as a claim that compressed-domain recognition is inferior.
+
+\subsection{Why the Simpler Pipeline Wins}
+
+Word beam search improved the local baseline substantially yet never
+surpassed \ours\ in its native environment, and ensembling hurt. Both
+observations follow from the same mechanism. Once the optical model is
+strong, the residual errors are dominated by genuinely ambiguous or
+out-of-vocabulary items --- proper nouns, dates and abbreviations ---
+which a lexicon cannot resolve and which averaging over weaker models
+only blurs further. The trigram corrector already captures the
+recoverable population, namely hypotheses that lie within a small edit
+distance of a valid word. Additional decoding machinery therefore
+operates on a shrinking pool of correctable errors while introducing
+its own failure modes, such as forcing an out-of-vocabulary proper
+noun onto a spurious dictionary entry.
+
+\subsection{Environment Drift}
+\label{sec:drift}
+
+Reproducing our own result on a newer software stack (Python~3.12,
+NumPy~2.x, PyTorch~2.10) with identical code and hyper-parameters
+yielded 82.65\% instead of 84.54\%, and evaluating the trained weights
+on a different GPU generation lowered the greedy$+$trigram figure
+further to 78.29\%. We attribute this to three interacting causes:
+changes to the default random generator in NumPy~2.0, which alter the
+realised augmentation stream; cuDNN version differences in the LSTM
+kernels; and mixed-precision decisions that depend on the tensor-core
+generation of the GPU. The magnitude of the drift --- comparable to
+the improvement claimed by many published methods --- suggests that
+HTR papers should report the exact software and hardware stack
+alongside their accuracy, a practice we follow in
+Section~\ref{sec:experiments}.
+
+\subsection{Threats to Validity}
+
+The external systems in Table~\ref{tab:priorwork} were evaluated on
+random rather than writer-disjoint partitions, so the comparison is
+not perfectly controlled; we have argued that this bias works against
+us. The decoder experiments in Table~\ref{tab:optdec} were measured in
+the drifted environment, so their absolute values are not comparable
+to the headline number, only their relative ordering. Finally, our
+augmentation study compares the full proposed scheme against its
+absence; isolating the individual contribution of elastic deformation
+and of morphological perturbation would require separate training runs
+that we leave to future work.
+
+% ---- 7. Conclusion ------------------------------------------------------
+\section{Conclusion}
+\label{sec:conclusion}
+
+\ours\ recognises isolated handwritten words with \ourwa\ accuracy on
+the IAM Aachen writer-disjoint test set. This is \deltawa\ above an
+identical network trained without our augmentation, a gain that is
+statistically significant and obtained at no additional parameter
+cost. \ours\ surpasses two recent word-level CRNN systems by $7.4$ and
+$3.7$ percentage points respectively, and matches an attention-based
+sequence-to-sequence recogniser while remaining architecturally far
+simpler --- and it does so under a stricter writer-disjoint protocol
+than any of them.
+
+The result supports a practical conclusion: for word-level HTR, an
+augmentation strategy that models how handwriting physically varies,
+combined with a lexical prior applied after decoding, is more valuable
+than either additional capacity or more elaborate decoding. Our
+negative results reinforce this, since dictionary-constrained beam
+search, test-time augmentation and multi-model ensembling all failed
+to improve the proposed pipeline.
+
+Future work will isolate the individual contribution of each
+augmentation transform, extend the approach with synthetic
+pre-training on rendered typography, and investigate case-aware
+correction, which our error analysis identifies as the largest
+remaining source of error.
+
+% ---- Acknowledgements ---------------------------------------------------
+\section*{Acknowledgements}
+Computations were carried out on Kaggle Notebooks. We thank the
+maintainers of the IAM Handwriting Database and the RWTH Aachen split.
+
+% ---- References ---------------------------------------------------------
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

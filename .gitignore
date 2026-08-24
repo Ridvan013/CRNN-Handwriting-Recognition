@@ -65,3 +65,16 @@ crnn-h2-code.zip
 
 # Eğitim çıktıları (model ağırlıkları + sonuçlar — git'e girmemeli)
 results.zip
+
+# V3-augmented ağırlıkları da 110 MB > GitHub 100 MB limiti
+Model_aachen_v3_augmented/*.pth
+
+# Yerel eğitim/deney logları
+*.log
+
+# LaTeX ara ciktilari
+makale/*.aux
+makale/*.blg
+makale/*.bbl
+makale/*.out
+makale/*.synctex.gz
