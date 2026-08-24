@@ -607,48 +607,6 @@ lexical prior are the most promising directions for further gains.
 \label{fig:confusion}
 \end{figure}
 
-\subsection{Qualitative Analysis on Unseen Handwriting}
-\label{sec:ood}
-
-All results reported so far come from IAM, whose writers, writing
-instruments and scanning conditions are comparatively homogeneous. To
-probe behaviour outside that distribution, we collected a short
-paragraph from a volunteer whose handwriting is not part of IAM,
-segmented it into words using horizontal and vertical projection
-profiles, and passed the resulting crops through \ours\ unchanged.
-Fig.~\ref{fig:ood} shows the outcome.
-
-Segmentation recovers all 20 words correctly. \ours\ transcribes 14 of
-them (70.0\%), appreciably below the \ourwa\ measured on IAM. Such a
-drop is expected: the sample differs from the training distribution in
-writing instrument, stroke width and digitisation pipeline
-simultaneously, and a single paragraph is far too small for a reliable
-accuracy estimate. The instructive part of the example lies elsewhere.
-
-The lexical prior produces no net gain on this sample (14 words correct
-both before and after correction). It repairs one error
-(\texttt{whith}$\rightarrow$\texttt{with}) but introduces another
-(\texttt{walked}$\rightarrow$\texttt{talked}, where the optical model
-had in fact been correct). More tellingly, every error that survives
-correction --- \texttt{che}, \texttt{parts}, \texttt{try},
-\texttt{fried}, \texttt{alter} --- is itself a valid English word, so
-the corrector receives no signal that anything is wrong. This is
-exactly the failure mode anticipated in
-Section~\ref{sec:simple}: a whole-word lexical prior can only rescue
-hypotheses that fall \emph{outside} the lexicon, and its usefulness
-therefore diminishes as the optical model improves. Resolving these
-remaining cases would require context beyond the individual word.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/fig4_ood_demo.pdf}
-\caption{\ours\ applied to handwriting from a writer outside IAM.
-(a) Automatic word segmentation. (b) Greedy and lexically corrected
-output against the reference; errors in orange. Every residual error
-after correction is itself a valid dictionary word.}
-\label{fig:ood}
-\end{figure}
-
 % ---- 6. Discussion ------------------------------------------------------
 \section{Discussion}
 \label{sec:discussion}
@@ -688,7 +646,6 @@ read as evidence that our augmentation and lexical prior are effective,
 not as a claim that compressed-domain recognition is inferior.
 
 \subsection{Why the Simpler Pipeline Wins}
-\label{sec:simple}
 
 Word beam search improved the local baseline substantially yet never
 surpassed \ours\ in its native environment, and ensembling hurt. Both
