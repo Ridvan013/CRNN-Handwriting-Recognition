@@ -178,16 +178,22 @@ unchanged; our contribution is orthogonal, residing in the
 augmentation and in the post-decoding lexical prior.
 
 \paragraph{Attention and transformer recognisers.}
-Kang et al.~\cite{kang2018convolve} proposed an attention-based
-sequence-to-sequence recogniser evaluated on isolated IAM words,
-reporting approximately 84.55\% word accuracy at exactly the
-granularity we target; it is therefore our most informative external
-reference point. Transformer encoders have since lowered line-level
-error rates further, at the cost of much larger models and external
-pre-training. Multimodal large language models have also been
-benchmarked on IAM~\cite{crosilla2025llmhtr}, but those systems are
-evaluated on full pages and rely on proprietary pre-training corpora,
-so they are not comparable to a from-scratch word recogniser.
+Sueiras et al.~\cite{sueiras2018offline} and Kang et
+al.~\cite{kang2018convolve} introduced sequence-to-sequence
+recognisers with content-based attention for isolated IAM words.
+Kang et al.~\cite{kang2021candidate} later integrated a language model
+into the decoder itself through candidate fusion, and Kass and
+Vats~\cite{kass2022attentionhtr} combined a ResNet encoder,
+attention decoding and transfer learning from scene-text corpora,
+reporting the strongest published word-level accuracy on the Aachen
+split. These four systems share our task, metric and split, and are
+compared against directly in Section~\ref{sec:results}. Transformer
+architectures such as TrOCR~\cite{li2023trocr} have since lowered
+line-level error rates further, but require pre-training on hundreds
+of millions of synthetic lines. Multimodal large language models have
+also been benchmarked on IAM~\cite{crosilla2025llmhtr}; those systems
+operate on full pages and rely on proprietary pre-training corpora, so
+they are not comparable to a from-scratch word recogniser.
 
 \paragraph{Word-level CRNN systems and lexical decoders.}
 Two recent systems are directly comparable to ours in task, metric and
@@ -278,8 +284,8 @@ a linear projection onto the 79 output classes; the network has
 28.73\,M parameters. Inputs are grayscale crops resized to
 $32\times128$, inverted so that ink is high-valued, and scaled to
 $[-1,1]$. The network is trained with the CTC
-objective~\cite{graves2006connectionist} using AdamW
-($\eta=7\times10^{-4}$, weight decay $10^{-5}$), five warm-up epochs
+objective~\cite{graves2006connectionist} using AdamW with learning
+rate $\eta=7\times10^{-4}$ and weight decay $10^{-5}$, five warm-up epochs
 followed by cosine decay, mixed precision, and batches of 128 on a
 single Tesla T4 graphics processing unit (GPU). Training stops when
 validation word accuracy has not improved for 15 epochs.
@@ -455,19 +461,42 @@ word accuracy, best checkpoint marked in red.}
 
 \subsection{Comparison with Prior Word-Level Systems}
 
-Table~\ref{tab:priorwork} compares \ours\ against three external
-word-level systems and against our own baseline family. \ours\
-outperforms the CNN--RNN hybrid of Dutta et
-al.~\cite{dutta2018improving} by $7.4$\,pp and the CNN--BiLSTM
-HWRCNet of Rajesh et al.~\cite{rajesh2022hwrcnet} by $3.7$\,pp. Both
-of those systems are evaluated on random partitions that allow the
-same writer to appear in training and test, whereas our numbers come
-from the stricter writer-disjoint protocol; the reported margins are
-therefore lower bounds. Against the attention-based
-sequence-to-sequence model of Kang et al.~\cite{kang2018convolve},
-\ours\ attains essentially identical accuracy (84.54\% versus
-$\approx$84.55\%) while using a plain CRNN with neither an attention
-mechanism nor an autoregressive decoder.
+Table~\ref{tab:priorwork} compares \ours\ against six external
+word-level systems and against our own baseline family. The upper
+block lists systems evaluated under the \emph{same} Aachen
+writer-disjoint protocol, and is therefore the fairest comparison
+available. \ours\ clearly outperforms the sequence-to-sequence
+recogniser of Sueiras et al.~\cite{sueiras2018offline} ($+8.3$\,pp)
+and the attention-based model of Kang et
+al.~\cite{kang2018convolve} ($+2.0$\,pp). It is statistically
+indistinguishable from the two strongest published word-level
+systems: the language-model-augmented architecture of Kang et
+al.~\cite{kang2021candidate} (84.09\%) and
+AttentionHTR~\cite{kass2022attentionhtr} (84.60\%, only $0.06$\,pp
+above ours). This parity is notable given the difference in
+machinery: AttentionHTR couples a ResNet encoder with a content-based
+attention decoder and transfers knowledge from 14.4\,M scene-text and
+Imgur5K images, whereas \ours\ is a plain CRNN with CTC trained from
+scratch on 31\,K IAM word crops alone. Matching that word accuracy
+without external pre-training or an attention decoder is the central
+empirical claim of this paper.
+
+The picture differs at character level, where the attention-based
+systems retain a clear advantage (5.79--6.50\% CER against our
+9.21\%). We attribute this to their autoregressive decoders, which
+model inter-character dependencies explicitly, whereas our
+conditionally independent CTC outputs are corrected only afterwards
+and only at the whole-word level: the lexical prior can repair a word
+or leave it unchanged, but it cannot reduce the character error of a
+word that remains outside the lexicon.
+
+The lower block reports two systems measured on random,
+writer-dependent partitions in which the same writer may appear in
+both training and test. \ours\ exceeds both --- Dutta et
+al.~\cite{dutta2018improving} by $7.4$\,pp and
+HWRCNet~\cite{rajesh2022hwrcnet} by $4.5$\,pp --- while being
+evaluated under the stricter protocol, so those margins are
+conservative.
 
 Within our own family, accuracy grows monotonically with recurrent
 depth (CRNN-S $\to$ CRNN-M $\to$ CRNN-L), but the single largest jump
@@ -477,24 +506,30 @@ parameters, whereas going from CRNN-L to \ours\ adds 6.5\,pp at no
 parameter cost at all.
 
 \begin{table}[t]
-\caption{Word-level accuracy on IAM.}
+\caption{Word-level accuracy on IAM. WA values in parentheses are
+derived as $1-\mathrm{WER}$ from the cited papers.}
 \label{tab:priorwork}
 \centering
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{llcc}
 \toprule
-System & Split & WA (\%) & CER (\%) \\
+System & Year & WA (\%) & CER (\%) \\
 \midrule
-\multicolumn{4}{l}{\emph{External word-level systems}} \\
-Dutta et al.~\cite{dutta2018improving}  & random & $\approx$77.14 & 11.08 \\
-Rajesh et al.~\cite{rajesh2022hwrcnet}  & random 95:5 & $\approx$80.80 & 9.89 \\
-Kang et al.~\cite{kang2018convolve}     & random & $\approx$84.55 & --- \\
+\multicolumn{4}{l}{\emph{Aachen writer-disjoint split (same protocol as ours)}} \\
+Sueiras et al.~\cite{sueiras2018offline}      & 2018 & (76.20) & 8.80 \\
+Kang et al.~\cite{kang2018convolve}           & 2018 & (82.55) & 6.88 \\
+Kang et al.~\cite{kang2021candidate}          & 2021 & (84.09) & \textbf{5.79} \\
+Kass and Vats~\cite{kass2022attentionhtr}     & 2022 & (84.60) & 6.50 \\
+\textbf{\ours} (proposed)                     & ---  & \textbf{84.54} & 9.21 \\
 \midrule
-\multicolumn{4}{l}{\emph{This work (all on the Aachen writer-disjoint split)}} \\
-CRNN-S              & writer-disjoint & 70.29 & 17.46 \\
-CRNN-M              & writer-disjoint & 72.56 & 14.06 \\
-CRNN-L              & writer-disjoint & 78.06 & 11.16 \\
-\textbf{\ours}      & writer-disjoint & \textbf{84.54} & \textbf{9.21} \\
+\multicolumn{4}{l}{\emph{Random (writer-dependent) splits}} \\
+Dutta et al.~\cite{dutta2018improving}        & 2018 & (77.14) & 11.08 \\
+Rajesh et al.~\cite{rajesh2022hwrcnet}        & 2022 & 80.08   & 9.89 \\
+\midrule
+\multicolumn{4}{l}{\emph{Our baseline family (Aachen writer-disjoint)}} \\
+CRNN-S                                        & ---  & 70.29 & 17.46 \\
+CRNN-M                                        & ---  & 72.56 & 14.06 \\
+CRNN-L                                        & ---  & 78.06 & 11.16 \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -523,7 +558,8 @@ native environment, which is why the simple greedy$+$trigram pipeline
 remains our headline system.
 
 \begin{table}[t]
-\caption{Decoder and ensemble experiments ($N=\nsamples$).}
+\caption{Decoder and ensemble experiments ($N=\nsamples$); the best
+alternative decoder is underlined.}
 \label{tab:optdec}
 \centering
 \resizebox{\columnwidth}{!}{%
