@@ -94,9 +94,11 @@ unclear glyph.
 
 The IAM Handwriting Database~\cite{marti2002iam} is the standard
 benchmark for English HTR, containing roughly 115\,000 word images from
-657 writers. We adopt the RWTH Aachen partition~\cite{aachen_split},
-which guarantees that no writer contributes to more than one of the
-training, validation and test sets. This \emph{writer-disjoint}
+657 writers. We adopt the partition released by RWTH Aachen
+University~\cite{aachen_split} --- referred to as the \emph{Aachen
+split} throughout this paper --- which guarantees that no writer
+contributes to more than one of the training, validation and test
+sets. This \emph{writer-disjoint}
 protocol is stricter than a random split and is the realistic
 condition for deploying a recogniser on handwriting it has never seen.
 
@@ -683,7 +685,7 @@ remaining source of error.
 % ---- Acknowledgements ---------------------------------------------------
 \section*{Acknowledgements}
 Computations were carried out on Kaggle Notebooks. We thank the
-maintainers of the IAM Handwriting Database and the RWTH Aachen split.
+maintainers of the IAM Handwriting Database and of the Aachen split.
 
 % ---- References ---------------------------------------------------------
 \bibliographystyle{IEEEtran}
