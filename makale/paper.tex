@@ -222,8 +222,11 @@ that constitute our contribution.
 \includegraphics[width=0.92\textwidth]{figures/fig0_pipeline.pdf}
 \caption{Overview of \ours. Word crops are normalised, augmented
 (training only), encoded by a CRNN and decoded with CTC; the decoded
-string is then corrected against a lexicon-extended trigram model.
-Green boxes mark the two contributions of this work.}
+string is then corrected against a lexicon-extended trigram language
+model (LM). Green boxes mark the two contributions of this work. The
+evaluation stage reports word accuracy (WA), character error rate
+(CER) and Wilson confidence intervals (CI), all defined formally in
+Section~\ref{sec:experiments}.}
 \label{fig:pipeline}
 \end{figure*}
 
@@ -276,8 +279,8 @@ $[-1,1]$. The network is trained with the CTC
 objective~\cite{graves2006connectionist} using AdamW
 ($\eta=7\times10^{-4}$, weight decay $10^{-5}$), five warm-up epochs
 followed by cosine decay, mixed precision, and batches of 128 on a
-single Tesla T4 GPU. Training stops when validation word accuracy has
-not improved for 15 epochs.
+single Tesla T4 graphics processing unit (GPU). Training stops when
+validation word accuracy has not improved for 15 epochs.
 
 \subsection{Writing-Aware Augmentation}
 \label{sec:aug}
