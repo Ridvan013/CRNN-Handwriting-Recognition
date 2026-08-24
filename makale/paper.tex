@@ -163,14 +163,15 @@ family we state explicitly what we adopt and where we differ.
 
 \paragraph{Recurrent CTC recognisers.}
 Graves and Schmidhuber~\cite{graves2008offline} introduced
-multi-dimensional LSTMs with CTC as the first end-to-end offline
-recogniser. Puigcerver~\cite{puigcerver2017} showed that a
-one-dimensional BiLSTM stacked on a convolutional feature extractor
-matches multi-dimensional recurrence at a fraction of the cost,
-defining the canonical CRNN baseline that our architecture follows.
-Bluche and Messina~\cite{bluche2017gated} added gated convolutions,
-and Flor et al.~\cite{flor2020htrflor} combined a CNN-BGRU optical
-model with a language-model pipeline. We adopt this backbone family
+multi-dimensional long short-term memory (LSTM) networks with CTC as
+the first end-to-end offline recogniser. Puigcerver~\cite{puigcerver2017}
+showed that a one-dimensional bidirectional LSTM (BiLSTM) stacked on a
+convolutional neural network (CNN) feature extractor matches
+multi-dimensional recurrence at a fraction of the cost, defining the
+canonical CRNN baseline that our architecture follows. Bluche and
+Messina~\cite{bluche2017gated} added gated convolutions, and Flor et
+al.~\cite{flor2020htrflor} combined a CNN with a bidirectional gated
+recurrent unit (BGRU) and a language-model pipeline. We adopt this backbone family
 unchanged; our contribution is orthogonal, residing in the
 augmentation and in the post-decoding lexical prior.
 
@@ -189,17 +190,17 @@ so they are not comparable to a from-scratch word recogniser.
 \paragraph{Word-level CRNN systems and lexical decoders.}
 Two recent systems are directly comparable to ours in task, metric and
 model family. Dutta et al.~\cite{dutta2018improving} report an
-improved CNN--RNN hybrid on isolated IAM words with a 22.86\% word
-error rate ($\approx$77.14\% accuracy). Rajesh et
-al.~\cite{rajesh2022hwrcnet} propose HWRCNet, a CNN--BiLSTM operating
-in the JPEG DCT domain, reaching 80.08\% strict word accuracy on
-uncompressed images; we note that their headline figure of 89.05\% is
-\emph{word accuracy with flexibility} of two edit operations rather
-than strict accuracy. On the decoder side, word beam
-search~\cite{scheidl2018wbs} injects a dictionary constraint directly
-into CTC beam search --- the same lexical knowledge we exploit, but
-during rather than after decoding; we compare both strategies in
-Section~\ref{sec:results}.
+improved CNN--recurrent neural network (RNN) hybrid on isolated IAM
+words with a 22.86\% word error rate ($\approx$77.14\% accuracy).
+Rajesh et al.~\cite{rajesh2022hwrcnet} propose HWRCNet, a CNN--BiLSTM
+operating in the JPEG discrete cosine transform (DCT) domain, reaching
+80.08\% strict word accuracy on uncompressed images; we note that
+their headline figure of 89.05\% is \emph{word accuracy with
+flexibility} of two edit operations rather than strict accuracy. On
+the decoder side, word beam search (WBS)~\cite{scheidl2018wbs} injects
+a dictionary constraint directly into CTC beam search --- the same
+lexical knowledge we exploit, but during rather than after decoding;
+we compare both strategies in Section~\ref{sec:results}.
 
 \paragraph{Positioning.}
 Both word-level baselines above are evaluated on random partitions of
@@ -319,8 +320,8 @@ shows the compound elastic$+$morphological effect.}
 \label{sec:trigram}
 After greedy CTC decoding, the hypothesis is checked against a closed
 lexicon. The lexicon is built from the 5\,939 word types of the Aachen
-training transcriptions and extended with the NLTK English word list,
-yielding 238\,506 types; crucially, the trigram counts themselves are
+training transcriptions and extended with the Natural Language Toolkit
+(NLTK) English word list, yielding 238\,506 types; crucially, the trigram counts themselves are
 estimated only from IAM training text, so no external corpus
 statistics leak into the model. A hypothesis inside the lexicon is
 accepted unchanged; otherwise it is replaced by the highest-scoring
@@ -330,10 +331,9 @@ biasing frequent-word statistics towards a foreign domain.
 
 \subsection{Alternative Decoders Evaluated}
 \label{sec:decoders}
-For completeness we also evaluate three refinements: word beam
-search~\cite{scheidl2018wbs} in NGrams mode (beam width 50, language
-model weight 0.7, 245\,K-word corpus); test-time augmentation with
-five affine views (identity, $\pm2^\circ$ rotation, $0.96\times$ and
+For completeness we also evaluate three refinements: WBS in NGrams
+mode (beam width 50, language model weight 0.7, 245\,K-word corpus);
+test-time augmentation (TTA) with five affine views (identity, $\pm2^\circ$ rotation, $0.96\times$ and
 $1.04\times$ scale); and softmax averaging over CRNN-S, CRNN-M and
 \oursnolm, with equal or $1{:}2{:}3$ weights. Their results are
 reported in Section~\ref{sec:results}.
@@ -351,9 +351,9 @@ $N=\nsamples$ predicted/reference word pairs. \emph{Word accuracy}
       \mathbb{1}\!\left[\hat{y}_i = y_i\right],
 \label{eq:wa}
 \end{equation}
-and the word error rate follows as $\mathrm{WER}=1-\mathrm{WA}$. The
-\emph{character error rate} aggregates Levenshtein distances $d(\cdot,
-\cdot)$ over the corpus,
+and the word error rate (WER) follows as
+$\mathrm{WER}=1-\mathrm{WA}$. The \emph{character error rate} (CER)
+aggregates Levenshtein distances $d(\cdot,\cdot)$ over the corpus,
 \begin{equation}
 \mathrm{CER} \;=\;
   \frac{\sum_{i=1}^{N} d(\hat{y}_i, y_i)}
@@ -364,8 +364,9 @@ so that a single badly recognised long word cannot dominate the score.
 
 \subsection{Confidence Intervals}
 Because WA is a proportion estimated on a finite test set, we report
-Wilson 95\% intervals rather than normal-approximation intervals,
-which are unreliable near the boundaries. For $k$ correct predictions
+Wilson 95\% confidence intervals (CIs) rather than
+normal-approximation intervals, which are unreliable near the
+boundaries. For $k$ correct predictions
 out of $N$ and $z=1.96$,
 \begin{equation}
 \mathrm{CI}_{95} =
