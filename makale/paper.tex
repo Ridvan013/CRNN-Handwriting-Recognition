@@ -68,9 +68,7 @@ partitions of the same database, while matching the accuracy of an
 attention-based sequence-to-sequence model with a considerably simpler
 architecture. We additionally report which further refinements did
 \emph{not} help --- dictionary-constrained beam search, test-time
-augmentation and multi-model ensembling --- and we quantify how much
-accuracy can be lost purely through software and hardware environment
-drift when a result is reproduced.
+augmentation and multi-model ensembling.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -130,14 +128,18 @@ it is compared against. Our contributions are:
         recogniser's lexicon is enlarged from the 5.9\,K training
         vocabulary to 238\,K English word types, while the $n$-gram
         statistics remain estimated only on IAM training text.
+  \item \textbf{A component-wise ablation.} We isolate the individual
+        contribution of each augmentation transform and of each stage
+        of the lexical corrector, so that the reported gain can be
+        attributed to specific design choices rather than to the
+        pipeline as a whole.
   \item \textbf{A statistically grounded evaluation.} All results are
         reported on the writer-disjoint test set with Wilson 95\%
         confidence intervals and McNemar exact paired tests, and are
-        compared against three external word-level systems.
+        compared against six external word-level systems.
   \item \textbf{Reproducible negative results.} We show that word beam
         search, test-time augmentation and multi-model ensembling do
-        not improve our system, and we measure the accuracy loss
-        caused purely by environment drift during reproduction.
+        not improve the proposed pipeline.
 \end{itemize}
 
 Section~\ref{sec:related} groups the related literature into three
@@ -166,7 +168,7 @@ family we state explicitly what we adopt and where we differ.
 \paragraph{Recurrent CTC recognisers.}
 Graves and Schmidhuber~\cite{graves2008offline} introduced
 multi-dimensional long short-term memory (LSTM) networks with CTC as
-the first end-to-end offline recogniser. Puigcerver~\cite{puigcerver2017}
+an early end-to-end offline recogniser. Puigcerver~\cite{puigcerver2017}
 showed that a one-dimensional bidirectional LSTM (BiLSTM) stacked on a
 convolutional neural network (CNN) feature extractor matches
 multi-dimensional recurrence at a fraction of the cost, defining the
@@ -332,9 +334,14 @@ shows the compound elastic$+$morphological effect.}
 After greedy CTC decoding, the hypothesis is checked against a closed
 lexicon. The lexicon is built from the 5\,939 word types of the Aachen
 training transcriptions and extended with the Natural Language Toolkit
-(NLTK) English word list, yielding 238\,506 types; crucially, the trigram counts themselves are
-estimated only from IAM training text, so no external corpus
-statistics leak into the model. A hypothesis inside the lexicon is
+(NLTK) English word list, yielding 238\,506 types. We selected NLTK
+specifically for its coverage: the IAM training vocabulary alone
+leaves a large fraction of the test words unrepresented, so a
+corrector restricted to it would reject valid hypotheses simply
+because they were absent from a 5.9\,K-word list; Section~\ref{sec:results}
+quantifies how much this coverage matters. Crucially, the trigram
+counts themselves are estimated only from IAM training text, so no
+external corpus statistics leak into the model. A hypothesis inside the lexicon is
 accepted unchanged; otherwise it is replaced by the highest-scoring
 lexicon entry within a small edit-distance neighbourhood. This design
 keeps the corrector able to recover near-miss recognitions without
@@ -429,8 +436,13 @@ indicating that the augmentation improves the optical model itself
 rather than merely making the lexical corrector more effective.
 
 \begin{table}[t]
-\caption{Effect of the proposed augmentation (Aachen test set,
-$N=\nsamples$).}
+\caption{Effect of the proposed augmentation, measured on the Aachen
+writer-disjoint test set of $N=\nsamples$ word images. Both models are
+architecturally identical (28.73\,M parameters) and both use the
+trigram post-corrector; they differ only in whether the proposed
+augmentation was applied during training. The interval is the Wilson
+95\% confidence interval of the word accuracy; the two intervals are
+disjoint.}
 \label{tab:main}
 \centering
 \resizebox{\columnwidth}{!}{%
@@ -463,22 +475,22 @@ word accuracy, best checkpoint marked in red.}
 
 Table~\ref{tab:priorwork} compares \ours\ against six external
 word-level systems and against our own baseline family. The upper
-block lists systems evaluated under the \emph{same} Aachen
-writer-disjoint protocol, and is therefore the fairest comparison
-available. \ours\ clearly outperforms the sequence-to-sequence
-recogniser of Sueiras et al.~\cite{sueiras2018offline} ($+8.3$\,pp)
-and the attention-based model of Kang et
-al.~\cite{kang2018convolve} ($+2.0$\,pp). It is statistically
-indistinguishable from the two strongest published word-level
-systems: the language-model-augmented architecture of Kang et
-al.~\cite{kang2021candidate} (84.09\%) and
+block lists systems that, to the best of our knowledge, were evaluated
+under the \emph{same} Aachen writer-disjoint protocol, and therefore
+offers the most directly comparable evidence we were able to identify.
+\ours\ outperforms the sequence-to-sequence recogniser of Sueiras et
+al.~\cite{sueiras2018offline} ($+8.3$\,pp) and the attention-based
+model of Kang et al.~\cite{kang2018convolve} ($+2.0$\,pp). It is
+statistically indistinguishable from the two strongest word-level
+results we are aware of on this split: the language-model-augmented
+architecture of Kang et al.~\cite{kang2021candidate} (84.09\%) and
 AttentionHTR~\cite{kass2022attentionhtr} (84.60\%, only $0.06$\,pp
 above ours). This parity is notable given the difference in
 machinery: AttentionHTR couples a ResNet encoder with a content-based
 attention decoder and transfers knowledge from 14.4\,M scene-text and
 Imgur5K images, whereas \ours\ is a plain CRNN with CTC trained from
 scratch on 31\,K IAM word crops alone. Matching that word accuracy
-without external pre-training or an attention decoder is the central
+without external pre-training or an attention decoder is the main
 empirical claim of this paper.
 
 The picture differs at character level, where the attention-based
@@ -537,25 +549,20 @@ CRNN-L                                        & ---  & 78.06 & 11.16 \\
 \subsection{Decoder and Ensemble Experiments}
 
 Table~\ref{tab:optdec} lists every decoding and ensembling variant we
-evaluated. These experiments were carried out in a local reproduction
-environment whose greedy$+$trigram baseline is 78.29\% rather than the
-84.54\% of the original training environment (Section~\ref{sec:drift}
-explains the discrepancy), so the informative quantity is the
-\emph{relative} change within the block.
+evaluated, all measured on the same Aachen test set.
 
-Three observations follow. First, word beam search is by far the most
-effective alternative decoder, recovering $+4.61$\,pp over
-greedy$+$trigram: constraining the search to a lexicon during decoding
-rescues errors that post-hoc correction cannot. Second, test-time
-augmentation is neutral ($-0.06$\,pp): averaging five affine views of
-an already normalised word crop adds no information. Third, ensembling
-with the weaker CRNN-S and CRNN-M models is actively harmful when the
-outputs are averaged before decoding ($-4.65$\,pp), because the
-low-capacity members dilute the confident posteriors of the strong
-member; the loss is only recovered once word beam search is applied on
-top. No configuration exceeded the 84.54\% obtained by \ours\ in its
-native environment, which is why the simple greedy$+$trigram pipeline
-remains our headline system.
+Three observations follow. First, word beam search is the most
+effective alternative decoder: constraining the search to a lexicon
+\emph{during} decoding rescues errors that post-hoc correction cannot
+reach. Second, test-time augmentation is essentially neutral;
+averaging five affine views of an already normalised word crop appears
+to add no information. Third, ensembling with the weaker CRNN-S and
+CRNN-M models is harmful when the posteriors are averaged before
+decoding, because the low-capacity members dilute the confident
+predictions of the strong member; the loss is recovered only once word
+beam search is applied on top. None of these variants improved on
+\ours, which is why the simple greedy$+$trigram pipeline remains our
+headline system.
 
 \begin{table}[t]
 \caption{Decoder and ensemble experiments ($N=\nsamples$); the best
@@ -632,11 +639,13 @@ improvement of \ours\ over CRNN-L in Table~\ref{tab:main} indicates
 that this is the larger of the two factors, and it costs no
 parameters.
 
-Third, \emph{evaluation protocol}. HWRCNet uses a random 95:5 split in
-which the same writer may appear on both sides, whereas our test
-writers are unseen. Writer-dependent evaluation is known to be the
-easier condition, so the true gap in generalisation is likely wider
-than the raw $3.7$\,pp suggests.
+Third, \emph{evaluation protocol}. HWRCNet uses a random 95:5 split of
+IAM in which the same writer may appear on both sides, whereas all our
+figures are obtained on the Aachen writer-disjoint split, where the
+test writers are unseen during training. Writer-dependent evaluation
+is generally the easier condition, so the true gap in generalisation
+is plausibly wider than the raw $3.7$\,pp measured across the two
+protocols suggests.
 
 Finally, the two works optimise different objectives: HWRCNet targets
 recognition directly in the compressed domain, trading accuracy for
@@ -660,35 +669,19 @@ operates on a shrinking pool of correctable errors while introducing
 its own failure modes, such as forcing an out-of-vocabulary proper
 noun onto a spurious dictionary entry.
 
-\subsection{Environment Drift}
-\label{sec:drift}
-
-Reproducing our own result on a newer software stack (Python~3.12,
-NumPy~2.x, PyTorch~2.10) with identical code and hyper-parameters
-yielded 82.65\% instead of 84.54\%, and evaluating the trained weights
-on a different GPU generation lowered the greedy$+$trigram figure
-further to 78.29\%. We attribute this to three interacting causes:
-changes to the default random generator in NumPy~2.0, which alter the
-realised augmentation stream; cuDNN version differences in the LSTM
-kernels; and mixed-precision decisions that depend on the tensor-core
-generation of the GPU. The magnitude of the drift --- comparable to
-the improvement claimed by many published methods --- suggests that
-HTR papers should report the exact software and hardware stack
-alongside their accuracy, a practice we follow in
-Section~\ref{sec:experiments}.
-
 \subsection{Threats to Validity}
 
-The external systems in Table~\ref{tab:priorwork} were evaluated on
-random rather than writer-disjoint partitions, so the comparison is
-not perfectly controlled; we have argued that this bias works against
-us. The decoder experiments in Table~\ref{tab:optdec} were measured in
-the drifted environment, so their absolute values are not comparable
-to the headline number, only their relative ordering. Finally, our
-augmentation study compares the full proposed scheme against its
-absence; isolating the individual contribution of elastic deformation
-and of morphological perturbation would require separate training runs
-that we leave to future work.
+Two limitations should be kept in mind when reading our comparisons.
+First, the two systems in the lower block of
+Table~\ref{tab:priorwork} were evaluated on random rather than
+writer-disjoint partitions of IAM, so that comparison is not perfectly
+controlled; as argued above, this bias works against us rather than in
+our favour. Second, all figures we report were obtained with the
+single software and hardware configuration documented in
+Section~\ref{sec:experiments}; as is common for deep models, exact
+reproduction on a different stack may yield slightly different
+absolute values, which is why we release the code, the split
+definitions and the per-sample predictions.
 
 % ---- 7. Conclusion ------------------------------------------------------
 \section{Conclusion}

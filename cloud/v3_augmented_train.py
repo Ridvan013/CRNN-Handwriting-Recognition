@@ -58,6 +58,9 @@ def parse_args():
     p.add_argument("--baseline-csv", type=str,   default="")
     p.add_argument("--iam-words",    type=str,   default="")
     p.add_argument("--iam-root",     type=str,   default="")
+    p.add_argument("--aug-mode",     type=str,   default="full",
+                   choices=["full", "elastic", "morph", "photo", "narrow"],
+                   help="Augmentation ablation mode; 'full' = proposed AugCRNN-T.")
     return p.parse_args()
 
 
@@ -79,10 +82,36 @@ def _elastic_deform(img_np: np.ndarray, alpha: float, sigma: float) -> np.ndarra
     return cv2.remap(img_np, map_x, map_y, cv2.INTER_LINEAR, borderValue=1.0)
 
 
+# ── Ablation switch ──────────────────────────────────────────────────────────
+# Controls which of the two proposed transforms are active. Set from the CLI
+# via --aug-mode; "full" reproduces the published AugCRNN-T configuration.
+#   full    : wide photometric + elastic + morphological   (proposed)
+#   elastic : wide photometric + elastic
+#   morph   : wide photometric + morphological
+#   photo   : wide photometric only
+#   narrow  : baseline photometric only (CRNN-L configuration)
+AUG_MODE = "full"
+
+
+def _aug_flags(mode: str):
+    """Return (use_elastic, use_morph, use_wide_photometric) for a mode."""
+    return {
+        "full":    (True,  True,  True),
+        "elastic": (True,  False, True),
+        "morph":   (False, True,  True),
+        "photo":   (False, False, True),
+        "narrow":  (False, False, False),
+    }[mode]
+
+
 def _augment_v4(img: torch.Tensor) -> torch.Tensor:
     """
     Enhanced augmentation. img: float [1, H, W], bg=1.0 (white), text~0 (dark).
+    The two proposed transforms can be switched off individually through the
+    module-level AUG_MODE flag, which is what the ablation study in the paper
+    varies; every other transform is identical across all modes.
     """
+    use_elastic, use_morph, use_wide = _aug_flags(AUG_MODE)
     # Geometric (same as V3 baseline)
     if random.random() < 0.6:
         angle = random.uniform(-7, 7)
@@ -107,14 +136,14 @@ def _augment_v4(img: torch.Tensor) -> torch.Tensor:
                         interpolation=TF.InterpolationMode.BILINEAR, fill=1.0).squeeze(0)
 
     # NEW: elastic deformation (pen jitter / tremor)
-    if random.random() < 0.5:
+    if use_elastic and random.random() < 0.5:
         img_np = img.squeeze(0).cpu().numpy()
         img_np = _elastic_deform(img_np, alpha=random.uniform(2.0, 5.0), sigma=0.08)
         img = torch.from_numpy(img_np).unsqueeze(0).to(img.device)
 
     # NEW: morphological ops (pen thickness variation)
     # bg=1 (white), text=0: erode expands text (thicker), dilate thins it
-    if random.random() < 0.3:
+    if use_morph and random.random() < 0.3:
         img_np = img.squeeze(0).cpu().numpy()
         k = random.randint(1, 2)
         kernel = np.ones((k, k), np.uint8)
@@ -124,17 +153,21 @@ def _augment_v4(img: torch.Tensor) -> torch.Tensor:
             img_np = cv2.dilate(img_np, kernel)
         img = torch.from_numpy(np.clip(img_np, 0.0, 1.0)).unsqueeze(0).to(img.device)
 
-    # Wider photometric range (0.70–1.35 vs V3's 0.85–1.15)
+    # Photometric range: wide (0.70–1.35) for the proposed schedule,
+    # narrow (0.85–1.15) for the CRNN-L baseline schedule.
+    b_lo, b_hi = (0.70, 1.35) if use_wide else (0.85, 1.15)
+    g_lo, g_hi = (0.70, 1.30) if use_wide else (0.80, 1.20)
+    noise_sd = 0.05 if use_wide else 0.03
+
     if random.random() < 0.6:
-        img = TF.adjust_brightness(img, random.uniform(0.70, 1.35))
-        img = TF.adjust_contrast(img, random.uniform(0.70, 1.35))
-
-    # Slightly stronger noise (σ=0.05 vs V3's 0.03)
-    if random.random() < 0.4:
-        img = torch.clamp(img + torch.randn_like(img) * 0.05, 0.0, 1.0)
+        img = TF.adjust_brightness(img, random.uniform(b_lo, b_hi))
+        img = TF.adjust_contrast(img, random.uniform(b_lo, b_hi))
 
     if random.random() < 0.4:
-        img = TF.adjust_gamma(img, random.uniform(0.70, 1.30))
+        img = torch.clamp(img + torch.randn_like(img) * noise_sd, 0.0, 1.0)
+
+    if random.random() < 0.4:
+        img = TF.adjust_gamma(img, random.uniform(g_lo, g_hi))
 
     # Random erasing (same as V3)
     if random.random() < 0.3:
@@ -476,6 +509,12 @@ def main():
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     np.random.seed(args.seed)
+
+    global AUG_MODE
+    AUG_MODE = args.aug_mode
+    _el, _mo, _wi = _aug_flags(AUG_MODE)
+    print(f" Aug mode  : {AUG_MODE}  "
+          f"(elastic={_el}, morphological={_mo}, wide photometric={_wi})")
 
     model_dir = REPO_ROOT / args.model_dir
     model_dir.mkdir(parents=True, exist_ok=True)
