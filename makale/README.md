@@ -20,10 +20,13 @@ Never write "V3", "V3-augmented" or "our model" in the paper — always
 
 ## Files
 
-- `paper.tex` — LaTeX source (IEEEtran conference, 6 pages)
-- `references.bib` — 14 entries, all verified against dblp/Springer/IAPR
+- `paper.tex` — LaTeX source (IEEEtran conference, 7 pages)
+- `references.bib` — 18 entries, all verified against dblp/Springer/IAPR
 - `generate_figures.py` — regenerates every figure from the real result files
 - `figures/` — 4 vector PDFs (see below)
+
+Ablation experiments (pending) are documented in
+[`../cloud/ABLATION_REHBER.md`](../cloud/ABLATION_REHBER.md).
 
 ## Figures
 
@@ -54,15 +57,18 @@ pdflatex paper.tex && bibtex paper && pdflatex paper.tex && pdflatex paper.tex
 
 Overleaf: upload `makale_overleaf.zip` (repo root) → Compiler: pdfLaTeX → Recompile.
 
-## Paper structure (6 pages)
+## Paper structure (7 pages)
 
-1. **Introduction** — HTR/CTC/word-level concepts explained, 4 contributions
+1. **Introduction** — HTR/CTC/word-level concepts explained, 5 contributions
 2. **Related Work** — 3 families (CTC recurrent / attention / lexical decoders), each with "what we adopt, where we differ"
 3. **Proposed System** — pipeline figure, naming table, encoder, augmentation, trigram, alternative decoders
 4. **Experimental Setup** — WA/CER/Wilson/McNemar formulas (eq. 1–4), reproducibility
-5. **Results** — augmentation effect, prior-work comparison, decoder/ensemble table (12 rows), error analysis
-6. **Discussion** — detailed HWRCNet comparison, why simple wins, environment drift, threats to validity
+5. **Results** — augmentation effect, prior-work comparison, decoder/ensemble table, error analysis
+6. **Discussion** — detailed HWRCNet comparison, why simple wins, threats to validity
 7. **Conclusion** — short opening sentence, contribution-focused
+
+Pending: two ablation tables (augmentation components, lexicon/trigram stages)
+once the Kaggle runs described in `../cloud/ABLATION_REHBER.md` finish.
 
 ## Every number in the paper is verifiable
 
@@ -86,8 +92,8 @@ was removed because those runs were never actually performed.
 - [ ] Re-verify every bib entry against the publisher page
 - [ ] One English proofreading pass
 - [ ] If a specific venue is chosen, switch `\documentclass` to its template
-- [ ] Optional: run the per-transform augmentation ablation (elastic alone vs
-      morphological alone) to add a component-level table
+- [ ] **Run the ablation experiments** — see `../cloud/ABLATION_REHBER.md`
+      (Kaggle, ~6.5 h; produces the two tables the supervisor asked for)
 
 ## Repo
 
