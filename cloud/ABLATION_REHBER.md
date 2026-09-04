@@ -9,8 +9,13 @@
 > | Split | Form | Kelime (ok) | Eski (kesik) |
 > |---|---:|---:|---:|
 > | train | 747 | **47,999** | 31,615 |
-> | validation | 116 | **7,559** | 1,646 |
+> | validation | 111 | **7,205** | 1,646 |
 > | test | 336 | **20,310** | 5,338 |
+>
+> Doğrulama 116 yerine 111 form: metni test kümesinde de geçen 5 form
+> (`f07-028b`, `f07-032b`, `f07-039b`, `f07-042b`, `f07-046b`) doğrulamadan
+> çıkarıldı; en iyi epoch seçimi test'ten bağımsız olsun diye. **Test kümesine
+> dokunulmadı**, literatür karşılaştırması etkilenmiyor.
 >
 > Sonuç: **baseline dahil her şey tam veriyle yeniden eğitilir.** Notebook
 > (`ablation_kaggle.ipynb`) iki oturuma bölündü: **A** = `narrow` + `full` +

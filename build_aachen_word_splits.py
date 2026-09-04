@@ -7,11 +7,16 @@ Cikti:
 Her satir: <word_id> <transcription>  (status='ok' filtresi uygulanmis)
 """
 import os
+import re
 import sys
 import argparse
 
 _ap = argparse.ArgumentParser(description="IAM words.txt -> Aachen word-level split dosyalari")
 _ap.add_argument("--words-txt", default=None, help="IAM words.txt yolu (varsayilan: repo icindeki)")
+_ap.add_argument("--keep-val-test-text-overlap", action="store_true",
+                 help="Metni test kumesinde de gecen dogrulama formlarini TUT. "
+                      "VARSAYILAN KAPALI: bu formlar dogrulamadan cikarilir ki en "
+                      "iyi epoch secimi test kumesinden bagimsiz olsun. Test kumesine DOKUNULMAZ.")
 _ap.add_argument("--include-unassigned", action="store_true",
                  help="Aachen'in hicbir bolumunde olmayan 340 formu egitime EKLE. "
                       "VARSAYILAN KAPALI: yazar-ayriklik garantisi ve literaturle "
@@ -84,6 +89,37 @@ with open(WORDS_TXT, encoding="utf-8") as f:
             unassigned += 1
             if _args.include_unassigned:
                 buckets["train"].append((word_id, transcription, line))
+
+# ---------------------------------------------------------------------------
+# Dogrulama <-> test METIN ortusmesinin temizlenmesi
+# IAM form id'si <korpus><no>-<metin><varyant> seklinde (ornek f07-028a). Ayni
+# metnin farkli varyantlari resmi bolmede val ve test'e dagilmis olabilir
+# (f07-028b val'de, f07-028a test'te). En iyi epoch'u val'de sectigimiz icin bu
+# durum secimi test'e karsi hafif yanli hale getirebilir. Bu formlari
+# DOGRULAMADAN cikariyoruz. Test kumesine dokunulmaz; egitime de tasinmaz
+# (tasinsa bu kez train<->test metin ortusmesi dogar).
+# ---------------------------------------------------------------------------
+def _text_base(form_id):
+    m = re.match(r"^([a-z]\d+-\d+)", form_id)
+    return m.group(1) if m else form_id
+
+_form_of = lambda wid: "-".join(wid.split("-")[:2])
+_test_bases = {_text_base(_form_of(w)) for w, _, _ in buckets["test"]}
+_before_n = len(buckets["validation"])
+_dropped = sorted({_form_of(w) for w, _, _ in buckets["validation"]
+                   if _text_base(_form_of(w)) in _test_bases})
+if _dropped and not _args.keep_val_test_text_overlap:
+    buckets["validation"] = [r for r in buckets["validation"]
+                             if _form_of(r[0]) not in _dropped]
+    _n = _before_n - len(buckets["validation"])
+    print("")
+    print(f"val<->test metin ortusmesi: {len(_dropped)} form dogrulamadan cikarildi ({_n} kelime)")
+    print(f"  {chr(39).join([])}{', '.join(_dropped)}")
+    print("  test kumesi DEGISTIRILMEDI")
+elif _dropped:
+    print(f"val<->test metin ortusmesi TUTULDU: {len(_dropped)} form")
+else:
+    print("val<->test metin ortusmesi: yok")
 
 print(f"\nIAM words.txt: total={total_lines}, status!=ok skipped={not_ok}")
 print(f"Aachen-assigned words (status=ok):")
