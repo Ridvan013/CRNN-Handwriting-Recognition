@@ -17,8 +17,14 @@ import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SPLIT_DIR = os.path.join(ROOT, "aachen_splits")
+# Goruntu dizini: --img-root ile veya IAM_ROOT ortam degiskeniyle ezilebilir
+# (Kaggle'da goruntuler /kaggle/input altinda durur).
 IMG_ROOT = os.path.join(ROOT, "HTR_Using_CRNN", "IAM", "processed",
                         "archive", "iam_words", "words")
+for _i, _a in enumerate(sys.argv):
+    if _a == "--img-root" and _i + 1 < len(sys.argv):
+        IMG_ROOT = sys.argv[_i + 1]
+IMG_ROOT = os.environ.get("IAM_ROOT", IMG_ROOT)
 
 FILES = {"train": "train_words.txt",
          "val": "validation_words.txt",
@@ -33,6 +39,11 @@ results = []
 def check(name, ok, detail=""):
     results.append(ok)
     print(f"  [{'GECTI' if ok else 'KALDI'}] {name}" + (f"  {detail}" if detail else ""))
+
+
+def skip(name, detail=""):
+    """Ortamda yapilamayan kontrol; basarisizlik sayilmaz."""
+    print(f"  [ATLA ] {name}" + (f"  {detail}" if detail else ""))
 
 
 def form_of(word_id):
@@ -121,7 +132,8 @@ def main():
 
     print("\n6. GORUNTU BUTUNLUGU")
     if not os.path.isdir(IMG_ROOT):
-        check("goruntu dizini", False, f"bulunamadi: {IMG_ROOT}")
+        skip("her kaydin goruntusu var",
+             f"goruntu dizini yok ({IMG_ROOT}); --img-root ile belirtilebilir")
     else:
         missing = 0
         for v in recs.values():
