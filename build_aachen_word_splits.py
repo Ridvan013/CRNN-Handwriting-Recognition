@@ -8,11 +8,22 @@ Her satir: <word_id> <transcription>  (status='ok' filtresi uygulanmis)
 """
 import os
 import sys
+import argparse
+
+_ap = argparse.ArgumentParser(description="IAM words.txt -> Aachen word-level split dosyalari")
+_ap.add_argument("--words-txt", default=None, help="IAM words.txt yolu (varsayilan: repo icindeki)")
+_ap.add_argument("--include-unassigned", action="store_true",
+                 help="Aachen'in hicbir bolumunde olmayan 340 formu egitime EKLE. "
+                      "VARSAYILAN KAPALI: yazar-ayriklik garantisi ve literaturle "
+                      "karsilastirilabilirlik icin yalniz resmi 747/116/336 form kullanilir.")
+_args = _ap.parse_args()
 
 ROOT = r"c:\Users\RIDVAN\Desktop\CRNN\CRNN_1"
 SPLITS_DIR = os.path.join(ROOT, "aachen_splits", "splits")
 OUT_DIR = os.path.join(ROOT, "aachen_splits")
-WORDS_TXT = os.path.join(ROOT, "HTR_Using_CRNN", "IAM", "processed", "archive", "iam_words", "words.txt")
+WORDS_TXT = _args.words_txt or os.path.join(ROOT, "HTR_Using_CRNN", "IAM", "processed", "archive", "iam_words", "words.txt")
+print(f"words.txt: {WORDS_TXT}")
+print(f"mode     : {'include-unassigned (train += 340 extra forms)' if _args.include_unassigned else 'STRICT (official Aachen forms only)'}")
 
 def load_forms(name):
     path = os.path.join(SPLITS_DIR, f"{name}.uttlist")
@@ -67,18 +78,23 @@ with open(WORDS_TXT, encoding="utf-8") as f:
         elif form_id in test_forms:
             buckets["test"].append((word_id, transcription, line))
         else:
-            # Form Aachen split'inde yok ama IAM kaydi.
-            # Val ve test'te olmadigi icin writer-disjoint kurali korunmus olur.
-            # Train'e ekle (+%22 ekstra veri + zenginlestirilmis trigram vocab).
-            buckets["train"].append((word_id, transcription, line))
+            # Form, Aachen'in hicbir bolumunde yok (IAM'deki 1539 formun 340'i).
+            # Bu formlarin yazarlari test/val yazarlariyla cakisabilir; forms.txt
+            # olmadan kontrol edilemez. Bu yuzden VARSAYILAN olarak atlanir.
             unassigned += 1
+            if _args.include_unassigned:
+                buckets["train"].append((word_id, transcription, line))
 
 print(f"\nIAM words.txt: total={total_lines}, status!=ok skipped={not_ok}")
 print(f"Aachen-assigned words (status=ok):")
 for k in ("train", "validation", "test"):
     print(f"  {k:11s}: {len(buckets[k]):>6d}")
 print(f"  unassigned : {unassigned:>6d}  (forms not in any Aachen partition)")
-print(f"  TOTAL  ok  : {sum(len(buckets[k]) for k in buckets) + unassigned:>6d}")
+print(f"  TOTAL used : {sum(len(buckets[k]) for k in buckets):>6d}")
+# form sayilari (gercekten etiketi olan)
+for k in ("train", "validation", "test"):
+    forms_seen = {"-".join(w.split("-")[:2]) for w, _, _ in buckets[k]}
+    print(f"  {k:11s} forms with labels: {len(forms_seen)}")
 
 for name, items in buckets.items():
     out = os.path.join(OUT_DIR, f"{name}_words.txt")

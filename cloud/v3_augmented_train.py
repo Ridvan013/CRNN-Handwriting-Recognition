@@ -224,8 +224,6 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
         str(repo_root / "HTR_Using_CRNN/IAM/processed/archive/iam_words/words"),
     ])
 
-    if not words_file:
-        raise FileNotFoundError("words.txt bulunamadı.")
     if not img_root:
         raise FileNotFoundError("words/ image dizini bulunamadı.")
 
@@ -243,17 +241,55 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
     aachen_test  = _load_forms("test")
     print(f"  Aachen forms — train:{len(aachen_train)} val:{len(aachen_val)} test:{len(aachen_test)}")
 
-    with open(words_file, encoding="utf-8") as f:
-        lines = [l.strip() for l in f]
+    # ------------------------------------------------------------------
+    # LABEL SOURCE
+    # Preferred: the pre-built split files shipped in the repo
+    #   aachen_splits/{train,validation,test}_words.txt
+    # They were generated from the COMPLETE IAM words.txt (115,320 records)
+    # by build_aachen_word_splits.py in STRICT mode (official 747/116/336
+    # forms only). Reading them makes the run independent of whatever
+    # words.txt happens to sit next to the images (Kaggle mirrors ship a
+    # truncated 44,859-record file, which silently halves the dataset).
+    # Fallback: scan words.txt directly (legacy behaviour).
+    # ------------------------------------------------------------------
+    split_dir = repo_root / "aachen_splits"
+    split_files = {
+        "train": split_dir / "train_words.txt",
+        "val":   split_dir / "validation_words.txt",
+        "test":  split_dir / "test_words.txt",
+    }
+    tagged = []   # (bucket, raw_line)
+    if all(f.exists() for f in split_files.values()):
+        for bucket, f in split_files.items():
+            with open(f, encoding="utf-8") as fh:
+                for l in fh:
+                    l = l.strip()
+                    if l and not l.startswith("#"):
+                        tagged.append((bucket, l))
+        print(f"  Labels    : aachen_splits/*_words.txt ({len(tagged):,} lines, strict Aachen)")
+    else:
+        print(f"  Labels    : {words_file} (fallback scan)")
+        with open(words_file, encoding="utf-8") as f:
+            for l in f:
+                l = l.strip()
+                if not l or l.startswith("#"):
+                    continue
+                form_id = "-".join(l.split()[0].split("-")[:2])
+                if form_id in aachen_train:
+                    tagged.append(("train", l))
+                elif form_id in aachen_val:
+                    tagged.append(("val", l))
+                elif form_id in aachen_test:
+                    tagged.append(("test", l))
+                # forms outside the official Aachen partitions are SKIPPED:
+                # their writers may overlap val/test writers.
 
     train_imgs, train_labs = [], []
     val_imgs,   val_labs   = [], []
     test_imgs,  test_labs  = [], []
     skipped = 0
 
-    for line in lines:
-        if line.startswith("#"):
-            continue
+    for bucket, line in tagged:
         parts = line.split()
         if len(parts) < 9:
             skipped += 1
@@ -264,20 +300,6 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
 
         word_id = parts[0]
         word    = "".join(parts[8:])
-
-        form_id = "-".join(word_id.split("-")[:2])
-        if not form_id or "-" not in form_id or form_id.startswith("user"):
-            skipped += 1
-            continue
-
-        if form_id in aachen_train:
-            bucket = "train"
-        elif form_id in aachen_val:
-            bucket = "val"
-        elif form_id in aachen_test:
-            bucket = "test"
-        else:
-            bucket = "train"
 
         a, b = word_id.split("-")[0], word_id.split("-")[1]
         img_path = os.path.join(img_root, a, f"{a}-{b}", f"{word_id}.png")

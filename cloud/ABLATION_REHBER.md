@@ -1,5 +1,26 @@
 # Ablation Deneyleri — Çalıştırma Rehberi
 
+> ## ⚠️ GÜNCELLEME (tam veri)
+> Bu rehberdeki 78.06 / 84.54 / N=5,338 sayıları IAM'in **%39'luk kesik** bir
+> etiket dosyasıyla elde edilmişti (44,859 / 115,320 kayıt; test 336 formun
+> yalnızca 87'sinde). Repo artık **tam IAM etiketlerinden** kurulmuş split
+> dosyalarını taşıyor:
+>
+> | Split | Form | Kelime (ok) | Eski (kesik) |
+> |---|---:|---:|---:|
+> | train | 747 | **47,999** | 31,615 |
+> | validation | 116 | **7,559** | 1,646 |
+> | test | 336 | **20,310** | 5,338 |
+>
+> Sonuç: **baseline dahil her şey tam veriyle yeniden eğitilir.** Notebook
+> (`ablation_kaggle.ipynb`) iki oturuma bölündü: **A** = `narrow` + `full` +
+> lexicon ablation (~7.5 s), **B** = `photo` + `elastic` + `morph` (~10 s).
+> Hücre 1'deki `SESSION` değişkenini seç, Save & Run All. Kaggle'daki
+> `words.txt` artık kullanılmıyor, yalnız görüntüler.
+>
+> Aşağıdaki bölümler mantığı anlatmak için duruyor; sayılar eski.
+
+
 Bu dosya, makaleye eklenecek **iki ablation tablosunu** üretmek için ne
 yapılacağını anlatır. Kod hazır; yapılması gereken tek şey Kaggle'da bir
 notebook çalıştırmak.
