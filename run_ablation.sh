@@ -12,6 +12,13 @@
 # BUTUN konfigurasyonlar AYNI makinede calistirilmali (ortam tutarliligi).
 set -u
 
+# Git Bash'te "python" PATH'te olmayabilir; sirayla dene.
+if [ -z "${PY:-}" ]; then
+  for c in python python3 py     "/c/Users/$USERNAME/AppData/Local/Programs/Python/Python313/python.exe"     "/c/Users/$USERNAME/AppData/Local/Programs/Python/Python312/python.exe"; do
+    command -v "$c" >/dev/null 2>&1 && { PY="$c"; break; }
+    [ -x "$c" ] && { PY="$c"; break; }
+  done
+fi
 PY="${PY:-python}"
 EPOCHS="${EPOCHS:-100}"
 BATCH="${BATCH:-128}"
@@ -76,24 +83,4 @@ echo
 echo "=============================================================="
 echo " OZET   (toplam $(( ($(date +%s)-START_ALL)/60 )) dakika)"
 echo "=============================================================="
-"$PY" - <<'PYEND'
-import csv, math, os
-LBL = {"narrow": "CRNN-L (baseline)", "photo": "+ wide photometric",
-       "elastic": "+ elastic", "morph": "+ morphological",
-       "full": "AugCRNN-T (proposed)"}
-print(f"{'Configuration':<24}{'WA (%)':>9}{'95% CI':>20}{'k/n':>16}")
-print("-" * 70)
-for m in ("narrow", "photo", "elastic", "morph", "full"):
-    p = f"Model_abl_{m}/test_results_analysis.csv"
-    if not os.path.exists(p):
-        print(f"{LBL[m]:<24}{'-':>9}{'(kosulmadi)':>20}")
-        continue
-    rows = list(csv.DictReader(open(p, encoding="utf-8")))
-    key = "correct" if "correct" in rows[0] else "Is_Correct"
-    k = sum(1 for r in rows if str(r[key]).strip().lower() in ("1", "true"))
-    n = len(rows); ph = k / n; z = 1.96
-    d = 1 + z * z / n
-    c = (ph + z * z / (2 * n)) / d
-    e = z * math.sqrt(ph * (1 - ph) / n + z * z / (4 * n * n)) / d
-    print(f"{LBL[m]:<24}{ph*100:>9.2f}{f'[{(c-e)*100:.2f}, {(c+e)*100:.2f}]':>20}{f'{k}/{n}':>16}")
-PYEND
+"$PY" cloud/summarize_ablation.py

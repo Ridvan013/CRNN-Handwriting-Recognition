@@ -394,10 +394,21 @@ def evaluate_test_set(model, test_loader, trigram_lm, model_dir: Path) -> dict:
 
 
 def save_training_log(history: dict, model_dir: Path, results_dir: Path):
-    """Her epoch için train/val metriklerini ve süreyi CSV'e yazar."""
+    """Her epoch için train/val metriklerini ve süreyi CSV'e yazar.
+
+    Ablation'da her mod ayri model_dir'e yazar; results_dir'deki kopya her
+    kosuda uzerine yazildigi icin asil kopya model_dir'dedir.
+    """
+    last = None
+    for log_path in (model_dir / "training_log.csv",
+                     results_dir / "training_log.csv"):
+        last = _write_training_log(history, log_path)
+    return last
+
+
+def _write_training_log(history: dict, log_path):
     import csv
     n_epochs = len(history["train_loss"])
-    log_path = results_dir / "training_log.csv"
     with open(log_path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow([
@@ -628,7 +639,17 @@ def main():
 
     # McNemar vs V3 baseline
     mcnemar_result = {}
-    baseline_csv = args.baseline_csv or str(REPO_ROOT / "Model_aachen_v3" / "test_results_analysis.csv")
+    # Varsayilan baseline: ayni ortamda egitilmis CRNN-L (narrow). Eski
+    # Model_aachen_v3 yarim veriyle egitildigi icin (5,338 vs 20,310 ornek)
+    # McNemar zaten uzunluk uyusmazligindan atlanir.
+    baseline_csv = args.baseline_csv
+    if not baseline_csv:
+        for cand in (REPO_ROOT / "Model_abl_narrow" / "test_results_analysis.csv",
+                     REPO_ROOT / "Model_aachen_v3" / "test_results_analysis.csv"):
+            if cand.exists():
+                baseline_csv = str(cand)
+                break
+        baseline_csv = baseline_csv or ""
     if os.path.exists(baseline_csv):
         print(f"  McNemar baseline: {baseline_csv}")
         mcnemar_result = compare_with_baseline(test_result, baseline_csv)
@@ -655,9 +676,11 @@ def main():
     best_wa = max(filter(None, [final["greedy_trigram_wa_pct"], final["wbs_wa_pct"]]))
     final["test_wa_pct"] = best_wa
 
-    out_path = results_dir / "v3_augmented_results.json"
-    with open(out_path, "w") as f:
-        json.dump(final, f, indent=2)
+    # Asil kopya model_dir'de; results_dir'deki her kosuda uzerine yazilir.
+    for out_path in (model_dir / "results.json",
+                     results_dir / "v3_augmented_results.json"):
+        with open(out_path, "w") as f:
+            json.dump(final, f, indent=2)
 
     print("\n" + "=" * 60)
     print(" SONUÇ")
