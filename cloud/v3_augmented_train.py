@@ -58,6 +58,9 @@ def parse_args():
     p.add_argument("--baseline-csv", type=str,   default="")
     p.add_argument("--iam-words",    type=str,   default="")
     p.add_argument("--iam-root",     type=str,   default="")
+    p.add_argument("--num-workers", type=int, default=4,
+                   help="DataLoader isci sayisi. Augmentation CPU'da yapildigi "
+                        "icin 0 cok yavas; 4 varsayilan. RAM azsa dusurun.")
     p.add_argument("--aug-mode",     type=str,   default="full",
                    choices=["full", "elastic", "morph", "photo", "narrow"],
                    help="Augmentation ablation mode; 'full' = proposed AugCRNN-T.")
@@ -513,13 +516,36 @@ def evaluate_wbs(model, test_loader, iam_words_path: str) -> dict:
 
 
 def compare_with_baseline(result: dict, baseline_csv: str) -> dict:
+    """McNemar testi. Baseline CSV'si okunamazsa sessizce atlanir.
+
+    Sutun adi surumler arasinda degisiyor: yeni cikti "correct", eski
+    Model_aachen_v3 ciktisi "Is_Correct" kullaniyor. Deger de "1"/"0" ya da
+    "True"/"False" olabiliyor. Ikisini de kabul ediyoruz.
+    """
     if not baseline_csv or not os.path.exists(baseline_csv):
         return {}
     import csv
+
+    def _flag(v):
+        return str(v).strip().lower() in ("1", "true", "yes")
+
     baseline_flags = []
-    with open(baseline_csv, encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            baseline_flags.append(bool(int(row["correct"])))
+    try:
+        with open(baseline_csv, encoding="utf-8") as f:
+            rd = csv.DictReader(f)
+            cols = rd.fieldnames or []
+            key = next((c for c in ("correct", "Is_Correct", "is_correct")
+                        if c in cols), None)
+            if key is None:
+                print(f"  McNemar atlandi: baseline CSV'de 'correct' sutunu yok "
+                      f"({baseline_csv})")
+                return {}
+            for row in rd:
+                baseline_flags.append(_flag(row[key]))
+    except Exception as exc:
+        print(f"  McNemar atlandi: baseline okunamadi ({exc})")
+        return {}
+
     new_flags = result["correct_flags"]
     if len(baseline_flags) != len(new_flags):
         print(f"  ⚠️  McNemar: sample sayısı eşleşmiyor ({len(baseline_flags)} vs {len(new_flags)})")
@@ -572,18 +598,33 @@ def main():
 
     # ── DataLoaders ───────────────────────────────────────────────────────────
     print("\n[2/4] Creating DataLoaders (IAMDatasetV4 with elastic + morph aug)...")
-    train_ds = IAMDatasetV4(train_imgs, train_labs, is_training=True,  device=DEVICE)
-    val_ds   = IAMDatasetV4(val_imgs,   val_labs,   is_training=False, device=DEVICE)
-    test_ds  = IAMDatasetV4(test_imgs,  test_labs,  is_training=False, device=DEVICE)
+    # Dataset'i CPU'da tutuyoruz. Onceden device=DEVICE idi: her ornek TEK TEK
+    # GPU'ya tasiniyor, elastic/morfoloji icin CPU'ya geri donuyor ve tekrar
+    # GPU'ya cikiyordu. Bu, epoch suresini ~11 dakikaya cikariyordu.
+    # CPU'da tutunca augmentation DataLoader iscileri arasinda paralellesiyor;
+    # batch'i GPU'ya tasima isini egitim/degerlendirme donguleri zaten
+    # kendileri yapiyor (model_v3.py: images.to(self.device)).
+    _ds_device = "cpu" if args.num_workers > 0 else DEVICE
+    train_ds = IAMDatasetV4(train_imgs, train_labs, is_training=True,  device=_ds_device)
+    val_ds   = IAMDatasetV4(val_imgs,   val_labs,   is_training=False, device=_ds_device)
+    test_ds  = IAMDatasetV4(test_imgs,  test_labs,  is_training=False, device=_ds_device)
 
+    # Augmentation CPU'da yapiliyor (elastic deformation + morfoloji pahali).
+    # num_workers=0 ile tek cekirdekte kaliyor ve epoch suresini birkac kat
+    # uzatiyor; --num-workers ile ayarlanabilir.
+    _nw = args.num_workers
+    _pw = _nw > 0          # persistent_workers + pin_memory
     train_loader = DataLoader(train_ds, batch_size=args.batch, shuffle=True,
-                              num_workers=0, pin_memory=False, drop_last=True,
+                              num_workers=_nw, pin_memory=_pw,
+                              persistent_workers=_pw, drop_last=True,
                               collate_fn=custom_collate_fn)
     val_loader   = DataLoader(val_ds,   batch_size=args.batch, shuffle=False,
-                              num_workers=0, pin_memory=False, drop_last=False,
+                              num_workers=_nw, pin_memory=_pw,
+                              persistent_workers=_pw, drop_last=False,
                               collate_fn=custom_collate_fn)
     test_loader  = DataLoader(test_ds,  batch_size=args.batch, shuffle=False,
-                              num_workers=0, pin_memory=False, drop_last=False,
+                              num_workers=_nw, pin_memory=_pw,
+                              persistent_workers=_pw, drop_last=False,
                               collate_fn=custom_collate_fn)
     print(f"  train:{len(train_loader)} batches | val:{len(val_loader)} | test:{len(test_loader)}")
 
