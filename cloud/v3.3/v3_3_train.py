@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
 """
-V3 Augmented — IAM Aachen Training from Scratch
+V3.3 — IAM Aachen Ensemble Training from Scratch
 
-V3 mimarisini sıfırdan IAM üzerinde eğitir, güçlendirilmiş augmentation ile:
-  + Elastic deformation  (doğal kalem titremesi simülasyonu)
-  + Morphological ops    (kalem kalınlığı varyasyonu)
-  + Daha geniş brightness/contrast aralığı
-  + Tüm orijinal V3 augmentasyonları korunur
+v3_augmented (84.54% WA) config'ini koruyarak N model farklı seed ile eğitir.
+Test'te tüm modellerin CTC log-prob'larını ortalar (ensemble).
 
-Hyperparameters (V3 baseline greedy_aachen_v3.py ile aynı):
-  optimizer  : AdamW(lr=7e-4, weight_decay=1e-5)
-  scheduler  : cosine warmup 5 epoch + cosine decay
-  epochs     : 100 (early stopping patience=15)
-  batch_size : 128
-  CNN freeze : yok (sıfırdan eğitim)
-  AMP        : enabled
+Değişiklikler:
+  + --n-ensemble N  : N model eğit (default 2), seeds=[42,123,456,...]
+  + epochs=100 (patience=15, val_loss — v3_augmented orijinal config)
+  + evaluate_ensemble(): log-prob ortalaması → tek greedy+trigram decode
+
+Augmentation (v3_augmented ile aynı):
+  + Elastic deformation + Morphological ops + Geniş fotometrik aralık
 
 Output:
-  Model_aachen_v3_augmented/best_model_wa.pth
-  results/v3_augmented_results.json
+  Model_aachen_v3_3/model_{seed}/best_model_wa.pth  (her model için)
+  results/v3_3_results.json
 """
 
 import argparse
@@ -29,7 +26,8 @@ import random
 from pathlib import Path
 from typing import List
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # cloud/v3.3/ → cloud/ → repo root
+sys.path.insert(0, str(REPO_ROOT / "cloud" / "v3.3"))  # v3.3/model_v3.py önce aranır
 sys.path.insert(0, str(REPO_ROOT / "cloud"))
 sys.path.insert(0, str(REPO_ROOT))
 
@@ -53,14 +51,11 @@ def parse_args():
     p.add_argument("--batch",        type=int,   default=128)
     p.add_argument("--lr",           type=float, default=7e-4)
     p.add_argument("--patience",     type=int,   default=15)
-    p.add_argument("--model-dir",    type=str,   default="Model_aachen_v3_augmented")
-    p.add_argument("--seed",         type=int,   default=42)
+    p.add_argument("--n-ensemble",   type=int,   default=2)
+    p.add_argument("--model-dir",    type=str,   default="Model_aachen_v3_3")
     p.add_argument("--baseline-csv", type=str,   default="")
     p.add_argument("--iam-words",    type=str,   default="")
     p.add_argument("--iam-root",     type=str,   default="")
-    p.add_argument("--aug-mode",     type=str,   default="full",
-                   choices=["full", "elastic", "morph", "photo", "narrow"],
-                   help="Augmentation ablation mode; 'full' = proposed AugCRNN-T.")
     return p.parse_args()
 
 
@@ -82,36 +77,10 @@ def _elastic_deform(img_np: np.ndarray, alpha: float, sigma: float) -> np.ndarra
     return cv2.remap(img_np, map_x, map_y, cv2.INTER_LINEAR, borderValue=1.0)
 
 
-# ── Ablation switch ──────────────────────────────────────────────────────────
-# Controls which of the two proposed transforms are active. Set from the CLI
-# via --aug-mode; "full" reproduces the published AugCRNN-T configuration.
-#   full    : wide photometric + elastic + morphological   (proposed)
-#   elastic : wide photometric + elastic
-#   morph   : wide photometric + morphological
-#   photo   : wide photometric only
-#   narrow  : baseline photometric only (CRNN-L configuration)
-AUG_MODE = "full"
-
-
-def _aug_flags(mode: str):
-    """Return (use_elastic, use_morph, use_wide_photometric) for a mode."""
-    return {
-        "full":    (True,  True,  True),
-        "elastic": (True,  False, True),
-        "morph":   (False, True,  True),
-        "photo":   (False, False, True),
-        "narrow":  (False, False, False),
-    }[mode]
-
-
 def _augment_v4(img: torch.Tensor) -> torch.Tensor:
     """
     Enhanced augmentation. img: float [1, H, W], bg=1.0 (white), text~0 (dark).
-    The two proposed transforms can be switched off individually through the
-    module-level AUG_MODE flag, which is what the ablation study in the paper
-    varies; every other transform is identical across all modes.
     """
-    use_elastic, use_morph, use_wide = _aug_flags(AUG_MODE)
     # Geometric (same as V3 baseline)
     if random.random() < 0.6:
         angle = random.uniform(-7, 7)
@@ -136,14 +105,14 @@ def _augment_v4(img: torch.Tensor) -> torch.Tensor:
                         interpolation=TF.InterpolationMode.BILINEAR, fill=1.0).squeeze(0)
 
     # NEW: elastic deformation (pen jitter / tremor)
-    if use_elastic and random.random() < 0.5:
+    if random.random() < 0.5:
         img_np = img.squeeze(0).cpu().numpy()
         img_np = _elastic_deform(img_np, alpha=random.uniform(2.0, 5.0), sigma=0.08)
         img = torch.from_numpy(img_np).unsqueeze(0).to(img.device)
 
     # NEW: morphological ops (pen thickness variation)
     # bg=1 (white), text=0: erode expands text (thicker), dilate thins it
-    if use_morph and random.random() < 0.3:
+    if random.random() < 0.3:
         img_np = img.squeeze(0).cpu().numpy()
         k = random.randint(1, 2)
         kernel = np.ones((k, k), np.uint8)
@@ -153,21 +122,17 @@ def _augment_v4(img: torch.Tensor) -> torch.Tensor:
             img_np = cv2.dilate(img_np, kernel)
         img = torch.from_numpy(np.clip(img_np, 0.0, 1.0)).unsqueeze(0).to(img.device)
 
-    # Photometric range: wide (0.70–1.35) for the proposed schedule,
-    # narrow (0.85–1.15) for the CRNN-L baseline schedule.
-    b_lo, b_hi = (0.70, 1.35) if use_wide else (0.85, 1.15)
-    g_lo, g_hi = (0.70, 1.30) if use_wide else (0.80, 1.20)
-    noise_sd = 0.05 if use_wide else 0.03
-
+    # Wider photometric range (0.70–1.35 vs V3's 0.85–1.15)
     if random.random() < 0.6:
-        img = TF.adjust_brightness(img, random.uniform(b_lo, b_hi))
-        img = TF.adjust_contrast(img, random.uniform(b_lo, b_hi))
+        img = TF.adjust_brightness(img, random.uniform(0.70, 1.35))
+        img = TF.adjust_contrast(img, random.uniform(0.70, 1.35))
+
+    # Slightly stronger noise (σ=0.05 vs V3's 0.03)
+    if random.random() < 0.4:
+        img = torch.clamp(img + torch.randn_like(img) * 0.05, 0.0, 1.0)
 
     if random.random() < 0.4:
-        img = torch.clamp(img + torch.randn_like(img) * noise_sd, 0.0, 1.0)
-
-    if random.random() < 0.4:
-        img = TF.adjust_gamma(img, random.uniform(g_lo, g_hi))
+        img = TF.adjust_gamma(img, random.uniform(0.70, 1.30))
 
     # Random erasing (same as V3)
     if random.random() < 0.3:
@@ -231,7 +196,14 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
 
     aachen_dir = repo_root / "aachen_splits" / "splits"
     if not aachen_dir.exists():
-        raise FileNotFoundError(f"Aachen split dizini bulunamadı: {aachen_dir}")
+        # Kaggle'da CWD=/kaggle/working ve notebook orayı kopyaladı
+        cwd_dir = Path(os.getcwd()) / "aachen_splits" / "splits"
+        if cwd_dir.exists():
+            aachen_dir = cwd_dir
+        else:
+            raise FileNotFoundError(
+                f"Aachen split dizini bulunamadı: {aachen_dir} veya {cwd_dir}"
+            )
 
     def _load_forms(name):
         p = aachen_dir / f"{name}.uttlist"
@@ -502,33 +474,101 @@ def compare_with_baseline(result: dict, baseline_csv: str) -> dict:
     }
 
 
+# ─────────────────────── Ensemble evaluation ─────────────────────────────────
+
+def evaluate_ensemble(models: list, test_loader, trigram_lm, model_dir: Path) -> dict:
+    """N modelin CTC log-prob'larını ortalayıp greedy+trigram decode yapar."""
+    for m in models:
+        m.eval()
+    all_preds, all_targets = [], []
+    cached_T = None
+
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images = images.to(DEVICE, non_blocking=True)
+            B = images.size(0)
+            ctx = torch.amp.autocast("cuda") if torch.cuda.is_available() else torch.no_grad()
+            with ctx:
+                lp_sum = models[0](images)
+                for m in models[1:]:
+                    lp_sum = lp_sum + m(images)
+                lp_avg = lp_sum / len(models)
+
+            if cached_T is None:
+                cached_T = lp_avg.size(0)
+            input_lengths = torch.full((B,), cached_T, dtype=torch.long, device=DEVICE)
+
+            preds = greedy_decode(lp_avg, input_lengths)
+            if trigram_lm:
+                corrected = []
+                for p in preds:
+                    txt = decode_labels(p)
+                    txt_c = trigram_lm.correct_word(txt)
+                    corrected.append([CHAR_LIST.index(c) for c in txt_c if c in CHAR_LIST])
+                all_preds.extend(corrected)
+            else:
+                all_preds.extend(preds)
+            all_targets.extend(labels)
+
+    cer, wa, wer = calculate_metrics(all_preds, all_targets)
+
+    pred_texts = [decode_labels(p) for p in all_preds]
+    true_texts = []
+    for t in all_targets:
+        if isinstance(t, torch.Tensor):
+            true_texts.append("".join(CHAR_LIST[i] for i in t.tolist() if i != PAD_TOKEN))
+        else:
+            true_texts.append(decode_labels(t))
+    correct_flags = [p.strip() == g.strip() for p, g in zip(pred_texts, true_texts)]
+
+    n = len(correct_flags)
+    ci_lo, ci_hi = wilson_ci(sum(correct_flags), n)
+
+    import csv
+    csv_path = model_dir / "test_results_analysis.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["idx", "ground_truth", "prediction", "correct"])
+        for i, (p, g, c) in enumerate(zip(pred_texts, true_texts, correct_flags)):
+            w.writerow([i, g, p, int(c)])
+
+    return {
+        "n_samples": n,
+        "word_accuracy": wa,
+        "word_accuracy_pct": round(wa * 100, 4),
+        "cer": cer,
+        "wer": wer,
+        "wilson_95ci": [round(ci_lo * 100, 4), round(ci_hi * 100, 4)],
+        "correct_flags": correct_flags,
+        "csv_path": str(csv_path),
+    }
+
+
 # ─────────────────────── Main ────────────────────────────────────────────────
 
 def main():
     args = parse_args()
-    torch.manual_seed(args.seed)
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-
-    global AUG_MODE
-    AUG_MODE = args.aug_mode
-    _el, _mo, _wi = _aug_flags(AUG_MODE)
-    print(f" Aug mode  : {AUG_MODE}  "
-          f"(elastic={_el}, morphological={_mo}, wide photometric={_wi})")
 
     model_dir = REPO_ROOT / args.model_dir
     model_dir.mkdir(parents=True, exist_ok=True)
 
+    # CWD-based: Kaggle'da /kaggle/working/results (writable), local'de repo/results
+    results_dir = Path(os.getcwd()) / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    seeds = [42, 123, 456, 789, 2024][: args.n_ensemble]
+
     print("=" * 60)
-    print(" V3 Augmented — IAM Aachen (scratch)")
-    print(f" Device    : {DEVICE}")
-    print(f" Epochs    : {args.epochs}  LR: {args.lr}  Batch: {args.batch}")
-    print(f" Patience  : {args.patience}")
-    print(f" Model dir : {model_dir}")
+    print(" V3.3 — IAM Aachen Ensemble (scratch)")
+    print(f" Device     : {DEVICE}")
+    print(f" Epochs     : {args.epochs}  LR: {args.lr}  Batch: {args.batch}")
+    print(f" Patience   : {args.patience}  (val_loss)")
+    print(f" N ensemble : {args.n_ensemble}  seeds={seeds}")
+    print(f" Model dir  : {model_dir}")
     print("=" * 60)
 
-    # ── Data ─────────────────────────────────────────────────────────────────
-    print("\n[1/4] Loading IAM Aachen dataset...")
+    # ── Data (bir kez yükle, tüm modeller paylaşır) ──────────────────────────
+    print("\n[1/3] Loading IAM Aachen dataset...")
     (train_imgs, train_labs,
      val_imgs,   val_labs,
      test_imgs,  test_labs) = load_iam_aachen(
@@ -537,8 +577,6 @@ def main():
         iam_root_override=args.iam_root,
     )
 
-    # ── DataLoaders ───────────────────────────────────────────────────────────
-    print("\n[2/4] Creating DataLoaders (IAMDatasetV4 with elastic + morph aug)...")
     train_ds = IAMDatasetV4(train_imgs, train_labs, is_training=True,  device=DEVICE)
     val_ds   = IAMDatasetV4(val_imgs,   val_labs,   is_training=False, device=DEVICE)
     test_ds  = IAMDatasetV4(test_imgs,  test_labs,  is_training=False, device=DEVICE)
@@ -558,7 +596,7 @@ def main():
     trigram_lm = None
     lm_src = _find_path([
         str(REPO_ROOT / "aachen_splits" / "train_words.txt"),
-        args.iam_words,   # Kaggle'da zaten mevcut — en geniş vocab
+        args.iam_words,
         str(REPO_ROOT / "HTR_Using_CRNN" / "IAM" / "processed" / "archive" /
             "iam_words" / "words.txt"),
     ])
@@ -570,89 +608,100 @@ def main():
         except ImportError:
             print("  ⚠️  trigram_lm.py bulunamadı, trigram'sız devam")
 
-    # ── Model (scratch) ───────────────────────────────────────────────────────
-    print("\n[3/4] Building V3 model from scratch...")
-    model = CRNNModel(img_height=32, img_width=128, num_classes=len(CHAR_LIST) + 1)
-    n_params = sum(p.numel() for p in model.parameters())
-    print(f"  Parameters: {n_params/1e6:.2f}M")
+    # ── N model eğit ─────────────────────────────────────────────────────────
+    print(f"\n[2/3] {args.n_ensemble} model eğitiliyor...")
+    trained_models = []
+    individual_wa_pcts = []
 
-    trainer = CRNNTrainer(
-        model,
-        lr=args.lr,
-        warmup_epochs=5,
-        total_epochs=args.epochs,
-        patience=args.patience,
-        model_dir=str(model_dir),
-        device=DEVICE,
-        trigram_lm=trigram_lm,
-    )
+    for i, seed in enumerate(seeds):
+        print(f"\n{'='*60}")
+        print(f" MODEL {i+1}/{args.n_ensemble}  seed={seed}")
+        print(f"{'='*60}")
+        torch.manual_seed(seed)
+        random.seed(seed)
+        np.random.seed(seed)
 
-    history = trainer.train(train_loader, val_loader, epochs=args.epochs, cnn_freeze_epochs=0)
+        sub_dir = model_dir / f"model_{seed}"
+        sub_dir.mkdir(parents=True, exist_ok=True)
 
-    results_dir = REPO_ROOT / "results"
-    results_dir.mkdir(exist_ok=True)
-    save_training_log(history, model_dir, results_dir)
+        model_i = CRNNModel(img_height=32, img_width=128, num_classes=len(CHAR_LIST) + 1)
+        trainer_i = CRNNTrainer(
+            model_i,
+            lr=args.lr,
+            warmup_epochs=5,
+            total_epochs=args.epochs,
+            patience=args.patience,
+            model_dir=str(sub_dir),
+            device=DEVICE,
+            trigram_lm=trigram_lm,
+        )
+        history_i = trainer_i.train(train_loader, val_loader,
+                                    epochs=args.epochs, cnn_freeze_epochs=0)
 
-    # ── Test evaluation (ONE-SHOT) ────────────────────────────────────────────
-    print("\n[4/4] Evaluating on Aachen test set (ONE-SHOT)...")
+        log_dir = results_dir / f"log_seed{seed}"
+        log_dir.mkdir(exist_ok=True)
+        save_training_log(history_i, sub_dir, log_dir)
+
+        ckpt = sub_dir / "best_model_wa.pth"
+        model_i.load_state_dict(torch.load(str(ckpt), map_location=DEVICE))
+        model_i.eval()
+        trained_models.append(model_i)
+
+        best_val = max(history_i["val_wa"]) * 100
+        individual_wa_pcts.append(round(best_val, 4))
+        print(f"\n  Model {i+1} tamamlandı — best val WA: {best_val:.2f}%")
+
+    # ── Ensemble test (ONE-SHOT) ──────────────────────────────────────────────
+    print(f"\n[3/3] Ensemble test değerlendirmesi (ONE-SHOT, {args.n_ensemble} model)...")
     print("  KURALLAR: test set'e sadece bir kez bakılır.")
 
-    best_ckpt = model_dir / "best_model_wa.pth"
-    if best_ckpt.exists():
-        model.load_state_dict(torch.load(str(best_ckpt), map_location=DEVICE))
-        print(f"  Best WA checkpoint yüklendi: {best_ckpt}")
-
-    test_result = evaluate_test_set(model, test_loader, trigram_lm, model_dir)
+    ensemble_result = evaluate_ensemble(trained_models, test_loader, trigram_lm, model_dir)
 
     # McNemar vs V3 baseline
     mcnemar_result = {}
-    baseline_csv = args.baseline_csv or str(REPO_ROOT / "Model_aachen_v3" / "test_results_analysis.csv")
+    baseline_csv = args.baseline_csv or str(
+        REPO_ROOT / "Model_aachen_v3" / "test_results_analysis.csv"
+    )
     if os.path.exists(baseline_csv):
         print(f"  McNemar baseline: {baseline_csv}")
-        mcnemar_result = compare_with_baseline(test_result, baseline_csv)
-
-    # WBS evaluation
-    print("\n  Word Beam Search değerlendirmesi ...")
-    wbs_result = evaluate_wbs(model, test_loader, args.iam_words)
+        mcnemar_result = compare_with_baseline(ensemble_result, baseline_csv)
 
     # Save results
     final = {
-        "phase": "v3_augmented",
-        "model": "V3_scratch_elastic_morph",
-        "greedy_trigram_wa_pct": test_result["word_accuracy_pct"],
-        "greedy_trigram_cer_pct": round(test_result["cer"] * 100, 4),
-        "greedy_trigram_wilson_95ci_pct": test_result["wilson_95ci"],
-        "wbs_wa_pct": wbs_result.get("wa_pct"),
-        "wbs_cer_pct": wbs_result.get("cer_pct"),
-        "wbs_wilson_95ci_pct": wbs_result.get("wilson_95ci_pct"),
-        "n_samples": test_result["n_samples"],
+        "phase": "v3_3",
+        "model": "V3_3_ensemble",
+        "n_ensemble": args.n_ensemble,
+        "seeds": seeds,
+        "individual_best_val_wa_pcts": individual_wa_pcts,
+        "ensemble_wa_pct": ensemble_result["word_accuracy_pct"],
+        "ensemble_cer_pct": round(ensemble_result["cer"] * 100, 4),
+        "ensemble_wilson_95ci_pct": ensemble_result["wilson_95ci"],
+        "n_samples": ensemble_result["n_samples"],
         "mcnemar_vs_v3_base": mcnemar_result,
-        "training_best_val_wa_pct": round(max(history["val_wa"]) * 100, 4),
+        "test_wa_pct": ensemble_result["word_accuracy_pct"],
     }
-    # Geriye dönük uyumluluk için test_wa_pct en iyi sonucu gösterir
-    best_wa = max(filter(None, [final["greedy_trigram_wa_pct"], final["wbs_wa_pct"]]))
-    final["test_wa_pct"] = best_wa
 
-    out_path = results_dir / "v3_augmented_results.json"
+    out_path = results_dir / "v3_3_results.json"
     with open(out_path, "w") as f:
         json.dump(final, f, indent=2)
 
     print("\n" + "=" * 60)
     print(" SONUÇ")
     print("=" * 60)
-    print(f" Greedy+Trigram WA: {final['greedy_trigram_wa_pct']:.2f}%")
-    if wbs_result:
-        print(f" WBS WA           : {final['wbs_wa_pct']:.2f}%")
-    ci = final["greedy_trigram_wilson_95ci_pct"]
-    print(f" Wilson 95% CI    : [{ci[0]:.2f}%, {ci[1]:.2f}%]")
-    print(f" Best Val WA      : {final['training_best_val_wa_pct']:.2f}%")
-    print(f" N samples        : {final['n_samples']:,}")
+    for j, (s, wa) in enumerate(zip(seeds, individual_wa_pcts)):
+        print(f" Model {j+1} (seed={s}) val WA : {wa:.2f}%")
+    print(f"\n Ensemble Test WA  : {final['ensemble_wa_pct']:.2f}%")
+    ci = final["ensemble_wilson_95ci_pct"]
+    print(f" Wilson 95% CI     : [{ci[0]:.2f}%, {ci[1]:.2f}%]")
+    print(f" Ensemble CER      : {final['ensemble_cer_pct']:.2f}%")
+    print(f" N samples         : {final['n_samples']:,}")
     if mcnemar_result:
         print(f"\n McNemar vs V3-base")
-        print(f" Baseline WA      : {mcnemar_result['baseline_wa_pct']:.2f}%")
-        print(f" Delta            : {mcnemar_result['delta_pp']:+.2f}pp")
-        print(f" p-value          : {mcnemar_result['mcnemar_p']:.2e}")
-    print(f"\n Results: {out_path}")
+        print(f" Baseline WA       : {mcnemar_result['baseline_wa_pct']:.2f}%")
+        print(f" Delta             : {mcnemar_result['delta_pp']:+.2f}pp")
+        print(f" p-value           : {mcnemar_result['mcnemar_p']:.2e}")
+    print(f"\n v3_augmented (84.54%) delta: {final['ensemble_wa_pct']-84.5448:+.2f}pp")
+    print(f" Results: {out_path}")
     print("=" * 60)
 
 

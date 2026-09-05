@@ -1,24 +1,28 @@
 #!/usr/bin/env python3
 """
-V3 Augmented — IAM Aachen Training from Scratch
+V3.2 — IAM Aachen Training from Scratch
 
-V3 mimarisini sıfırdan IAM üzerinde eğitir, güçlendirilmiş augmentation ile:
+v3_augmented (84.54% WA) üzerine iki düzeltme:
+  B1: Early stopping artık val_loss değil val_wa izliyor (model_v3.py'de)
+      → v3_augmented ep51'de val_wa tüm zamanların en yükseğindeyken durdu
+  B2: Epochs 60→80, patience 15→20 (val_wa daha gürültülü olabiliyor)
+
+Augmentation (v3_augmented ile aynı):
   + Elastic deformation  (doğal kalem titremesi simülasyonu)
   + Morphological ops    (kalem kalınlığı varyasyonu)
-  + Daha geniş brightness/contrast aralığı
-  + Tüm orijinal V3 augmentasyonları korunur
+  + Daha geniş brightness/contrast aralığı (0.70–1.35)
 
-Hyperparameters (V3 baseline greedy_aachen_v3.py ile aynı):
+Hyperparameters:
   optimizer  : AdamW(lr=7e-4, weight_decay=1e-5)
   scheduler  : cosine warmup 5 epoch + cosine decay
-  epochs     : 100 (early stopping patience=15)
+  epochs     : 80 (early stopping patience=20, val_wa üzerinde)
   batch_size : 128
   CNN freeze : yok (sıfırdan eğitim)
   AMP        : enabled
 
 Output:
-  Model_aachen_v3_augmented/best_model_wa.pth
-  results/v3_augmented_results.json
+  Model_aachen_v3_2/best_model_wa.pth
+  results/v3_2_results.json
 """
 
 import argparse
@@ -30,6 +34,8 @@ from pathlib import Path
 from typing import List
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# v3.2/model_v3.py (B1 fix) önce aranır, sonra cloud/ (diğer modüller)
+sys.path.insert(0, str(REPO_ROOT / "cloud" / "v3.2"))
 sys.path.insert(0, str(REPO_ROOT / "cloud"))
 sys.path.insert(0, str(REPO_ROOT))
 
@@ -49,18 +55,15 @@ from torch.utils.data import DataLoader
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--epochs",       type=int,   default=100)
+    p.add_argument("--epochs",       type=int,   default=80)
     p.add_argument("--batch",        type=int,   default=128)
     p.add_argument("--lr",           type=float, default=7e-4)
-    p.add_argument("--patience",     type=int,   default=15)
-    p.add_argument("--model-dir",    type=str,   default="Model_aachen_v3_augmented")
+    p.add_argument("--patience",     type=int,   default=20)
+    p.add_argument("--model-dir",    type=str,   default="Model_aachen_v3_2")
     p.add_argument("--seed",         type=int,   default=42)
     p.add_argument("--baseline-csv", type=str,   default="")
     p.add_argument("--iam-words",    type=str,   default="")
     p.add_argument("--iam-root",     type=str,   default="")
-    p.add_argument("--aug-mode",     type=str,   default="full",
-                   choices=["full", "elastic", "morph", "photo", "narrow"],
-                   help="Augmentation ablation mode; 'full' = proposed AugCRNN-T.")
     return p.parse_args()
 
 
@@ -82,36 +85,10 @@ def _elastic_deform(img_np: np.ndarray, alpha: float, sigma: float) -> np.ndarra
     return cv2.remap(img_np, map_x, map_y, cv2.INTER_LINEAR, borderValue=1.0)
 
 
-# ── Ablation switch ──────────────────────────────────────────────────────────
-# Controls which of the two proposed transforms are active. Set from the CLI
-# via --aug-mode; "full" reproduces the published AugCRNN-T configuration.
-#   full    : wide photometric + elastic + morphological   (proposed)
-#   elastic : wide photometric + elastic
-#   morph   : wide photometric + morphological
-#   photo   : wide photometric only
-#   narrow  : baseline photometric only (CRNN-L configuration)
-AUG_MODE = "full"
-
-
-def _aug_flags(mode: str):
-    """Return (use_elastic, use_morph, use_wide_photometric) for a mode."""
-    return {
-        "full":    (True,  True,  True),
-        "elastic": (True,  False, True),
-        "morph":   (False, True,  True),
-        "photo":   (False, False, True),
-        "narrow":  (False, False, False),
-    }[mode]
-
-
 def _augment_v4(img: torch.Tensor) -> torch.Tensor:
     """
     Enhanced augmentation. img: float [1, H, W], bg=1.0 (white), text~0 (dark).
-    The two proposed transforms can be switched off individually through the
-    module-level AUG_MODE flag, which is what the ablation study in the paper
-    varies; every other transform is identical across all modes.
     """
-    use_elastic, use_morph, use_wide = _aug_flags(AUG_MODE)
     # Geometric (same as V3 baseline)
     if random.random() < 0.6:
         angle = random.uniform(-7, 7)
@@ -136,14 +113,14 @@ def _augment_v4(img: torch.Tensor) -> torch.Tensor:
                         interpolation=TF.InterpolationMode.BILINEAR, fill=1.0).squeeze(0)
 
     # NEW: elastic deformation (pen jitter / tremor)
-    if use_elastic and random.random() < 0.5:
+    if random.random() < 0.5:
         img_np = img.squeeze(0).cpu().numpy()
         img_np = _elastic_deform(img_np, alpha=random.uniform(2.0, 5.0), sigma=0.08)
         img = torch.from_numpy(img_np).unsqueeze(0).to(img.device)
 
     # NEW: morphological ops (pen thickness variation)
     # bg=1 (white), text=0: erode expands text (thicker), dilate thins it
-    if use_morph and random.random() < 0.3:
+    if random.random() < 0.3:
         img_np = img.squeeze(0).cpu().numpy()
         k = random.randint(1, 2)
         kernel = np.ones((k, k), np.uint8)
@@ -153,21 +130,17 @@ def _augment_v4(img: torch.Tensor) -> torch.Tensor:
             img_np = cv2.dilate(img_np, kernel)
         img = torch.from_numpy(np.clip(img_np, 0.0, 1.0)).unsqueeze(0).to(img.device)
 
-    # Photometric range: wide (0.70–1.35) for the proposed schedule,
-    # narrow (0.85–1.15) for the CRNN-L baseline schedule.
-    b_lo, b_hi = (0.70, 1.35) if use_wide else (0.85, 1.15)
-    g_lo, g_hi = (0.70, 1.30) if use_wide else (0.80, 1.20)
-    noise_sd = 0.05 if use_wide else 0.03
-
+    # Wider photometric range (0.70–1.35 vs V3's 0.85–1.15)
     if random.random() < 0.6:
-        img = TF.adjust_brightness(img, random.uniform(b_lo, b_hi))
-        img = TF.adjust_contrast(img, random.uniform(b_lo, b_hi))
+        img = TF.adjust_brightness(img, random.uniform(0.70, 1.35))
+        img = TF.adjust_contrast(img, random.uniform(0.70, 1.35))
+
+    # Slightly stronger noise (σ=0.05 vs V3's 0.03)
+    if random.random() < 0.4:
+        img = torch.clamp(img + torch.randn_like(img) * 0.05, 0.0, 1.0)
 
     if random.random() < 0.4:
-        img = torch.clamp(img + torch.randn_like(img) * noise_sd, 0.0, 1.0)
-
-    if random.random() < 0.4:
-        img = TF.adjust_gamma(img, random.uniform(g_lo, g_hi))
+        img = TF.adjust_gamma(img, random.uniform(0.70, 1.30))
 
     # Random erasing (same as V3)
     if random.random() < 0.3:
@@ -510,17 +483,11 @@ def main():
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    global AUG_MODE
-    AUG_MODE = args.aug_mode
-    _el, _mo, _wi = _aug_flags(AUG_MODE)
-    print(f" Aug mode  : {AUG_MODE}  "
-          f"(elastic={_el}, morphological={_mo}, wide photometric={_wi})")
-
     model_dir = REPO_ROOT / args.model_dir
     model_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60)
-    print(" V3 Augmented — IAM Aachen (scratch)")
+    print(" V3.2 — IAM Aachen (scratch) [B1: early-stop on val_wa, B2: ep=80/pat=20]")
     print(f" Device    : {DEVICE}")
     print(f" Epochs    : {args.epochs}  LR: {args.lr}  Batch: {args.batch}")
     print(f" Patience  : {args.patience}")
@@ -617,8 +584,8 @@ def main():
 
     # Save results
     final = {
-        "phase": "v3_augmented",
-        "model": "V3_scratch_elastic_morph",
+        "phase": "v3_2",
+        "model": "V3_2_early_stop_wa",
         "greedy_trigram_wa_pct": test_result["word_accuracy_pct"],
         "greedy_trigram_cer_pct": round(test_result["cer"] * 100, 4),
         "greedy_trigram_wilson_95ci_pct": test_result["wilson_95ci"],
@@ -633,7 +600,7 @@ def main():
     best_wa = max(filter(None, [final["greedy_trigram_wa_pct"], final["wbs_wa_pct"]]))
     final["test_wa_pct"] = best_wa
 
-    out_path = results_dir / "v3_augmented_results.json"
+    out_path = results_dir / "v3_2_results.json"
     with open(out_path, "w") as f:
         json.dump(final, f, indent=2)
 
