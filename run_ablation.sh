@@ -32,6 +32,10 @@ case "${1:-main}" in
   *)           MODES="$1" ;;
 esac
 
+# Python pipe'a yazarken tamponlar; tee ile ilerleme gorunmez olur.
+export PYTHONUNBUFFERED=1
+export PYTHONIOENCODING=utf-8
+
 mkdir -p logs
 
 echo "=============================================================="

@@ -19,6 +19,11 @@ param(
 
 $ErrorActionPreference = "Continue"
 
+# Python pipe'a yazarken ciktisini tamponlar; Tee-Object ile birlikte
+# ilerleme ne konsolda ne log dosyasinda gorunur. Tamponlamayi kapatiyoruz.
+$env:PYTHONUNBUFFERED = "1"
+$env:PYTHONIOENCODING = "utf-8"
+
 switch ($Set) {
     "main"       { $modes = @("narrow", "full") }
     "components" { $modes = @("photo", "elastic", "morph") }
@@ -53,7 +58,7 @@ foreach ($m in $modes) {
     Write-Host "=============================================================="
     $t0 = Get-Date
 
-    python cloud/v3_augmented_train.py --aug-mode $m --epochs $Epochs --batch $Batch --lr $Lr --patience $Patience --model-dir $dir 2>&1 | Tee-Object -FilePath $log
+    python cloud/v3_augmented_train.py --aug-mode $m --epochs $Epochs --batch $Batch --lr $Lr --patience $Patience --model-dir $dir 2>&1 | Tee-Object -FilePath $log -Encoding utf8
 
     $rc = $LASTEXITCODE
     $mins = [int]((Get-Date) - $t0).TotalMinutes
