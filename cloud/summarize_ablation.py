@@ -22,8 +22,13 @@ def main():
     print("-" * 70)
     seen = False
     for m in ORDER:
-        p = os.path.join(root, f"Model_abl_{m}", "test_results_analysis.csv")
-        if not os.path.exists(p):
+        # Dizin adi iki bicimde olabilir: Model_abl_<mod> (run_ablation
+        # scriptleri) veya abl_<mod> (elle calistirma). Ikisini de ara.
+        p = next((c for c in
+                  (os.path.join(root, f"Model_abl_{m}", "test_results_analysis.csv"),
+                   os.path.join(root, f"abl_{m}", "test_results_analysis.csv"))
+                  if os.path.exists(c)), None)
+        if p is None:
             print(f"{LBL[m]:<24}{'-':>9}{'(kosulmadi)':>20}")
             continue
         seen = True

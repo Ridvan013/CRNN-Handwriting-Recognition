@@ -135,14 +135,26 @@ def main():
         skip("her kaydin goruntusu var",
              f"goruntu dizini yok ({IMG_ROOT}); --img-root ile belirtilebilir")
     else:
-        missing = 0
+        missing, empty = 0, []
         for v in recs.values():
             for r in v:
                 w = r[0]
                 p = os.path.join(IMG_ROOT, w.split("-")[0], form_of(w), w + ".png")
                 if not os.path.exists(p):
                     missing += 1
+                elif os.path.getsize(p) == 0:
+                    empty.append(w)
         check("her kaydin goruntusu var", missing == 0, f"eksik {missing}")
+        # IAM dagitiminda iki dosya 0 bayt gelir: a01-117-05-02 ve
+        # r06-022-03-05. Bunlar egitim sirasinda atlanir (skipped:2). Baska
+        # bozuk dosya cikarsa veri kopyasi eksik indirilmis demektir.
+        KNOWN_EMPTY = {"a01-117-05-02", "r06-022-03-05"}
+        unexpected = sorted(set(empty) - KNOWN_EMPTY)
+        check("bozuk (0 bayt) goruntu yalniz bilinen 2 dosya",
+              not unexpected,
+              f"toplam {len(empty)} bos" +
+              (f", BEKLENMEYEN: {', '.join(unexpected[:5])}" if unexpected
+               else " (ikisi de bilinen, egitimde atlanir)"))
 
     ok = all(results)
     print(f"\n{'=' * 60}")
