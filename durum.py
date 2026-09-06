@@ -15,22 +15,48 @@ try:
 except Exception:
     pass
 
-# Egitim surecini komut satirindan tespit et. tasklist yalnizca "python.exe"
-# der; bu betigin KENDISI de python.exe oldugu icin onu saymak yaniltici olur
-# (once "1 surec -> egitim suruyor" yaziyordu, oysa egitim olmustu).
-try:
-    out = subprocess.run(
-        ["wmic", "process", "where", "name='python.exe'", "get",
-         "ProcessId,CommandLine", "/format:csv"],
-        capture_output=True, text=True, timeout=20).stdout
-except Exception:
-    out = ""
-train_pids = [ln for ln in out.splitlines()
-              if "v3_augmented_train" in ln or "ablation_lexicon" in ln]
-if train_pids:
-    print(f"  Egitim sureci: {len(train_pids)} (ana + isciler)  -> CALISIYOR")
+# Egitim surecini komut satirindan tespit et.
+#  - tasklist yalnizca "python.exe" der; bu betigin KENDISI de python.exe
+#    oldugu icin onu saymak yanilticiydi.
+#  - wmic Windows 11 24H2+ surumlerinde KALDIRILDI, bos donuyordu ve
+#    "EGITIM CALISMIYOR" diye yanlis alarm veriyordu.
+# Bu yuzden once psutil, olmazsa PowerShell Get-CimInstance kullaniyoruz.
+MARKERS = ("v3_augmented_train", "ablation_lexicon")
+
+
+def _training_procs():
+    try:
+        import psutil
+        out = []
+        for pr in psutil.process_iter(["name", "cmdline"]):
+            try:
+                cmd = " ".join(pr.info["cmdline"] or [])
+            except Exception:
+                continue
+            if any(m in cmd for m in MARKERS):
+                out.append(pr.pid)
+        return out, "psutil"
+    except ImportError:
+        pass
+    try:
+        ps = ("Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
+              "Where-Object { $_.CommandLine -match "
+              "'v3_augmented_train|ablation_lexicon' } | "
+              "Select-Object -ExpandProperty ProcessId")
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                           capture_output=True, text=True, timeout=30).stdout
+        return [ln.strip() for ln in r.splitlines() if ln.strip().isdigit()], "powershell"
+    except Exception as exc:
+        return None, f"tespit edilemedi ({exc})"
+
+
+pids, how = _training_procs()
+if pids is None:
+    print(f"  Egitim sureci: BILINMIYOR  ({how})")
+elif pids:
+    print(f"  Egitim sureci: {len(pids)} adet {tuple(pids)}  -> CALISIYOR   [{how}]")
 else:
-    print("  Egitim sureci: YOK  -> EGITIM CALISMIYOR")
+    print(f"  Egitim sureci: YOK  -> EGITIM CALISMIYOR   [{how}]")
     print("     (bittiyse asagida 'BITTI' gorursunuz; gorunmuyorsa kosu"
           " yarida kesilmis demektir)")
 print()
