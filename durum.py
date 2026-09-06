@@ -15,11 +15,24 @@ try:
 except Exception:
     pass
 
-running = subprocess.run(["tasklist", "/FI", "IMAGENAME eq python.exe"],
-                         capture_output=True, text=True).stdout
-n_py = running.count("python.exe")
-print(f"  Calisan python sureci: {n_py}"
-      + ("  -> egitim suruyor" if n_py else "  -> egitim CALISMIYOR"))
+# Egitim surecini komut satirindan tespit et. tasklist yalnizca "python.exe"
+# der; bu betigin KENDISI de python.exe oldugu icin onu saymak yaniltici olur
+# (once "1 surec -> egitim suruyor" yaziyordu, oysa egitim olmustu).
+try:
+    out = subprocess.run(
+        ["wmic", "process", "where", "name='python.exe'", "get",
+         "ProcessId,CommandLine", "/format:csv"],
+        capture_output=True, text=True, timeout=20).stdout
+except Exception:
+    out = ""
+train_pids = [ln for ln in out.splitlines()
+              if "v3_augmented_train" in ln or "ablation_lexicon" in ln]
+if train_pids:
+    print(f"  Egitim sureci: {len(train_pids)} (ana + isciler)  -> CALISIYOR")
+else:
+    print("  Egitim sureci: YOK  -> EGITIM CALISMIYOR")
+    print("     (bittiyse asagida 'BITTI' gorursunuz; gorunmuyorsa kosu"
+          " yarida kesilmis demektir)")
 print()
 
 for m in MODES:

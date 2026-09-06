@@ -58,9 +58,10 @@ def parse_args():
     p.add_argument("--baseline-csv", type=str,   default="")
     p.add_argument("--iam-words",    type=str,   default="")
     p.add_argument("--iam-root",     type=str,   default="")
-    p.add_argument("--num-workers", type=int, default=4,
-                   help="DataLoader isci sayisi. Augmentation CPU'da yapildigi "
-                        "icin 0 cok yavas; 4 varsayilan. RAM azsa dusurun.")
+    p.add_argument("--num-workers", type=int, default=0,
+                   help="DataLoader isci sayisi. VARSAYILAN 0 (guvenli): her "
+                        "isci veri kopyasi tasidigi icin Windows'ta bellek "
+                        "yetmezse kosu sessizce olur. Bol RAM varsa 2 deneyin.")
     p.add_argument("--aug-mode",     type=str,   default="full",
                    choices=["full", "elastic", "morph", "photo", "narrow"],
                    help="Augmentation ablation mode; 'full' = proposed AugCRNN-T.")
@@ -616,15 +617,15 @@ def main():
     _pw = _nw > 0          # persistent_workers + pin_memory
     train_loader = DataLoader(train_ds, batch_size=args.batch, shuffle=True,
                               num_workers=_nw, pin_memory=_pw,
-                              persistent_workers=_pw, drop_last=True,
+                              persistent_workers=False, drop_last=True,
                               collate_fn=custom_collate_fn)
     val_loader   = DataLoader(val_ds,   batch_size=args.batch, shuffle=False,
                               num_workers=_nw, pin_memory=_pw,
-                              persistent_workers=_pw, drop_last=False,
+                              persistent_workers=False, drop_last=False,
                               collate_fn=custom_collate_fn)
     test_loader  = DataLoader(test_ds,  batch_size=args.batch, shuffle=False,
                               num_workers=_nw, pin_memory=_pw,
-                              persistent_workers=_pw, drop_last=False,
+                              persistent_workers=False, drop_last=False,
                               collate_fn=custom_collate_fn)
     print(f"  train:{len(train_loader)} batches | val:{len(val_loader)} | test:{len(test_loader)}")
 
