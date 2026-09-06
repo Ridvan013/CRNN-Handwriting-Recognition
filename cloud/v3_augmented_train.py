@@ -45,6 +45,7 @@ import numpy as np
 import cv2
 import torchvision.transforms.functional as TF
 from torch.utils.data import DataLoader
+from gpu_aug import GPUBatchLoader, resize_to_aug_res, configure_elastic, AUG_H, AUG_W
 
 
 def parse_args():
@@ -62,6 +63,16 @@ def parse_args():
                    help="DataLoader isci sayisi. VARSAYILAN 0 (guvenli): her "
                         "isci veri kopyasi tasidigi icin Windows'ta bellek "
                         "yetmezse kosu sessizce olur. Bol RAM varsa 2 deneyin.")
+    p.add_argument("--gpu-aug", type=int, default=1, choices=[0, 1],
+                   help="1 (varsayilan): toplu GPU augmentation, veri kumesi GPU'da. "
+                        "0: eski per-image DataLoader yolu.")
+    p.add_argument("--no-cache", action="store_true",
+                   help="On-islenmis goruntu onbellegini (cache/) ne oku ne yaz.")
+    p.add_argument("--elastic-alpha", type=float, nargs=2, default=[2.0, 5.0],
+                   metavar=("LO", "HI"), help="Elastik deformasyon genligi araligi.")
+    p.add_argument("--elastic-legacy-amplitude", type=int, default=1, choices=[0, 1],
+                   help="1: orijinal kod gibi alpha normalize edilmis blur'u carpar "
+                        "(~0.1 px RMS, neredeyse no-op). 0: alpha = RMS yer degistirme (px).")
     p.add_argument("--aug-mode",     type=str,   default="full",
                    choices=["full", "elastic", "morph", "photo", "narrow"],
                    help="Augmentation ablation mode; 'full' = proposed AugCRNN-T.")
@@ -219,7 +230,8 @@ def _find_path(candidates: List[str]) -> str:
     return None
 
 
-def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_override: str = ""):
+def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_override: str = "",
+                    use_cache: bool = True):
     words_file = iam_words_override or _find_path([
         str(repo_root / "HTR_Using_CRNN/IAM/processed/archive/iam_words/words.txt"),
         str(repo_root / "words.txt"),
@@ -288,6 +300,25 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
                 # forms outside the official Aachen partitions are SKIPPED:
                 # their writers may overlap val/test writers.
 
+    # ---- on-islenmis goruntu onbellegi ---------------------------------
+    # 75k PNG'yi okuyup 64x256'ya getirmek ~7 dk suruyor; bes ablation kosusu
+    # icin bir kez yapip cache/ altina yaziyoruz. Anahtar, split dosyalarinin
+    # icerigi + calisma cozunurlugu: split degisirse onbellek gecersiz olur.
+    import hashlib
+    _h = hashlib.md5()
+    for _k in ("train", "val", "test"):
+        _f = split_files[_k]
+        if _f.exists():
+            _h.update(_f.read_bytes())
+    _h.update(f"{AUG_H}x{AUG_W}".encode())
+    cache_path = repo_root / "cache" / f"aachen_{_h.hexdigest()[:12]}_{AUG_H}x{AUG_W}.npz"
+    if use_cache and cache_path.exists():
+        _z = np.load(cache_path, allow_pickle=True)
+        _out = tuple(list(_z[k]) for k in ("train_x", "train_y", "val_x", "val_y", "test_x", "test_y"))
+        print(f"  Cache     : {cache_path.name}")
+        print(f"  Loaded — train:{len(_out[0]):,} val:{len(_out[2]):,} test:{len(_out[4]):,}  (onbellekten)")
+        return _out
+
     train_imgs, train_labs = [], []
     val_imgs,   val_labs   = [], []
     test_imgs,  test_labs  = [], []
@@ -314,6 +345,7 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
 
         try:
             img = process_image_cpu_minimal(img)
+            img = resize_to_aug_res(img)          # 64x256 calisma cozunurlugu
             lab = encode_to_labels(word)
         except Exception:
             skipped += 1
@@ -328,6 +360,18 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
 
     print(f"  Loaded — train:{len(train_imgs):,} val:{len(val_imgs):,} "
           f"test:{len(test_imgs):,}  skipped:{skipped:,}")
+    if use_cache:
+        cache_path.parent.mkdir(exist_ok=True)
+        def _obj(ls):
+            _a = np.empty(len(ls), dtype=object)
+            for _i, _v in enumerate(ls):
+                _a[_i] = list(map(int, _v))
+            return _a
+        np.savez(cache_path,
+                 train_x=np.stack(train_imgs), train_y=_obj(train_labs),
+                 val_x=np.stack(val_imgs),     val_y=_obj(val_labs),
+                 test_x=np.stack(test_imgs),   test_y=_obj(test_labs))
+        print(f"  Cache     : yazildi -> {cache_path}")
     return train_imgs, train_labs, val_imgs, val_labs, test_imgs, test_labs
 
 
@@ -572,6 +616,10 @@ def main():
 
     global AUG_MODE
     AUG_MODE = args.aug_mode
+    configure_elastic(args.elastic_alpha[0], args.elastic_alpha[1],
+                      bool(args.elastic_legacy_amplitude))
+    print(f" Elastic   : alpha {args.elastic_alpha[0]:g}-{args.elastic_alpha[1]:g}  "
+          f"{'legacy amplitude (~no-op)' if args.elastic_legacy_amplitude else 'RMS px (fixed)'}")
     _el, _mo, _wi = _aug_flags(AUG_MODE)
     print(f" Aug mode  : {AUG_MODE}  "
           f"(elastic={_el}, morphological={_mo}, wide photometric={_wi})")
@@ -595,7 +643,7 @@ def main():
         REPO_ROOT,
         iam_words_override=args.iam_words,
         iam_root_override=args.iam_root,
-    )
+     use_cache=not args.no_cache)
 
     # ── DataLoaders ───────────────────────────────────────────────────────────
     print("\n[2/4] Creating DataLoaders (IAMDatasetV4 with elastic + morph aug)...")
@@ -605,28 +653,37 @@ def main():
     # CPU'da tutunca augmentation DataLoader iscileri arasinda paralellesiyor;
     # batch'i GPU'ya tasima isini egitim/degerlendirme donguleri zaten
     # kendileri yapiyor (model_v3.py: images.to(self.device)).
-    _ds_device = "cpu" if args.num_workers > 0 else DEVICE
-    train_ds = IAMDatasetV4(train_imgs, train_labs, is_training=True,  device=_ds_device)
-    val_ds   = IAMDatasetV4(val_imgs,   val_labs,   is_training=False, device=_ds_device)
-    test_ds  = IAMDatasetV4(test_imgs,  test_labs,  is_training=False, device=_ds_device)
+    if args.gpu_aug:
+        # Tum split tek bir uint8 tensor olarak GPU'da; augmentation toplu ve
+        # ornek-basina-rastgele olarak GPU'da yapilir (cloud/gpu_aug.py).
+        print(f"  Loader    : GPUBatchLoader  ({AUG_H}x{AUG_W} calisma cozunurlugu, num-workers yok sayildi)")
+        train_loader = GPUBatchLoader(train_imgs, train_labs, args.batch, True,  args.aug_mode, DEVICE, drop_last=True)
+        val_loader   = GPUBatchLoader(val_imgs,   val_labs,   args.batch, False, None, DEVICE)
+        test_loader  = GPUBatchLoader(test_imgs,  test_labs,  args.batch, False, None, DEVICE)
+        del train_imgs, val_imgs, test_imgs
+    else:
+        _ds_device = "cpu" if args.num_workers > 0 else DEVICE
+        train_ds = IAMDatasetV4(train_imgs, train_labs, is_training=True,  device=_ds_device)
+        val_ds   = IAMDatasetV4(val_imgs,   val_labs,   is_training=False, device=_ds_device)
+        test_ds  = IAMDatasetV4(test_imgs,  test_labs,  is_training=False, device=_ds_device)
 
-    # Augmentation CPU'da yapiliyor (elastic deformation + morfoloji pahali).
-    # num_workers=0 ile tek cekirdekte kaliyor ve epoch suresini birkac kat
-    # uzatiyor; --num-workers ile ayarlanabilir.
-    _nw = args.num_workers
-    _pw = _nw > 0          # persistent_workers + pin_memory
-    train_loader = DataLoader(train_ds, batch_size=args.batch, shuffle=True,
-                              num_workers=_nw, pin_memory=_pw,
-                              persistent_workers=False, drop_last=True,
-                              collate_fn=custom_collate_fn)
-    val_loader   = DataLoader(val_ds,   batch_size=args.batch, shuffle=False,
-                              num_workers=_nw, pin_memory=_pw,
-                              persistent_workers=False, drop_last=False,
-                              collate_fn=custom_collate_fn)
-    test_loader  = DataLoader(test_ds,  batch_size=args.batch, shuffle=False,
-                              num_workers=_nw, pin_memory=_pw,
-                              persistent_workers=False, drop_last=False,
-                              collate_fn=custom_collate_fn)
+        # Augmentation CPU'da yapiliyor (elastic deformation + morfoloji pahali).
+        # num_workers=0 ile tek cekirdekte kaliyor ve epoch suresini birkac kat
+        # uzatiyor; --num-workers ile ayarlanabilir.
+        _nw = args.num_workers
+        _pw = _nw > 0          # persistent_workers + pin_memory
+        train_loader = DataLoader(train_ds, batch_size=args.batch, shuffle=True,
+                                  num_workers=_nw, pin_memory=_pw,
+                                  persistent_workers=False, drop_last=True,
+                                  collate_fn=custom_collate_fn)
+        val_loader   = DataLoader(val_ds,   batch_size=args.batch, shuffle=False,
+                                  num_workers=_nw, pin_memory=_pw,
+                                  persistent_workers=False, drop_last=False,
+                                  collate_fn=custom_collate_fn)
+        test_loader  = DataLoader(test_ds,  batch_size=args.batch, shuffle=False,
+                                  num_workers=_nw, pin_memory=_pw,
+                                  persistent_workers=False, drop_last=False,
+                                  collate_fn=custom_collate_fn)
     print(f"  train:{len(train_loader)} batches | val:{len(val_loader)} | test:{len(test_loader)}")
 
     # ── Trigram LM ────────────────────────────────────────────────────────────

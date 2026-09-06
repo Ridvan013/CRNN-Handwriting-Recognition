@@ -78,3 +78,6 @@ makale/*.blg
 makale/*.bbl
 makale/*.out
 makale/*.synctex.gz
+
+# on-islenmis goruntu onbellegi (1.2 GB)
+cache/

@@ -24,6 +24,9 @@ EPOCHS="${EPOCHS:-100}"
 BATCH="${BATCH:-128}"
 LR="${LR:-7e-4}"
 PATIENCE="${PATIENCE:-15}"
+GPU_AUG="${GPU_AUG:-1}"
+ELASTIC_LEGACY="${ELASTIC_LEGACY:-1}"     # 1: orijinal genlik (~no-op)  0: alpha = RMS px
+ELASTIC_ALPHA="${ELASTIC_ALPHA:-2 5}"     # ornek: ELASTIC_LEGACY=0 ELASTIC_ALPHA="1 3"
 
 case "${1:-main}" in
   main)        MODES="narrow full" ;;
@@ -61,7 +64,7 @@ for m in $MODES; do
   "$PY" cloud/v3_augmented_train.py \
       --aug-mode "$m" \
       --epochs "$EPOCHS" --batch "$BATCH" --lr "$LR" --patience "$PATIENCE" \
-      --model-dir "$DIR" 2>&1 | tee "$LOG"
+      --gpu-aug "$GPU_AUG" --elastic-legacy-amplitude "$ELASTIC_LEGACY" --elastic-alpha $ELASTIC_ALPHA       --model-dir "$DIR" 2>&1 | tee "$LOG"
   RC=${PIPESTATUS[0]}
   T1=$(date +%s)
   if [ "$RC" -ne 0 ]; then

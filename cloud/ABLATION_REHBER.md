@@ -26,6 +26,32 @@
 > Aşağıdaki bölümler mantığı anlatmak için duruyor; sayılar eski.
 
 
+> ## ⚠️ GÜNCELLEME 2 — GPU hattı ve elastik bulgusu
+>
+> **Hız.** Augmentation artık `cloud/gpu_aug.py` ile toplu olarak GPU'da yapılıyor;
+> veri kümesi tek bir uint8 tensor olarak GPU'da duruyor. 128'lik batch'in
+> augmentation'ı 5–18 ms (epoch başına 2–7 s). Eski per-image yol yerelde epoch
+> başına 10–50 dk sürüyordu. Eski yol `--gpu-aug 0` ile hâlâ seçilebilir.
+> Görüntüler bir kez 64×256'ya getirilip `cache/` altına yazılır; sonraki
+> koşularda yükleme saniyeler sürer (`--no-cache` ile kapatılır).
+>
+> **Elastik deformasyon aslında çalışmıyormuş.** Orijinal `_elastic_deform`,
+> normalize edilmiş Gaussian-blur'lu gürültüyü α∈[2,5] ile çarpıyor; blur'un
+> genliği ~0.01 olduğu için piksel yer değiştirmesi **~0.03–0.06 px RMS**
+> (α=5'te en fazla 0.19 px). Yani "kalem titremesi" dönüşümü fiilen no-op.
+> Bu, "elastic tek başına katkı yapmadı" bulgusunu açıklıyor.
+>
+> Düzeltilmiş parametrizasyon eklendi: `--elastic-legacy-amplitude 0` ile
+> α doğrudan **piksel cinsinden RMS yer değiştirme** olur (`--elastic-alpha 1 3`
+> önerilir; Simard 2003 ölçeğinde). Varsayılan hâlâ legacy (sadık yeniden
+> üretim). Hangi genlikle koşulacağı bir **araştırma kararıdır**, hocaya
+> sorulmalı. Tüm konfigürasyonlar aynı seçimle koşulmalı.
+>
+> ```powershell
+> .un_ablation.ps1 main                                        # legacy (no-op elastik)
+> .un_ablation.ps1 main -ElasticLegacy 0 -ElasticAlpha "1 3"    # düzeltilmiş
+> ```
+
 Bu dosya, makaleye eklenecek **iki ablation tablosunu** üretmek için ne
 yapılacağını anlatır. Kod hazır; yapılması gereken tek şey Kaggle'da bir
 notebook çalıştırmak.

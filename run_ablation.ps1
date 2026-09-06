@@ -14,8 +14,12 @@ param(
     [int]$Batch = 128,
     [string]$Lr = "7e-4",
     [int]$Patience = 15,
-    [int]$NumWorkers = 0
+    [int]$NumWorkers = 0,
+    [int]$ElasticLegacy = 1,          # 1: orijinal genlik (~0.05 px, no-op)  0: alpha = RMS px
+    [string]$ElasticAlpha = "2 5",    # ornek: -ElasticLegacy 0 -ElasticAlpha "1 3"
+    [int]$GpuAug = 1
 )
+$ea = $ElasticAlpha -split " "
 
 $ErrorActionPreference = "Continue"
 
@@ -43,7 +47,8 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host ("Calistirilacak modlar: " + ($modes -join ", "))
-Write-Host "epochs=$Epochs batch=$Batch lr=$Lr patience=$Patience num-workers=$NumWorkers"
+Write-Host "epochs=$Epochs batch=$Batch lr=$Lr patience=$Patience gpu-aug=$GpuAug"
+Write-Host ("elastic: alpha " + $ElasticAlpha + "  " + $(if ($ElasticLegacy -eq 1) {"LEGACY genlik (~no-op)"} else {"RMS px (duzeltilmis)"}))
 Write-Host ""
 
 $startAll = Get-Date
@@ -62,7 +67,7 @@ foreach ($m in $modes) {
     # Not: Windows PowerShell 5.1'de Tee-Object'in -Encoding parametresi YOK.
     # Satir satir hem ekrana hem UTF-8 log dosyasina yaziyoruz.
     if (Test-Path $log) { Remove-Item $log -Force }
-    python cloud/v3_augmented_train.py --aug-mode $m --epochs $Epochs --batch $Batch --lr $Lr --patience $Patience --num-workers $NumWorkers --model-dir $dir 2>&1 |
+    python cloud/v3_augmented_train.py --aug-mode $m --epochs $Epochs --batch $Batch --lr $Lr --patience $Patience --num-workers $NumWorkers --gpu-aug $GpuAug --elastic-legacy-amplitude $ElasticLegacy --elastic-alpha $ea[0] $ea[1] --model-dir $dir 2>&1 |
         ForEach-Object {
             $line = $_.ToString()
             Write-Host $line
