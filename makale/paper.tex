@@ -216,27 +216,37 @@ operate on full pages and rely on proprietary pre-training corpora, so
 they are not comparable to a from-scratch word recogniser.
 
 \paragraph{Word-level CRNN systems and lexical decoders.}
-Two recent systems are close to ours in task, metric and model family.
-Dutta et al.~\cite{dutta2018improving} report an improved
-CNN--recurrent neural network (RNN) hybrid on isolated IAM words with
-a 22.86\% word error rate ($\approx$77.14\% accuracy). Rajesh et
-al.~\cite{rajesh2022hwrcnet} propose HWRCNet, a CNN--BiLSTM operating
-in the JPEG discrete cosine transform (DCT) domain, reaching 80.08\%
-strict word accuracy on uncompressed images; we note that their
-headline figure of 89.05\% is \emph{word accuracy with flexibility} of
-two edit operations rather than strict accuracy. On the decoder side,
-word beam search (WBS)~\cite{scheidl2018wbs} injects a dictionary
-constraint directly into CTC beam search. We instead apply the lexical
-knowledge \emph{after} greedy decoding, which lets us swap the lexicon
-without retraining or re-decoding and therefore isolate its effect.
+Dutta et al.~\cite{dutta2018improving} improved a CNN--recurrent
+neural network (RNN) hybrid with synthetic pre-training, slant
+normalisation and test-time augmentation and report a 12.61\%
+unconstrained word error rate on IAM words evaluated without
+punctuation or letter case, a setting not on the same footing as a
+case-sensitive recogniser trained from scratch. Rajesh et
+al.~\cite{rajesh2022hwrcnet} re-trained that CNN--RNN together with
+their own HWRCNet, a CNN--BiLSTM operating in the JPEG discrete cosine
+transform (DCT) domain, on a random 95:5 partition of IAM and obtained
+77.14\% and 80.08\% strict word accuracy on uncompressed images; we
+note that their headline figure of 89.05\% is \emph{word accuracy with
+flexibility} of two edit operations rather than strict accuracy.
+Mondal et al.~\cite{mondal2022yolo} recognise IAM words lexicon-free
+by detecting individual characters with a YOLOv3 detector trained on
+only 1\,200 word images and report a 29.21\% word error rate on
+30\,000 randomly selected test words. On the decoder side, word beam
+search (WBS)~\cite{scheidl2018wbs} injects a dictionary constraint
+directly into CTC beam search. We instead apply the lexical knowledge
+\emph{after} greedy decoding, which lets us swap the lexicon without
+retraining or re-decoding and therefore isolate its effect.
 
 \paragraph{Positioning.}
-Both word-level CRNN baselines above are evaluated on random
-partitions of IAM that do not enforce writer disjointness (HWRCNet
-uses a 95:5 ratio), whereas all our figures are obtained on the
-stricter Aachen protocol. Comparisons across the two protocols are
-indicative only; the controlled comparisons of this paper are those
-between our own configurations.
+Of the word-level systems above, only the attention-based recognisers
+of Sueiras et al.~\cite{sueiras2018offline}, Kang et
+al.~\cite{kang2018convolve, kang2021candidate} and Kass and
+Vats~\cite{kass2022attentionhtr} are evaluated on the Aachen
+writer-disjoint partition that we use; the CRNN-family results of
+Rajesh et al.~\cite{rajesh2022hwrcnet} and the detector of Mondal et
+al.~\cite{mondal2022yolo} use their own random partitions of IAM.
+Comparisons across protocols are indicative only; the controlled
+comparisons of this paper are those between our own configurations.
 
 % ---- 3. Method ----------------------------------------------------------
 \section{Proposed System}
@@ -574,47 +584,61 @@ therefore measure different things and should be reported together.
 \subsection{Comparison with Prior Word-Level Systems}
 \label{sec:res-prior}
 
-Table~\ref{tab:priorwork} places \ours\ next to six published
-word-level systems. The upper block lists results that, to the best of
-our knowledge, were obtained under the same Aachen writer-disjoint
-protocol. \ours\ exceeds the early sequence-to-sequence recogniser of
-Sueiras et al.~\cite{sueiras2018offline} by 4.5\,pp but remains below
-the attention-based systems: 1.8\,pp below Kang et
+Table~\ref{tab:priorwork} places \ours\ next to seven published
+word-level systems and states, for each, whether a lexicon or language
+model was applied at test time. The upper block lists results obtained
+on the Aachen writer-disjoint partition. The closest match in protocol
+is the sequence-to-sequence recogniser of Sueiras et
+al.~\cite{sueiras2018offline}: the sizes of their partition
+(47\,952, 20\,306 and 7\,558 words, as compiled
+in~\cite{mondal2022yolo}) are those of the \texttt{ok}-filtered Aachen
+training, test and validation lists (47\,999, 20\,310 and 7\,559) from
+which ours are drawn, and they report lexicon-free word and character
+error rates on the full test partition exactly as we do. Under
+lexicon-free decoding \oursnolm\ is 2.6\,pp more accurate (\rawwa\
+against 76.20\%) at a slightly lower CER (\rawcer\ against 8.80\%);
+with the extended lexicon \ours\ is 4.5\,pp ahead. \ours\ remains
+below the later attention-based systems: 1.8\,pp below Kang et
 al.~\cite{kang2018convolve}, 3.4\,pp below the candidate-fusion model
 of Kang et al.~\cite{kang2021candidate} and 3.9\,pp below
 AttentionHTR~\cite{kass2022attentionhtr}, which additionally transfers
-knowledge from 14.4\,M scene-text images. The gap is larger at
-character level (5.79--6.88\% against our 9.09\%), consistent with the
+knowledge from 14.4\,M scene-text images; against our lexicon-free
+figure each gap is 1.9\,pp wider. The gap is larger at character level
+(5.79--6.88\% against our 8.60--9.09\%), consistent with the
 autoregressive decoders of those systems modelling inter-character
 dependencies that a CTC output with whole-word post-correction cannot.
-Where a cited system does not apply a closed test-time lexicon, our
-lexicon-free figure (\rawwa, CER \rawcer) is the more conservative
-reference. The lower block reports two CRNN-family systems measured on
-random, writer-dependent partitions; \ours\ is above both, but the
-protocols differ and we draw no conclusion from margins of this size.
+The lower block reports three systems measured on other partitions of
+IAM; \ours\ is above all three and \oursnolm\ above two, but the
+partitions differ in writer overlap and size and we draw no conclusion
+from margins of this size.
 
 \begin{table}[t]
-\caption{Word-level accuracy on IAM. WA values in parentheses are
-derived as $1-\mathrm{WER}$ from the cited papers.}
+\caption{Word-level results on IAM. WA in parentheses is derived as
+$1-\mathrm{WER}$ from the cited paper. Lexicon: lexical constraint at
+test time (none = unconstrained decoding; LM = language model without
+a closed lexicon; n/s = not stated).}
 \label{tab:priorwork}
 \centering
 \resizebox{\columnwidth}{!}{%
-\begin{tabular}{llcc}
+\begin{tabular}{llccc}
 \toprule
-System & Year & WA (\%) & CER (\%) \\
+System & Year & Lexicon & WA (\%) & CER (\%) \\
 \midrule
-\multicolumn{4}{l}{\emph{Aachen writer-disjoint split (same protocol as ours)}} \\
-Sueiras et al.~\cite{sueiras2018offline}      & 2018 & (76.20) & 8.80 \\
-Kang et al.~\cite{kang2018convolve}           & 2018 & (82.55) & 6.88 \\
-Kang et al.~\cite{kang2021candidate}          & 2021 & (84.09) & \textbf{5.79} \\
-Kass and Vats~\cite{kass2022attentionhtr}     & 2022 & (\textbf{84.60}) & 6.50 \\
-\oursnolm\ (ours, lexicon-free)               & ---  & 78.82 & 8.60 \\
-\textbf{\ours} (ours, extended lexicon)       & ---  & 80.73 & 9.09 \\
+\multicolumn{5}{l}{\emph{Aachen writer-disjoint partition ($\approx$20.3\,K test words)}} \\
+Sueiras et al.~\cite{sueiras2018offline}      & 2018 & none & (76.20) & 8.80 \\
+Kang et al.~\cite{kang2018convolve}           & 2018 & none & (82.55) & 6.88 \\
+Kang et al.~\cite{kang2021candidate}          & 2021 & LM   & (84.09) & \textbf{5.79} \\
+Kass and Vats~\cite{kass2022attentionhtr}     & 2022 & none & (\textbf{84.60}) & 6.50 \\
+\oursnolm\ (ours)                             & ---  & none & 78.82 & 8.60 \\
+\textbf{\ours} (ours)                         & ---  & 239\,K general & 80.73 & 9.09 \\
 \midrule
-\multicolumn{4}{l}{\emph{Random (writer-dependent) splits}} \\
-Dutta et al.~\cite{dutta2018improving}        & 2018 & (77.14) & 11.08 \\
-Rajesh et al.~\cite{rajesh2022hwrcnet}        & 2022 & 80.08   & 9.89 \\
+\multicolumn{5}{l}{\emph{Other partitions of IAM}} \\
+Mondal et al.~\cite{mondal2022yolo}$^{a}$                                    & 2022 & none & (70.79) & 9.53 \\
+CNN--RNN of~\cite{dutta2018improving}, re-trained in~\cite{rajesh2022hwrcnet}$^{b}$ & 2022 & n/s & (77.14) & 11.08 \\
+Rajesh et al.~\cite{rajesh2022hwrcnet}$^{b}$                                 & 2022 & n/s & 80.08 & 9.89 \\
 \bottomrule
+\multicolumn{5}{l}{\footnotesize $^{a}$30\,K randomly selected test words; 1\,200 training images.} \\
+\multicolumn{5}{l}{\footnotesize $^{b}$Random 95:5 split, writer-dependent, $\approx$5.8\,K test words.} \\
 \end{tabular}}
 \end{table}
 
@@ -690,18 +714,41 @@ rare inflections, punctuation-bearing strings) bound what any
 whole-word corrector can achieve; addressing them requires either an
 open-vocabulary character-level model or sentence context.
 
-\subsection{Comparison with HWRCNet}
+\subsection{Comparison with Sueiras et al.}
+\label{sec:disc-sueiras}
 
-HWRCNet~\cite{rajesh2022hwrcnet} is the closest published system in
-construction --- a CNN, a bidirectional LSTM and a CTC layer --- and
-reports 80.08\% strict word accuracy, 0.65\,pp below \ours. The two
-differ in capacity (five convolutional layers and 256-unit LSTMs
-against seven blocks and 512 units), in the use of a post-correction
-lexicon, and in protocol (a random 95:5 split against writer-disjoint
-evaluation). Given Table~\ref{tab:main}, we attribute none of the
-difference to augmentation, and given the protocol mismatch we refrain
-from attributing it to anything in particular; the comparison is
-reported for completeness.
+The recogniser of Sueiras et al.~\cite{sueiras2018offline} is the
+published result whose protocol matches ours most closely: isolated
+IAM words, the Aachen writer-disjoint partition drawn from the same
+\texttt{ok}-filtered word lists --- the only prior system for which we
+could verify this from the reported partition sizes
+(Section~\ref{sec:res-prior}); we additionally discard two unreadable
+images and five validation forms whose prompts recur in the test
+set --- and lexicon-free word and character error rates on the full
+test partition. Architecturally the
+two differ in every stage: they extract features from a sliding window
+of image patches with a LeNet-5-style convolutional network and
+transcribe them with a recurrent encoder--decoder using attention,
+whereas \oursnolm\ is a single convolutional-recurrent network trained
+with CTC. Under lexicon-free decoding \oursnolm\ reaches \rawwa\
+against their 76.20\% (23.8\% word error rate), a margin of 2.6\,pp
+that is almost five times the half-width of our confidence interval,
+at a slightly lower character error rate (\rawcer\ against 8.80\%).
+Post-correction with the extended lexicon widens the word-level margin
+to 4.5\,pp. Sueiras et al. also report lexicon-constrained variants of
+their recogniser; those depend on the lexicon employed and are not
+compared here. We read the comparison as evidence that a plain CRNN
+trained from scratch on the 48\,K Aachen training words is competitive
+with an early attention model under the same protocol, not as evidence
+about augmentation: Table~\ref{tab:main} shows that the augmentation
+contributes nothing measurable to the margin.
+
+HWRCNet~\cite{rajesh2022hwrcnet}, the closest system in construction
+(a CNN, a bidirectional LSTM and a CTC layer), reports 80.08\% strict
+word accuracy, 0.65\,pp below \ours\ and 1.3\,pp above \oursnolm. It
+is measured on a random 95:5 partition whose test set is
+writer-dependent and about 3.5 times smaller than ours, so neither
+difference is interpretable.
 
 \subsection{Threats to Validity}
 
@@ -730,7 +777,10 @@ result.
 \ours\ recognises isolated handwritten words with \ourwa\ accuracy
 (\ourcer\ character error rate) on the complete Aachen writer-disjoint
 test set of IAM, with a plain CRNN trained from scratch and no external
-image data. Under controlled conditions, elastic deformation,
+image data. Under the same partition and lexicon-free decoding it is
+2.6\,pp more accurate than the sequence-to-sequence recogniser of
+Sueiras et al.~\cite{sueiras2018offline} and 2--4\,pp less accurate
+than later attention-based systems. Under controlled conditions, elastic deformation,
 morphological perturbation and a widened photometric range do not
 change this figure measurably; a widely used elastic parameterisation
 does not deform the image at all. The post-correction lexicon, by

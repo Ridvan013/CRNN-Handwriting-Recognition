@@ -35,8 +35,8 @@ CRNN-S / CRNN-M no longer appear (their numbers came from the truncated data).
 
 ## Files
 
-- `paper.tex` — LaTeX source (IEEEtran conference, 7 pages)
-- `references.bib` — 20 entries (added: Simard 2003, Wigington 2017)
+- `paper.tex` — LaTeX source (IEEEtran conference, 8 pages)
+- `references.bib` — 21 entries (added: Simard 2003, Wigington 2017, Mondal 2022)
 - `generate_figures.py` — regenerates every figure from `Model_abl_*/`
 - `figures/` — 4 vector PDFs
 
@@ -60,14 +60,14 @@ cd makale && tectonic paper.tex          # or: pdflatex → bibtex → pdflatex 
 ```
 Overleaf: upload `makale_overleaf.zip` (repo root), compiler pdfLaTeX.
 
-## Paper structure (7 pages)
+## Paper structure (8 pages)
 
 1. **Introduction** — HTR/CTC/word-level concepts, 4 contributions
 2. **Related Work** — 3 families, "what we adopt, where we differ"
 3. **Proposed System** — pipeline, data (47,997 / 7,205 / 20,310), naming, model, augmentation (incl. elastic no-op finding), lexicon post-correction (coverage 84.8% / 94.0%)
 4. **Experimental Setup** — WA/CER/Wilson/McNemar (eq. 1–4), reproducibility (local RTX 4070, single seed)
-5. **Results** — augmentation ablation (Table II), lexicon ablation (Table III), prior work (Table IV), error analysis
-6. **Discussion** — why augmentation doesn't help, coverage as the operative variable, HWRCNet, threats to validity
+5. **Results** — augmentation ablation (Table II), lexicon ablation (Table III), prior work with a lexicon column (Table IV), error analysis
+6. **Discussion** — why augmentation doesn't help, coverage as the operative variable, same-protocol comparison with Sueiras et al. 2018 (+2.6 pp lexicon-free, +4.5 pp with lexicon), HWRCNet note, threats to validity
 7. **Conclusion**
 
 ## Every number is verifiable
@@ -80,7 +80,7 @@ Overleaf: upload `makale_overleaf.zip` (repo root), compiler pdfLaTeX.
 | Table III (lexicon ablation) | `results/ablation_lexicon_full.json` |
 | coverage 84.8% / 94.0% | computed from `aachen_splits/{train,test}_words.txt` + NLTK |
 | error analysis counts | `Model_abl_full/test_results_analysis.csv` (Levenshtein alignment) |
-| external systems | read from the cited papers |
+| external systems | read from the cited papers; Sueiras 2018 (WER 23.8 / CER 8.8, lexicon-free) cross-checked in Dutta 2018 Tab. III, Kang 2021 Tab. 7, Kass & Vats 2022 Tab. 5, Mondal 2022 Tab. 1; the "Dutta 77.14" row is HWRCNet's own re-training (Rajesh 2022 Tab. 2), Dutta's own figure is 12.61 % WER |
 
 Full report with all tables: `../results/ABLATION_SONUC.md`.
 

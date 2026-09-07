@@ -93,6 +93,18 @@ Test kelimelerinin sözlük kapsaması: yalnız IAM %84,8, IAM+NLTK %94,0.
    82,55; Kang 2021 84,09; AttentionHTR 84,60 — hepsi bizim 80,73'ün
    üstünde. Makale "denk/üstün" değil "basit CRNN ile 2–4 pp geride,
    sıfır dış veriyle" diye konumlanmalı.
+6. Aynı protokolde bizden **kötü** olan tek yayın: Sueiras vd. 2018
+   (Neurocomputing, seq2seq+attention). Bölmeleri 47.952/20.306/7.558 =
+   Aachen `ok`-filtreli train/test/val (47.999/20.310/7.559); sözlüksüz
+   WER 23,8 / CER 8,8 (dört bağımsız kaynakta aynı: Dutta 2018 Tab. III,
+   Kang 2021 Tab. 7, Kass&Vats 2022 Tab. 5, Mondal 2022 Tab. 1). Bizim
+   sözlüksüz 78,82 → +2,6 pp; sözlüklü 80,73 → +4,5 pp. Makalede
+   Discussion §VI.C artık bu karşılaştırma.
+7. Eski Tablo IV'teki "Dutta 2018 = 77,14" satırı yanlış atıftı: o sayı
+   HWRCNet'in (Rajesh 2022, Tab. 2) kendi 95:5 bölmesinde yeniden eğittiği
+   CNN-RNN; Dutta'nın kendi sayısı 12,61 WER (büyük/küçük harf ve
+   noktalama yok, sentetik ön-eğitim, TTA). Satır "re-trained in [Rajesh]"
+   olarak düzeltildi; Mondal 2022 (YOLOv3, sözlüksüz 70,79) eklendi.
 
 ## Dosyalar
 
