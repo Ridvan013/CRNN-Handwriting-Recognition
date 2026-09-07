@@ -1,0 +1,54 @@
+{
+  "n_samples": 20310,
+  "model": "Model_abl_full/best_model_wa.pth",
+  "lexicon_sizes": {
+    "iam_only": 7173,
+    "iam_plus_nltk": 239126
+  },
+  "configurations": [
+    {
+      "correct": 16012,
+      "n": 20310,
+      "wa_pct": 78.838,
+      "cer_pct": 8.6001,
+      "wilson_95ci_pct": [
+        78.2708,
+        79.3943
+      ],
+      "name": "AugCRNN (no lexicon)"
+    },
+    {
+      "correct": 15570,
+      "n": 20310,
+      "wa_pct": 76.6617,
+      "cer_pct": 11.1028,
+      "wilson_95ci_pct": [
+        76.075,
+        77.2384
+      ],
+      "name": "AugCRNN + IAM lexicon"
+    },
+    {
+      "correct": 15648,
+      "n": 20310,
+      "wa_pct": 77.0458,
+      "cer_pct": 10.9404,
+      "wilson_95ci_pct": [
+        76.4623,
+        77.619
+      ],
+      "name": "AugCRNN + IAM lexicon + trigram"
+    },
+    {
+      "correct": 16406,
+      "n": 20310,
+      "wa_pct": 80.7779,
+      "cer_pct": 9.0618,
+      "wilson_95ci_pct": [
+        80.2302,
+        81.314
+      ],
+      "name": "AugCRNN-T (IAM+NLTK lexicon + trigram)"
+    }
+  ]
+}

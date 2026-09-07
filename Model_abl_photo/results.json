@@ -1,0 +1,23 @@
+{
+  "phase": "v3_augmented",
+  "model": "V3_scratch_elastic_morph",
+  "greedy_trigram_wa_pct": 80.389,
+  "greedy_trigram_cer_pct": 9.0704,
+  "greedy_trigram_wilson_95ci_pct": [
+    79.8372,
+    80.9293
+  ],
+  "wbs_wa_pct": null,
+  "wbs_cer_pct": null,
+  "wbs_wilson_95ci_pct": null,
+  "n_samples": 20310,
+  "mcnemar_vs_v3_base": {
+    "baseline_wa_pct": 80.3988,
+    "delta_pp": -0.0098,
+    "mcnemar_chi2": 0.0006,
+    "mcnemar_p": 0.98031,
+    "significant_p01": false
+  },
+  "training_best_val_wa_pct": 84.3442,
+  "test_wa_pct": 80.389
+}
