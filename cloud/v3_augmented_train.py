@@ -602,7 +602,7 @@ def compare_with_baseline(result: dict, baseline_csv: str) -> dict:
         "delta_pp": round(delta * 100, 4),
         "mcnemar_chi2": round(chi2, 4),
         "mcnemar_p": float(f"{p:.4e}"),
-        "significant_p01": p < 0.01,
+        "significant_p01": bool(p < 0.01),
     }
 
 
@@ -779,7 +779,7 @@ def main():
     for out_path in (model_dir / "results.json",
                      results_dir / "v3_augmented_results.json"):
         with open(out_path, "w") as f:
-            json.dump(final, f, indent=2)
+            json.dump(final, f, indent=2, default=lambda o: o.item() if hasattr(o, "item") else str(o))
 
     print("\n" + "=" * 60)
     print(" SONUÇ")
