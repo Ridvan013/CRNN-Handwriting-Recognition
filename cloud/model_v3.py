@@ -295,14 +295,23 @@ class CTCLoss(nn.Module):
 # ─────────────────────── Decoding ────────────────────────────────────────────
 
 def greedy_decode(log_probs: torch.Tensor, input_lengths: torch.Tensor) -> List[List[int]]:
+    """CTC greedy decode.
+
+    Semantics identical to the original per-timestep loop (argmax, collapse
+    repeats, drop blanks; ties resolve to the first index in both versions),
+    but the argmax is taken once on the device and moved to the CPU in a
+    single transfer instead of one .item() sync per (sample, step).
+    """
     T, B, _ = log_probs.shape
+    best = log_probs.argmax(dim=-1).t().cpu().numpy()          # [B, T]
+    if torch.is_tensor(input_lengths):
+        lens = input_lengths.detach().cpu().numpy()
+    else:
+        lens = np.asarray(input_lengths)
     results = []
     for b in range(B):
-        seq_len = int(input_lengths[b])
-        pred = log_probs[:seq_len, b, :]
         decoded, prev = [], None
-        for t in range(seq_len):
-            c = int(torch.argmax(pred[t]).item())
+        for c in best[b, :int(lens[b])].tolist():
             if c != BLANK_TOKEN:
                 if c != prev:
                     decoded.append(c)

@@ -71,7 +71,13 @@ foreach ($m in $modes) {
         ForEach-Object {
             $line = $_.ToString()
             Write-Host $line
-            Add-Content -Path $log -Value $line -Encoding UTF8
+            # Dosya baska bir surec tarafindan (izleyici/tail) kilitliyse kisa
+            # bir yeniden deneme; yine olmazsa satiri atla, kosuyu bozma.
+            $ok = $false
+            for ($try = 0; $try -lt 5 -and -not $ok; $try++) {
+                try { Add-Content -Path $log -Value $line -Encoding UTF8 -ErrorAction Stop; $ok = $true }
+                catch { Start-Sleep -Milliseconds 100 }
+            }
         }
 
     $mins = [int]((Get-Date) - $t0).TotalMinutes

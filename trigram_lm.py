@@ -8,6 +8,7 @@ Simple n-gram model for post-processing CRNN predictions
 
 import os
 import math
+import numpy as np
 
 
 class TrigramLanguageModel:
@@ -225,8 +226,16 @@ class TrigramLanguageModel:
             prev_words: List of previous words for trigram/bigram context
         Returns the best matching word as a string
         """
+        # Memo: the same string arrives thousands of times during validation;
+        # the result is deterministic (when prev_words is None), so compute once.
+        _cache = self.__dict__.setdefault("_correct_cache", {})
+        if prev_words is None and word in _cache:
+            return _cache[word]
+
         # V3: Recognize valid English words (case-insensitive)
         if word in self.vocabulary or word.lower() in self.vocabulary_lower:
+            if prev_words is None:
+                _cache[word] = word
             return word
 
         # V2: Tighter dynamic edit distance threshold
@@ -237,14 +246,29 @@ class TrigramLanguageModel:
         else:
             max_dist = 2
 
-        candidates = []
-        for vocab_word in self.vocabulary:
-            # Optimization: Skip words with large length difference
-            if abs(len(word) - len(vocab_word)) > max_dist:
-                continue
+        # Index the vocabulary by length (built once, after the NLTK extension).
+        # Entries with |len(word)-len(v)| > max_dist were skipped anyway, so
+        # visiting only the admissible length buckets yields the SAME candidate
+        # set as scanning all 239K words; scoring and selection are unchanged.
+        by_len = self.__dict__.get("_vocab_by_len")
+        if by_len is None or self.__dict__.get("_vocab_by_len_n") != len(self.vocabulary):
+            by_len = {}
+            for v in self.vocabulary:
+                by_len.setdefault(len(v), []).append(v)
+            self._vocab_by_len = by_len
+            self._vocab_by_len_n = len(self.vocabulary)
 
-            dist = self._edit_distance(word, vocab_word)
-            if dist <= max_dist:
+        candidates = []
+        for L in range(len(word) - max_dist, len(word) + max_dist + 1):
+            bucket = by_len.get(L, ())
+            if not bucket:
+                continue
+            # Exact Levenshtein for the whole bucket at once (numpy DP).
+            # Same distances as self._edit_distance, same candidate order.
+            dists = self._bucket_distances(word, L, bucket)
+            for idx in np.nonzero(dists <= max_dist)[0]:
+                vocab_word = bucket[idx]
+                dist = int(dists[idx])
                 # V2: Higher edit penalty (alpha=5.0) -> prefer fewer edits
                 score = self.score_word(vocab_word, prev_words=prev_words) - dist * 5.0
                 candidates.append((vocab_word, score))
@@ -253,10 +277,44 @@ class TrigramLanguageModel:
         if candidates:
             candidates.sort(key=lambda x: x[1], reverse=True)
             best_word = candidates[0][0]
-            return best_word
         else:
-            return word  # Return original if no candidates found
+            best_word = word  # Return original if no candidates found
+        if prev_words is None:
+            _cache[word] = best_word
+        return best_word
     
+    def _bucket_distances(self, word, L, bucket):
+        """Levenshtein distance from `word` to every entry of a same-length
+        bucket, computed with a vectorised DP (rows = characters of `word`,
+        columns = positions in the bucket words, batched over the bucket).
+        Bit-for-bit the same integers as _edit_distance."""
+        import numpy as np
+        # Cache keyed by the bucket object's identity (the reference is kept
+        # alongside so the id cannot be recycled by a different list).
+        codes = self.__dict__.setdefault("_bucket_codes", {})
+        entry = codes.get(L)
+        if entry is None or entry[0] is not bucket:
+            M = np.zeros((len(bucket), L), dtype=np.int32)
+            for i, v in enumerate(bucket):
+                M[i, :] = [ord(c) for c in v]
+            codes[L] = (bucket, M)
+        else:
+            M = entry[1]
+        N = M.shape[0]
+        q = np.fromiter((ord(c) for c in word), dtype=np.int32, count=len(word))
+        prev = np.tile(np.arange(L + 1, dtype=np.int32), (N, 1))      # row 0
+        for i in range(1, len(word) + 1):
+            cur = np.empty_like(prev)
+            cur[:, 0] = i
+            sub = prev[:, :-1] + (M != q[i - 1])                     # substitution
+            dele = prev[:, 1:] + 1                                    # deletion (from word)
+            best = np.minimum(sub, dele)
+            # insertion depends on cur[:, j-1]: sequential over j (L <= ~20)
+            for j in range(1, L + 1):
+                cur[:, j] = np.minimum(best[:, j - 1], cur[:, j - 1] + 1)
+            prev = cur
+        return prev[:, L]
+
     def _edit_distance(self, s1, s2):
         """Calculate Levenshtein edit distance"""
         if len(s1) < len(s2):
