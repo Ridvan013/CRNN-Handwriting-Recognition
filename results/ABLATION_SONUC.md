@@ -100,3 +100,29 @@ Test kelimelerinin sözlük kapsaması: yalnız IAM %84,8, IAM+NLTK %94,0.
   (kelime bazlı), `training_history.json`, `training_log.csv`, `results.json`
 - `results/ablation_lexicon_<mod>.json` — Tablo B, nihai
 - `results/ablation_lexicon.json` — full için ilk (deterministik olmayan) ölçüm
+
+## Eski 84,54 sayısı neden yeniden üretilemiyor (7 Eylül, ek ölçüm)
+
+Aynı yerel ortam, orijinal ön işleme (native → 32×128), AMP, her modele kendi
+eğitim sözlüğü (+NLTK):
+
+| Model | Sözlük | Eski alt küme (87 form, 5.338) | Tam test (336 form, 20.310) |
+|---|---|---:|---:|
+| Eski (Berhat'ın ağırlıkları, 31.615 kelimeyle) | yok | 74,97 | 74,55 |
+| | +lexicon | **78,34** | 77,32 |
+| Yeni AugCRNN-T (47.997 kelimeyle) | yok | 79,19 | 78,15 |
+| | +lexicon | **81,21** | 80,37 |
+
+- Berhat'ın ağırlıkları yerelde iki bağımsız scriptle 78,29 ve 78,34 veriyor;
+  Kaggle'da raporlanan 84,54 hiçbir yerel ölçümde çıkmadı. Kaggle notebook'una
+  erişim yok; en olası açıklama sözlüğün Kaggle'daki tam `words.txt`'den
+  (test transkripsiyonları dahil) kurulmuş olması, ama kanıtlanamıyor.
+- Yeni model her koşulda eskisinden 2,9–3,6 pp iyi (daha fazla eğitim verisi).
+- Eski alt küme yalnızca c/d/e kategorilerinden (d: %76); tam test 8 kategoriye
+  yayılıyor. Yeni model eski alt kümede 81,2, tam testte 80,4–80,7: alt küme
+  ~0,8 pp daha kolay.
+- Yeni model legacy ön işlemeyle 80,37, kendi 64×256 yoluyla 80,73: eğitimle
+  aynı yol ~0,35 pp daha iyi (beklenen).
+
+Sonuç: 84,54 → 80,73 bir düşüş değildir; ilki yeniden üretilemeyen bir sayı,
+ikincisi dört kat büyük ve daha çeşitli bir test kümesinde doğrulanmış sayıdır.
