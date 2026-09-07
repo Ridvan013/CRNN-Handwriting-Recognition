@@ -265,7 +265,7 @@ class TrigramLanguageModel:
                 continue
             # Exact Levenshtein for the whole bucket at once (numpy DP).
             # Same distances as self._edit_distance, same candidate order.
-            dists = self._bucket_distances(word, L, bucket)
+            dists = self._bucket_distances(word, L, bucket, max_dist)
             for idx in np.nonzero(dists <= max_dist)[0]:
                 vocab_word = bucket[idx]
                 dist = int(dists[idx])
@@ -283,14 +283,15 @@ class TrigramLanguageModel:
             _cache[word] = best_word
         return best_word
     
-    def _bucket_distances(self, word, L, bucket):
+    def _bucket_distances(self, word, L, bucket, max_dist=None):
         """Levenshtein distance from `word` to every entry of a same-length
         bucket, computed with a vectorised DP (rows = characters of `word`,
         columns = positions in the bucket words, batched over the bucket).
-        Bit-for-bit the same integers as _edit_distance."""
+        Bit-for-bit the same integers as _edit_distance for every candidate
+        whose distance is <= max_dist. Candidates that can no longer reach
+        max_dist (their DP row minimum already exceeds it -- row minima never
+        decrease) are pruned early and reported as max_dist+1."""
         import numpy as np
-        # Cache keyed by the bucket object's identity (the reference is kept
-        # alongside so the id cannot be recycled by a different list).
         codes = self.__dict__.setdefault("_bucket_codes", {})
         entry = codes.get(L)
         if entry is None or entry[0] is not bucket:
@@ -302,18 +303,30 @@ class TrigramLanguageModel:
             M = entry[1]
         N = M.shape[0]
         q = np.fromiter((ord(c) for c in word), dtype=np.int32, count=len(word))
+        cap = None if max_dist is None else int(max_dist)
+        out = np.full(N, (cap + 1) if cap is not None else 0, dtype=np.int32)
+        alive = np.arange(N)                       # indices still in play
+        Mv = M
         prev = np.tile(np.arange(L + 1, dtype=np.int32), (N, 1))      # row 0
         for i in range(1, len(word) + 1):
             cur = np.empty_like(prev)
             cur[:, 0] = i
-            sub = prev[:, :-1] + (M != q[i - 1])                     # substitution
-            dele = prev[:, 1:] + 1                                    # deletion (from word)
+            sub = prev[:, :-1] + (Mv != q[i - 1])                    # substitution
+            dele = prev[:, 1:] + 1                                    # deletion
             best = np.minimum(sub, dele)
-            # insertion depends on cur[:, j-1]: sequential over j (L <= ~20)
-            for j in range(1, L + 1):
+            for j in range(1, L + 1):                                 # insertion
                 cur[:, j] = np.minimum(best[:, j - 1], cur[:, j - 1] + 1)
             prev = cur
-        return prev[:, L]
+            if cap is not None:
+                keep = prev.min(axis=1) <= cap
+                if not keep.all():
+                    alive = alive[keep]
+                    prev = prev[keep]
+                    Mv = Mv[keep]
+                    if alive.size == 0:
+                        return out
+        out[alive] = prev[:, L]
+        return out
 
     def _edit_distance(self, s1, s2):
         """Calculate Levenshtein edit distance"""
