@@ -1,99 +1,97 @@
-# Paper — AugCRNN-T (IAM Aachen writer-disjoint, word level)
+# Paper — AugCRNN-T: A Controlled Study of Augmentation and Lexicon Coverage
 
-**Headline:** **AugCRNN-T** achieves **84.54% word accuracy**
-(Wilson 95% CI [83.55%, 85.49%], CER 9.21%) on the IAM Aachen
-writer-disjoint test set (N=5,338) — **+6.48pp** over the identical
-un-augmented CRNN-L baseline (78.06%), McNemar exact p < 10⁻³⁰.
+**Headline:** **AugCRNN-T** reaches **80.73% word accuracy** (Wilson 95% CI
+[80.19%, 81.27%], CER 9.09%) on the **complete** IAM Aachen writer-disjoint
+test set (N = 20,310 words, 336 forms, 161 unseen writers). Lexicon-free the
+same model gives 78.82% / CER 8.60%.
+
+**Two findings, both measured under identical conditions (same data, network,
+schedule, machine, code revision):**
+
+1. **Augmentation contributes nothing measurable.** Five configurations that
+   differ only in augmentation reach 80.34–80.73% WA; no pairwise McNemar test
+   is significant (p ≥ 0.058). The earlier "+6.48 pp" claim was an artefact of
+   a truncated label file (39% of IAM) and mismatched pipelines.
+2. **Lexicon coverage decides the sign of post-correction.** Correcting
+   against the 7,173-word training vocabulary *hurts* (−2.0 to −2.4 pp on every
+   model); extending it with the NLTK word list (239,126 types) *helps*
+   (+1.5 to +1.9 pp), while CER rises 8.60 → 9.09.
+
+Plus: the common elastic-deformation parameterisation (normalised blur × α∈[2,5])
+displaces pixels by ~0.05 px RMS — a no-op; the paper uses a unit-RMS field × 1–3 px.
 
 ## Model naming (fixed — use these names everywhere)
 
-| Name | BiLSTM | Params | Elastic/morph aug | Trigram | WA |
-|---|---|---:|:---:|:---:|---:|
-| `CRNN-S` | 2 layers | 8.75M | no | yes | 70.29% |
-| `CRNN-M` | 3 layers | 15.46M | no | yes | 72.56% |
-| `CRNN-L` | 4 layers | 28.73M | no | yes | 78.06% |
-| `AugCRNN` | 4 layers | 28.73M | yes | no | — |
-| **`AugCRNN-T`** (proposed) | 4 layers | 28.73M | yes | yes | **84.54%** |
+| Name | wide photometric | elastic | morph | test WA |
+|---|:---:|:---:|:---:|---:|
+| `CRNN-L` (baseline) | no | no | no | 80.35 |
+| `+ wide photometric` | yes | no | no | 80.34 |
+| `+ elastic` | yes | yes | no | 80.68 |
+| `+ morphological` | yes | no | yes | 80.64 |
+| **`AugCRNN-T`** (proposed) | yes | yes | yes | **80.73** |
+| `AugCRNN` | = AugCRNN-T optical model, greedy CTC, no lexicon | | | 78.82 |
 
-Never write "V3", "V3-augmented" or "our model" in the paper — always
-`AugCRNN-T` for the proposed system and `CRNN-S/M/L` for the baselines.
+CRNN-S / CRNN-M no longer appear (their numbers came from the truncated data).
 
 ## Files
 
 - `paper.tex` — LaTeX source (IEEEtran conference, 7 pages)
-- `references.bib` — 18 entries, all verified against dblp/Springer/IAPR
-- `generate_figures.py` — regenerates every figure from the real result files
-- `figures/` — 4 vector PDFs (see below)
-
-Ablation experiments (pending) are documented in
-[`../cloud/ABLATION_REHBER.md`](../cloud/ABLATION_REHBER.md).
+- `references.bib` — 20 entries (added: Simard 2003, Wigington 2017)
+- `generate_figures.py` — regenerates every figure from `Model_abl_*/`
+- `figures/` — 4 vector PDFs
 
 ## Figures
 
 | File | Content | Data source |
 |---|---|---|
-| `fig0_pipeline.pdf` | End-to-end system diagram, contributions highlighted | drawn |
-| `fig1_augmentation_grid.pdf` | 12 augmentation transforms on one IAM word | real IAM crop + cv2 |
-| `fig2_training_curves.pdf` | Losses + validation WA over 51 epochs | `Model_aachen_v3_augmented/training_history.json` |
-| `fig3_confusion_topk.pdf` | Top-10 character substitutions | `Model_aachen_v3_augmented/test_results_analysis.csv` |
+| `fig0_pipeline.pdf` | End-to-end system diagram | drawn |
+| `fig1_augmentation_grid.pdf` | 12 transforms on one IAM crop (elastic at 2 px RMS) | real IAM crop + cv2 |
+| `fig2_training_curves.pdf` | Validation WA + training loss, 5 configurations | `Model_abl_*/training_history.json` |
+| `fig3_confusion_topk.pdf` | Top-10 character substitutions of AugCRNN-T | `Model_abl_full/test_results_analysis.csv` |
 
-Regenerate with:
 ```bash
 python makale/generate_figures.py
 ```
 
 ## Build
 
-Local (Tectonic, no LaTeX install needed — downloads packages on demand):
 ```bash
-cd makale
-tectonic paper.tex
+cd makale && tectonic paper.tex          # or: pdflatex → bibtex → pdflatex ×2
 ```
-
-Classic LaTeX:
-```bash
-pdflatex paper.tex && bibtex paper && pdflatex paper.tex && pdflatex paper.tex
-```
-
-Overleaf: upload `makale_overleaf.zip` (repo root) → Compiler: pdfLaTeX → Recompile.
+Overleaf: upload `makale_overleaf.zip` (repo root), compiler pdfLaTeX.
 
 ## Paper structure (7 pages)
 
-1. **Introduction** — HTR/CTC/word-level concepts explained, 5 contributions
-2. **Related Work** — 3 families (CTC recurrent / attention / lexical decoders), each with "what we adopt, where we differ"
-3. **Proposed System** — pipeline figure, naming table, encoder, augmentation, trigram, alternative decoders
-4. **Experimental Setup** — WA/CER/Wilson/McNemar formulas (eq. 1–4), reproducibility
-5. **Results** — augmentation effect, prior-work comparison, decoder/ensemble table, error analysis
-6. **Discussion** — detailed HWRCNet comparison, why simple wins, threats to validity
-7. **Conclusion** — short opening sentence, contribution-focused
+1. **Introduction** — HTR/CTC/word-level concepts, 4 contributions
+2. **Related Work** — 3 families, "what we adopt, where we differ"
+3. **Proposed System** — pipeline, data (47,997 / 7,205 / 20,310), naming, model, augmentation (incl. elastic no-op finding), lexicon post-correction (coverage 84.8% / 94.0%)
+4. **Experimental Setup** — WA/CER/Wilson/McNemar (eq. 1–4), reproducibility (local RTX 4070, single seed)
+5. **Results** — augmentation ablation (Table II), lexicon ablation (Table III), prior work (Table IV), error analysis
+6. **Discussion** — why augmentation doesn't help, coverage as the operative variable, HWRCNet, threats to validity
+7. **Conclusion**
 
-Pending: two ablation tables (augmentation components, lexicon/trigram stages)
-once the Kaggle runs described in `../cloud/ABLATION_REHBER.md` finish.
+## Every number is verifiable
 
-## Every number in the paper is verifiable
-
-| Claim | Source file |
+| Claim | Source |
 |---|---|
-| CRNN-S 70.29% | `Model_aachen/test_summary_analysis.txt` |
-| CRNN-M 72.56% | `Model_aachen_v2/test_summary_analysis.txt` |
-| CRNN-L 78.06% | `Model_aachen_v3/test_summary_analysis.txt` |
-| **AugCRNN-T 84.54%** | `Model_aachen_v3_augmented/test_results_analysis.csv` (4513/5338) |
-| CER values | recomputed from `Character_Errors` / `Word_Length` columns |
-| Decoder/ensemble table | `results/ensemble_berhat.json` |
-| Training curves | `Model_aachen_v3_augmented/training_history.json` (51 epochs) |
-| External baselines | Dutta 2018, Rajesh 2022 (arXiv 2201.00947), Kang 2018 — read from the papers |
+| Table II (5 configs WA/CER/CI) | `results/ablation_lexicon_<mode>.json`, row "AugCRNN-T" |
+| Table II McNemar p | per-word flags in `Model_abl_<mode>/test_results_analysis.csv` |
+| best val WA (epoch) | `Model_abl_<mode>/training_history.json` |
+| Table III (lexicon ablation) | `results/ablation_lexicon_full.json` |
+| coverage 84.8% / 94.0% | computed from `aachen_splits/{train,test}_words.txt` + NLTK |
+| error analysis counts | `Model_abl_full/test_results_analysis.csv` (Levenshtein alignment) |
+| external systems | read from the cited papers |
 
-No fabricated numbers. The earlier per-component augmentation ablation
-was removed because those runs were never actually performed.
+Full report with all tables: `../results/ABLATION_SONUC.md`.
 
 ## Author TODO before submission
 
-- [ ] Fill in the `\author{}` block in `paper.tex` (currently empty)
+- [ ] Fill in the `\author{}` block (currently empty)
 - [ ] Re-verify every bib entry against the publisher page
 - [ ] One English proofreading pass
-- [ ] If a specific venue is chosen, switch `\documentclass` to its template
-- [ ] **Run the ablation experiments** — see `../cloud/ABLATION_REHBER.md`
-      (Kaggle, ~6.5 h; produces the two tables the supervisor asked for)
+- [ ] Decide venue; switch `\documentclass` if needed
+- [ ] Optional: multiple seeds per configuration to tighten the augmentation null result
+- [ ] Optional: WBS / TTA / ensembling re-evaluated on the full data (removed from the paper; old numbers were from truncated data)
 
 ## Repo
 

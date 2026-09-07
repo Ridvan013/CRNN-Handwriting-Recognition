@@ -37,8 +37,11 @@ REPO = Path(__file__).resolve().parent.parent
 FIG_DIR = Path(__file__).resolve().parent / "figures"
 FIG_DIR.mkdir(exist_ok=True)
 
-MODEL_DIR = REPO / "Model_aachen_v3_augmented"
+MODEL_DIR = REPO / "Model_abl_full"          # AugCRNN-T, tam veri
 HISTORY_JSON = MODEL_DIR / "training_history.json"
+ABL_MODES = [("narrow", "CRNN-L (baseline)"), ("photo", "+ wide photometric"),
+             ("elastic", "+ elastic"), ("morph", "+ morphological"),
+             ("full", "AugCRNN-T (all)")]
 TEST_CSV = MODEL_DIR / "test_results_analysis.csv"
 IAM_ROOT = REPO / "HTR_Using_CRNN" / "IAM" / "processed" / "archive" / "iam_words" / "words"
 
@@ -162,46 +165,31 @@ def fig_pipeline():
 # Figure 2: Training curves
 # ==========================================================================
 def fig_training_curves():
-    with open(HISTORY_JSON) as f:
-        h = json.load(f)
-    n_ep = len(h["train_loss"])
-    epochs = np.arange(1, n_ep + 1)
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.0, 2.8))
-
-    # Left: losses
-    ax1.plot(epochs, h["train_loss"], color=C_BLUE, lw=1.5, label="Train loss")
-    ax1.plot(epochs, h["val_loss"],   color=C_ORANGE, lw=1.5, label="Val loss")
-    ax1.set_xlabel("Epoch")
-    ax1.set_ylabel("CTC loss")
-    ax1.set_title("(a) Training / Validation Loss")
-    ax1.legend(loc="upper right", frameon=False)
-    ax1.set_xlim(0, n_ep + 1)
-
-    # Right: val WA + CER
-    ax2.plot(epochs, np.array(h["val_wa"]) * 100, color=C_GREEN, lw=1.5, label="Val WA (%)")
-    best_ep = int(np.argmax(h["val_wa"])) + 1
-    best_wa = max(h["val_wa"]) * 100
-    ax2.axvline(best_ep, color=C_RED, lw=0.8, ls=":", alpha=0.7)
-    ax2.scatter([best_ep], [best_wa], color=C_RED, s=30, zorder=5,
-                label=f"Best: {best_wa:.2f}% (ep {best_ep})")
-    ax2.set_xlabel("Epoch")
-    ax2.set_ylabel("Val WA (%)")
-    ax2.set_title("(b) Validation Word Accuracy")
-    ax2.legend(loc="lower right", frameon=False)
-    ax2.set_xlim(0, n_ep + 1)
-    ax2.set_ylim(0, 100)
-
+    """Validation WA and training loss for the five ablation configurations."""
+    import json
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.0, 2.6))
+    colors = ["#4d4d4d", "#8c8c8c", "#0072B2", "#D55E00", "#009E73"]
+    for (mode, label), c in zip(ABL_MODES, colors):
+        h = json.load(open(REPO / f"Model_abl_{mode}" / "training_history.json"))
+        wa = [v * 100 for v in h["val_wa"]]; ep = range(1, len(wa) + 1)
+        lw = 1.8 if mode == "full" else 1.0
+        ax1.plot(ep, wa, color=c, lw=lw, label=label)
+        best = max(range(len(wa)), key=lambda i: wa[i])
+        ax1.plot(best + 1, wa[best], "o", color=c, ms=3.5)
+        ax2.plot(ep, h["train_loss"], color=c, lw=lw, label=label)
+    ax1.set_xlabel("epoch"); ax1.set_ylabel("validation word accuracy (%)")
+    ax1.set_ylim(60, 88); ax1.set_title("(a) validation WA, best epoch marked", fontsize=8.5)
+    ax1.grid(alpha=.3)
+    ax2.set_xlabel("epoch"); ax2.set_ylabel("training CTC loss"); ax2.set_yscale("log")
+    ax2.set_title("(b) training loss", fontsize=8.5); ax2.grid(alpha=.3, which="both")
+    ax2.legend(fontsize=6.5, frameon=False)
     plt.tight_layout()
     out = FIG_DIR / "fig2_training_curves.pdf"
     plt.savefig(out)
     plt.close(fig)
-    print(f"  ✓ {out.name}")
+    print("written:", out)
 
 
-# ==========================================================================
-# Figure 3: Top-K confused characters
-# ==========================================================================
 def _levenshtein_pairs(pred: str, true: str) -> list[tuple[str, str]]:
     """Return list of (true_char, pred_char) substitution pairs in DP alignment."""
     m, n = len(true), len(pred)
@@ -318,17 +306,19 @@ def _find_sample_image() -> Path | None:
     return None
 
 
-def _elastic_deform(img: np.ndarray, alpha: float, sigma_frac: float = 0.08) -> np.ndarray:
+def _elastic_deform(img: np.ndarray, alpha_px: float, sigma_frac: float = 0.08) -> np.ndarray:
+    """Elastic deformation with the corrected parametrisation used for
+    training: the Gaussian-smoothed field is rescaled to unit RMS, so
+    alpha_px is the RMS displacement in pixels (cf. cloud/gpu_aug.py)."""
+    rng = np.random.default_rng(3)
     h, w = img.shape
-    sigma_px = sigma_frac * max(h, w)
-    rng = np.random.default_rng(42)
-    dx = cv2.GaussianBlur((rng.random((h, w)) * 2 - 1).astype(np.float32),
-                          (0, 0), sigmaX=sigma_px) * alpha
-    dy = cv2.GaussianBlur((rng.random((h, w)) * 2 - 1).astype(np.float32),
-                          (0, 0), sigmaX=sigma_px) * alpha
-    xg, yg = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
-    map_x = np.clip(xg + dx, 0, w - 1).astype(np.float32)
-    map_y = np.clip(yg + dy, 0, h - 1).astype(np.float32)
+    sigma = sigma_frac * max(h, w)
+    def field():
+        f = cv2.GaussianBlur((rng.random((h, w)) * 2 - 1).astype(np.float32), (0, 0), sigmaX=sigma)
+        return f / max(np.sqrt((f ** 2).mean()), 1e-8) * alpha_px
+    dx, dy = field(), field()
+    x, y = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
+    map_x = np.clip(x + dx, 0, w - 1); map_y = np.clip(y + dy, 0, h - 1)
     return cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderValue=255)
 
 
@@ -359,7 +349,7 @@ def fig_augmentation_grid():
     variants.append(("Scale 0.85×", cv2.warpAffine(img, M_sc, (w, h), borderValue=255)))
 
     # Elastic deformation
-    variants.append(("Elastic (α=4)", _elastic_deform(img, alpha=4.0)))
+    variants.append(("Elastic (2 px RMS)", _elastic_deform(img, alpha_px=2.0)))
 
     # Morphological erosion (thicker text: uses inverted logic since bg=white)
     variants.append(("Erode 2×2", cv2.erode(img, np.ones((2, 2), np.uint8))))
@@ -387,7 +377,7 @@ def fig_augmentation_grid():
     variants.append(("Random erasing", er))
 
     # Compose (elastic + morph)
-    compose = _elastic_deform(cv2.erode(img, np.ones((2, 2), np.uint8)), alpha=3.0)
+    compose = _elastic_deform(cv2.erode(img, np.ones((2, 2), np.uint8)), alpha_px=2.0)
     variants.append(("Elastic+Erode (combo)", compose))
 
     n = len(variants)

@@ -1,5 +1,11 @@
 # Ablation Deneyleri — Çalıştırma Rehberi
 
+> ## ✅ TAMAMLANDI (7 Eylül 2026)
+> Beş konfigürasyon tam veriyle, tek makinede, tek kod sürümüyle eğitildi ve
+> ölçüldü. Sonuçlar ve tüm tablolar: **`results/ABLATION_SONUC.md`**.
+> Makale bu sayılarla yeniden yazıldı (`makale/paper.tex`). Aşağısı, deneyleri
+> yeniden koşmak isteyen için kalıyor.
+
 > ## ⚠️ GÜNCELLEME (tam veri)
 > Bu rehberdeki 78.06 / 84.54 / N=5,338 sayıları IAM'in **%39'luk kesik** bir
 > etiket dosyasıyla elde edilmişti (44,859 / 115,320 kayıt; test 336 formun
