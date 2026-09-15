@@ -1,10 +1,10 @@
 """
-Generate publication-quality figures for the AugCRNN-T paper.
+Generate publication-quality figures for the CRNN-LX paper.
 
 Model naming (must match paper.tex):
   CRNN-S / CRNN-M / CRNN-L  = baseline variants (2/3/4 BiLSTM layers)
-  AugCRNN                   = CRNN-L + elastic & morphological augmentation
-  AugCRNN-T                 = AugCRNN + trigram post-correction (PROPOSED)
+  CRNN-G                    = CRNN-B + elastic & morphological augmentation
+  CRNN-LX                   = CRNN-G + frequency-ranked post-correction (PROPOSED)
 
 Outputs (in makale/figures/):
   fig1_augmentation_grid.pdf     — 3x4 grid of augmentation examples
@@ -37,12 +37,15 @@ REPO = Path(__file__).resolve().parent.parent
 FIG_DIR = Path(__file__).resolve().parent / "figures"
 FIG_DIR.mkdir(exist_ok=True)
 
-MODEL_DIR = REPO / "Model_abl_full"          # AugCRNN-T, tam veri
+MODEL_DIR = REPO / "Model_abl_full"          # CRNN-LX, tam veri
 HISTORY_JSON = MODEL_DIR / "training_history.json"
-ABL_MODES = [("narrow", "CRNN-L (baseline)"), ("photo", "+ wide photometric"),
+ABL_MODES = [("none", "no augmentation"),
+             ("narrow", "CRNN-B (baseline)"), ("photo", "+ wide photometric"),
              ("elastic", "+ elastic"), ("morph", "+ morphological"),
-             ("full", "AugCRNN-T (all)")]
-TEST_CSV = MODEL_DIR / "test_results_analysis.csv"
+             ("full", "CRNN-LX (all)")]
+# Deterministic single-source evaluation (see cloud/ablation_lexicon_all.py):
+# the same per-word predictions that Tables II-IV and the error analysis use.
+TEST_CSV = REPO / "results" / "preds_det" / "preds_full.csv"
 IAM_ROOT = REPO / "HTR_Using_CRNN" / "IAM" / "processed" / "archive" / "iam_words" / "words"
 
 # ---- Style ---------------------------------------------------------------
@@ -79,18 +82,21 @@ C_GRAY = "#666666"
 # Figure 0: System pipeline diagram
 # ==========================================================================
 def fig_pipeline():
-    """End-to-end system overview: data -> preprocessing -> augmentation ->
+    """End-to-end system overview: data -> augmentation -> preprocessing ->
     CRNN -> CTC decode -> trigram LM -> evaluation.
-    Our two contributions are highlighted (green, bold border)."""
+
+    The two stages this paper ablates are outlined; each carries its measured
+    effect, so the highlight marks what was studied, not what worked."""
     from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
-    fig, ax = plt.subplots(figsize=(7.0, 3.1))
+    # Drawn at the journal text width (5 in) so LaTeX places it 1:1.
+    fig, ax = plt.subplots(figsize=(5.0, 2.3))
     ax.set_xlim(0, 100)
     ax.set_ylim(0, 46)
     ax.axis("off")
     ax.grid(False)
 
-    BOX_W, BOX_H = 20.0, 12.0
+    BOX_W, BOX_H = 21.5, 12.0
     Y_TOP, Y_BOT = 30.0, 6.0
 
     def box(x, y, title, lines, fc, ec, lw=1.0, bold_title=True):
@@ -117,18 +123,24 @@ def fig_pipeline():
     BLUE_F, BLUE_E = "#DCE9F5", C_BLUE
     OURS_F, OURS_E = "#D8F0E6", C_GREEN
 
-    xs = [1.0, 27.0, 53.0, 79.0]
+    xs = [0.5, 26.0, 51.5, 77.0]
 
     # --- Top row: data -> preprocessing -> augmentation -> encoder ---------
     box(xs[0], Y_TOP, "IAM Aachen",
-        ["writer-disjoint", "31.3K / 1.6K / 5.3K", "word crops"], GREY_F, GREY_E)
-    box(xs[1], Y_TOP, "Preprocessing",
-        ["grayscale $32{\\times}128$", "invert, scale to $[-1,1]$"], BLUE_F, BLUE_E)
-    box(xs[2], Y_TOP, "Augmentation*",
-        ["geometric + photometric", "+ elastic + morphological",
-         "(training only)"], OURS_F, OURS_E, lw=1.8)
+        ["writer-disjoint", "48.0K / 7.2K / 20.3K", "word crops"], GREY_F, GREY_E)
+    box(xs[1], Y_TOP, "Augmentation*",
+        ["affine $+$ photometric", "$+$ elastic, morphological",
+         "$64{\\times}256$, training only"], OURS_F, OURS_E, lw=1.8)
+    box(xs[2], Y_TOP, "Preprocessing",
+        ["invert, scale $[-1,1]$", "resize to $32{\\times}128$"],
+        BLUE_F, BLUE_E)
     box(xs[3], Y_TOP, "CRNN encoder",
         ["7-block CNN", "4$\\times$BiLSTM-512", "28.73M params"], BLUE_F, BLUE_E)
+
+    # what the ablations measured, so the highlight cannot be read as a claim
+    ax.text(xs[1] + BOX_W / 2, Y_TOP - 1.6,
+            "conventional $+2.5$ pp; proposed $+0.4$ pp (n.s.)",
+            ha="center", va="top", fontsize=6.0, color=C_GREEN, style="italic")
 
     for i in range(3):
         arrow(xs[i] + BOX_W, Y_TOP + BOX_H / 2, xs[i + 1], Y_TOP + BOX_H / 2)
@@ -139,18 +151,22 @@ def fig_pipeline():
     # --- Bottom row (right to left): CTC -> trigram -> output -> eval ------
     box(xs[3], Y_BOT, "CTC decoding",
         ["training: CTC loss", "test: greedy decode"], BLUE_F, BLUE_E)
-    box(xs[2], Y_BOT, "Trigram LM*",
-        ["IAM + NLTK lexicon", "238K types", "edit-distance rescoring"],
+    box(xs[2], Y_BOT, "Lexical prior*",
+        ["IAM $+$ NLTK lexicon", "239K types", "edits $+$ frequency"],
         OURS_F, OURS_E, lw=1.8)
     box(xs[1], Y_BOT, "Predicted word",
         ["final transcription"], GREY_F, GREY_E)
     box(xs[0], Y_BOT, "Evaluation",
-        ["WA, CER", "Wilson 95\\% CI", "McNemar exact"], GREY_F, GREY_E)
+        ["WA, CER", "Wilson 95% CI", "McNemar exact"], GREY_F, GREY_E)
 
     for i in (3, 2, 1):
         arrow(xs[i], Y_BOT + BOX_H / 2, xs[i - 1] + BOX_W, Y_BOT + BOX_H / 2)
 
-    ax.text(50, 0.6, "* contributions of this work",
+    ax.text(xs[2] + BOX_W / 2, Y_BOT - 1.4,
+            "coverage $+0.7$ pp; prior $+1.2$ pp",
+            ha="center", va="top", fontsize=6.0, color=C_GREEN, style="italic")
+
+    ax.text(50, 0.6, "* stages ablated in this work; italics give their measured effect",
             ha="center", va="center", fontsize=6.6, style="italic",
             color=C_GREEN)
 
@@ -165,10 +181,13 @@ def fig_pipeline():
 # Figure 2: Training curves
 # ==========================================================================
 def fig_training_curves():
-    """Validation WA and training loss for the five ablation configurations."""
+    """Validation WA and training loss for the six ablation configurations."""
     import json
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.0, 2.6))
-    colors = ["#4d4d4d", "#8c8c8c", "#0072B2", "#D55E00", "#009E73"]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(5.0, 2.6))
+    # One colour per mode (Okabe-Ito, colour-blind safe).  MUST stay the same
+    # length as ABL_MODES: zip() would silently drop the trailing modes.
+    colors = ["#4d4d4d", "#8c8c8c", "#0072B2", "#D55E00", "#009E73", "#CC79A7"]
+    assert len(colors) >= len(ABL_MODES), "add a colour per ablation mode"
     for (mode, label), c in zip(ABL_MODES, colors):
         h = json.load(open(REPO / f"Model_abl_{mode}" / "training_history.json"))
         wa = [v * 100 for v in h["val_wa"]]; ep = range(1, len(wa) + 1)
@@ -177,13 +196,16 @@ def fig_training_curves():
         best = max(range(len(wa)), key=lambda i: wa[i])
         ax1.plot(best + 1, wa[best], "o", color=c, ms=3.5)
         ax2.plot(ep, h["train_loss"], color=c, lw=lw, label=label)
-    ax1.set_xlabel("epoch"); ax1.set_ylabel("validation word accuracy (%)")
-    ax1.set_ylim(60, 88); ax1.set_title("(a) validation WA, best epoch marked", fontsize=8.5)
+    ax1.set_xlabel("epoch"); ax1.set_ylabel("validation WA (%)")
+    ax1.set_ylim(60, 88); ax1.set_title("(a) validation WA, best epoch marked", fontsize=8)
     ax1.grid(alpha=.3)
     ax2.set_xlabel("epoch"); ax2.set_ylabel("training CTC loss"); ax2.set_yscale("log")
-    ax2.set_title("(b) training loss", fontsize=8.5); ax2.grid(alpha=.3, which="both")
-    ax2.legend(fontsize=6.5, frameon=False)
-    plt.tight_layout()
+    ax2.set_title("(b) training loss", fontsize=8); ax2.grid(alpha=.3, which="both")
+    # one legend for both panels, below them, so it never covers a curve
+    handles, labels = ax2.get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=3, fontsize=7,
+               frameon=False, bbox_to_anchor=(0.5, 0.0))
+    plt.tight_layout(rect=(0, 0.16, 1, 1))
     out = FIG_DIR / "fig2_training_curves.pdf"
     plt.savefig(out)
     plt.close(fig)
@@ -246,7 +268,7 @@ def fig_confusion_topk():
     ax.set_yticklabels(labels, family="monospace")
     ax.invert_yaxis()
     ax.set_xlabel("Substitution count (test set)")
-    ax.set_title("Top-10 character substitutions (AugCRNN-T)")
+    ax.set_title("Top-10 character substitutions (CRNN-LX)")
     for bar, cnt in zip(bars, counts):
         ax.text(bar.get_width() + max(counts) * 0.01, bar.get_y() + bar.get_height() / 2,
                 str(cnt), va="center", fontsize=8)
@@ -299,10 +321,21 @@ def fig_ablation_bars():
 # ==========================================================================
 # Figure 1: Augmentation grid (needs an IAM sample image)
 # ==========================================================================
+# A legible multi-letter training crop ("meeting", 339x96 px).  The previous
+# version took whatever PNG sorted first in the directory, which was a
+# single-letter fragment -- unreadable, and pointless in a figure whose job is
+# to show what the transforms do to handwriting.
+SAMPLE_REL = "a01/a01-000u/a01-000u-02-06.png"
+
+
 def _find_sample_image() -> Path | None:
-    if IAM_ROOT.exists():
-        for word_dir in sorted(IAM_ROOT.glob("a01/a01-000u/*.png"))[:5]:
-            return word_dir
+    if not IAM_ROOT.exists():
+        return None
+    preferred = IAM_ROOT / SAMPLE_REL
+    if preferred.exists():
+        return preferred
+    for cand in sorted(IAM_ROOT.glob("a01/a01-000u/*.png")):
+        return cand
     return None
 
 
@@ -378,16 +411,29 @@ def fig_augmentation_grid():
 
     # Compose (elastic + morph)
     compose = _elastic_deform(cv2.erode(img, np.ones((2, 2), np.uint8)), alpha_px=2.0)
-    variants.append(("Elastic+Erode (combo)", compose))
+    variants.append(("Elastic + Erode", compose))
+
+    # Eight panels, one per axis the paper actually discusses: a conventional
+    # geometric transform, the three proposed ones (elastic, morphological,
+    # wide photometric) and their combination.  The full twelve-panel version
+    # spent a third of a column on transforms the ablation shows do not
+    # matter, and "Random erasing" was visually indistinguishable anyway.
+    keep = ["Original", "Rotation +7\u00b0", "Elastic (2 px RMS)", "Erode 2\u00d72",
+            "Dilate 2\u00d72", "Brightness\u00d70.75", "Gauss noise \u03c3=15",
+            "Elastic + Erode"]
+    order = {k: i for i, k in enumerate(keep)}
+    variants = sorted((v for v in variants if v[0] in keep),
+                      key=lambda v: order[v[0]])
+    assert len(variants) == len(keep), [v[0] for v in variants]
 
     n = len(variants)
     ncols = 4
     nrows = (n + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols, figsize=(7.0, 1.6 * nrows))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5.0, 1.15 * nrows))
     axes = np.array(axes).flatten()
     for i, (name, arr) in enumerate(variants):
         axes[i].imshow(arr, cmap="gray", vmin=0, vmax=255)
-        axes[i].set_title(name, fontsize=8)
+        axes[i].set_title(name, fontsize=7)
         axes[i].axis("off")
     for j in range(len(variants), len(axes)):
         axes[j].axis("off")
@@ -397,6 +443,83 @@ def fig_augmentation_grid():
     plt.savefig(out)
     plt.close(fig)
     print(f"  ✓ {out.name}")
+
+
+# ==========================================================================
+# Figure 4: what the post-corrector actually contributes
+# ==========================================================================
+def fig_lexicon_decomposition():
+    """WA vs lexicon size, with and without the unigram frequency prior.
+
+    Reads the single deterministic evaluation (cloud/ablation_lexicon_all.py),
+    so the figure and Table III cannot drift apart.
+    """
+    import json
+    src = REPO / "results" / "ablation_lexicon5_all.json"
+    d = json.load(open(src))
+    R_NONE = "none (greedy CTC)"
+    R_EDIT = ["IAM lexicon, edit only", "extended lexicon, edit only"]
+    R_NGRAM = ["IAM lexicon + n-gram", "extended lexicon + n-gram"]
+
+    def wa(mode, row):
+        for c in d["models"][mode]["configurations"]:
+            if c["name"] == row:
+                return c["wa_pct"]
+        raise KeyError(row)
+
+    modes = [m for m in ["none", "narrow", "photo", "elastic", "morph", "full"]
+             if m in d["models"]]
+    x = [0, 1]
+    xlab = ["7 K\n(training vocabulary)", "239 K\n(extended)"]
+
+    fig, ax = plt.subplots(figsize=(3.5, 2.7))
+
+    # the other optical models, faint, to show the pattern is not model-specific
+    for m in modes:
+        if m == "full":
+            continue
+        base = wa(m, R_NONE)
+        ax.plot(x, [wa(m, r) - base for r in R_EDIT], color=C_BLUE,
+                lw=0.7, alpha=0.35, zorder=1)
+        ax.plot(x, [wa(m, r) - base for r in R_NGRAM], color=C_ORANGE,
+                lw=0.7, alpha=0.35, zorder=1)
+
+    base = wa("full", R_NONE)
+    edit = [wa("full", r) - base for r in R_EDIT]
+    ngram = [wa("full", r) - base for r in R_NGRAM]
+
+    ax.axhspan(-3.4, 0, color="#d9d9d9", alpha=0.45, lw=0, zorder=0)
+    ax.axhline(0, color="black", lw=0.9, ls="--", zorder=2)
+    ax.text(1.46, -0.22, "harmful", fontsize=6.5, color="#555555",
+            ha="right", va="top")
+    ax.text(1.46, 0.14, "lexicon-free baseline", fontsize=6.5,
+            color="#333333", ha="right", va="bottom")
+
+    ax.plot(x, edit, "o-", color=C_BLUE, lw=1.8, ms=5, zorder=3,
+            label="edit distance only")
+    ax.plot(x, ngram, "s-", color=C_ORANGE, lw=1.8, ms=5, zorder=3,
+            label="$+$ frequency prior")
+
+    # the vertical gap between the two lines IS the prior's contribution
+    for xi in x:
+        ax.annotate("", xy=(xi + 0.055, ngram[xi]), xytext=(xi + 0.055, edit[xi]),
+                    arrowprops=dict(arrowstyle="<->", lw=0.8, color="#444444"))
+        ax.text(xi + 0.09, (edit[xi] + ngram[xi]) / 2,
+                f"$+${ngram[xi] - edit[xi]:.2f}", fontsize=7,
+                va="center", color="#444444")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(xlab, fontsize=7.5)
+    ax.set_xlim(-0.22, 1.5)
+    ax.set_ylabel("$\\Delta$ word accuracy vs.\nlexicon-free (pp)", fontsize=8)
+    ax.set_ylim(-3.4, 4.0)
+    ax.grid(alpha=.3, axis="y")
+    ax.legend(fontsize=7, frameon=False, loc="lower right")
+    plt.tight_layout()
+    out = FIG_DIR / "fig4_lexicon_decomposition.pdf"
+    plt.savefig(out)
+    plt.close(fig)
+    print(f"  \u2713 {out.name}")
 
 
 # ==========================================================================
@@ -410,6 +533,7 @@ def main():
     fig_pipeline()
     fig_training_curves()
     fig_confusion_topk()
+    fig_lexicon_decomposition()
     fig_augmentation_grid()
     # NOTE: fig_ablation_bars() disabled — the per-component numbers
     # in that plot were not obtained from real ablation runs. Re-enable

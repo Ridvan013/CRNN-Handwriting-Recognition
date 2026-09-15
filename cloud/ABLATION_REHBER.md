@@ -54,8 +54,10 @@
 > sorulmalı. Tüm konfigürasyonlar aynı seçimle koşulmalı.
 >
 > ```powershell
-> .un_ablation.ps1 main                                        # legacy (no-op elastik)
-> .un_ablation.ps1 main -ElasticLegacy 0 -ElasticAlpha "1 3"    # düzeltilmiş
+> .
+un_ablation.ps1 main                                        # legacy (no-op elastik)
+> .
+un_ablation.ps1 main -ElasticLegacy 0 -ElasticAlpha "1 3"    # düzeltilmiş
 > ```
 
 Bu dosya, makaleye eklenecek **iki ablation tablosunu** üretmek için ne
@@ -296,3 +298,102 @@ Bu dosyalar geldiğinde iki tablo makaleye eklenecek.
 - **Amaç:** 6.48 puanın hangi tekniğe ait olduğunu göstermek
 - **Süre:** ~6.5 saat (Tablo B ilk 15 dakikada hazır)
 - **Kritik:** hepsi aynı ortamda (Kaggle T4) ölçülmeli
+
+---
+
+## 10. Seed tekrarları (hoca revizyonu, 15 Eylül) — Berhat'ın yapacağı iş
+
+### Neden?
+
+Tablo 2'deki her konfigürasyon **bir kez** eğitildi (seed 42). CRNN-B'den
+CRNN-LX'e +0,38 puanlık farkın augmentation'dan mı, yoksa ağırlıkların
+rastgele başlangıcından mı geldiğini tek seed ile ayırt edemeyiz. Hoca
+en azından **CRNN-B ve CRNN-LX'i 3 seed ile** koşup ortalama ± standart
+sapma raporlamamızı istedi. Seed 42 zaten var; **4 yeni eğitim** gerekiyor:
+
+| Koşu | `--aug-mode` | `--seed` | `--model-dir` |
+|---|---|---|---|
+| 1 | `narrow` (CRNN-B) | 123 | `Model_seed_narrow_123` |
+| 2 | `narrow` (CRNN-B) | 456 | `Model_seed_narrow_456` |
+| 3 | `full` (CRNN-LX) | 123 | `Model_seed_full_123` |
+| 4 | `full` (CRNN-LX) | 456 | `Model_seed_full_456` |
+
+**Seed dışında hiçbir şey değişmiyor.** Aynı veri, aynı bölme, aynı epoch,
+batch, lr, patience, aynı düzeltilmiş elastik ayarı.
+
+### Gereklilikler
+
+1. **Repo, güncel dal:** `feature/aachen-v3-extended-trigram` — `git pull`
+   yap; 15 Eylül commit'i şart (UTF-8 çıktı düzeltmesi, `--aug-mode none`,
+   `ablation_lexicon_all.py`'ye `ad=dizin` desteği bu commit'te).
+2. **Etiketler** repodan gelir: `aachen_splits/{train,validation,test}_words.txt`
+   (tam IAM, 47.997 / 7.205 / 20.310). Ekstra bir şey indirmene gerek yok.
+3. **Görüntüler:** Kaggle'daki IAM word dataset'i (§4.3'teki gibi Add Input).
+   `--iam-root` o dataset'in `words/` klasörünü, `--iam-words` da içindeki
+   `words.txt`'yi gösterecek. Bu dosyanın eksik (44.859 satırlık) kopyası
+   olması sorun değil; etiketler zaten repodan okunuyor.
+4. **NLTK words** corpus'u (Internet ON; script kendisi indirir).
+5. **GPU:** T4 yeterli. Bir eğitim T4'te yaklaşık 3–5 saat (100 epoch'a
+   kadar, early stopping ile genelde 70–100 epoch). Kaggle oturumu 12 saat:
+   **bir oturuma 2 eğitim** sığar → toplam **2 oturum**. Haftalık 30 saat GPU
+   kotasına dikkat.
+
+### Komutlar (repo kökünde)
+
+```bash
+# oturum 1
+python cloud/v3_augmented_train.py --aug-mode narrow --seed 123 \
+    --model-dir Model_seed_narrow_123 \
+    --epochs 100 --batch 128 --lr 7e-4 --patience 15 \
+    --elastic-legacy-amplitude 0 --elastic-alpha 1 3 \
+    --iam-words <words.txt> --iam-root <words/>
+
+python cloud/v3_augmented_train.py --aug-mode full --seed 123 \
+    --model-dir Model_seed_full_123 \
+    --epochs 100 --batch 128 --lr 7e-4 --patience 15 \
+    --elastic-legacy-amplitude 0 --elastic-alpha 1 3 \
+    --iam-words <words.txt> --iam-root <words/>
+
+# oturum 2: aynı iki komut, --seed 456 ve ..._456 dizinleriyle
+```
+
+Notebook kullanıyorsan (§4), 6/7/8. hücrelerdeki komut listesini bu dört
+komutla değiştirmen yeterli; `SESSION` mantığı aynen çalışır.
+
+### Bittiğinde ne göndereceksin?
+
+Her `Model_seed_*` klasöründen:
+
+```
+best_model_wa.pth          (~115 MB, asıl gereken bu)
+training_history.json
+results.json
+test_results_analysis.csv
+```
+
+`.pth` dosyaları git'e sığmaz: dört klasörü Kaggle Dataset olarak yayınla
+ya da Drive'a koy, linki gönder. Puanlama Rıdvan'ın makinesinde, makaledeki
+diğer altı modelle **aynı deterministik yoldan** yapılacak:
+
+```bash
+python cloud/ablation_lexicon_all.py \
+    --modes narrow,narrow_s123=Model_seed_narrow_123,narrow_s456=Model_seed_narrow_456,full,full_s123=Model_seed_full_123,full_s456=Model_seed_full_456 \
+    --mcnemar-baseline narrow \
+    --out results/ablation_seeds.json --dump-preds results/preds_seeds \
+    --iam-words <words.txt> --iam-root <words/>
+```
+
+Çıkan üçer WA'dan ortalama ± SD hesaplanıp Tablo 2'ye hocanın istediği
+satırlar eklenecek. Sonuç iki yöne de çıkabilir: fark seedler arası
+oynamanın içinde kalırsa "anlamlı değil" bulgusu güçlenir; +0,4 puan her
+seedde tekrar ederse "küçük ama tutarlı" diye yazılır. İkisi de dürüst
+sonuçtur, hangisi çıkarsa o.
+
+### Dikkat
+
+- `--seed` bayrağını **her komutta** ver; vermezsen 42 ile eğitir ve mevcut
+  sonucu tekrarlamış olursun.
+- `--model-dir` adlarını aynen kullan; puanlama komutu bu adlara göre.
+- Eğitim `Early stopping at epoch N` yazıp `SONUÇ` bloğunu basmadan biterse
+  oturum kesilmiştir; `training_history.json` kaç epoch gittiğini gösterir,
+  o koşuyu baştan al.

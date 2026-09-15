@@ -3,16 +3,19 @@
 Lexicon / trigram ablation for the paper (Table: post-processing ablation).
 
 Runs ONE trained AugCRNN model over the Aachen test set once, caches the raw
-greedy hypotheses, and then applies four increasingly informed post-processing
+greedy hypotheses, and then applies five increasingly informed post-processing
 configurations to the same hypotheses:
 
     1. AugCRNN                      raw greedy CTC output, no lexicon
-    2. AugCRNN + IAM lexicon        IAM-only lexicon (5.9K), edit distance only
+    2. AugCRNN + IAM lexicon        IAM-only lexicon (7.2K), edit distance only
     3. AugCRNN + IAM lex. + trigram IAM-only lexicon, n-gram rescoring
-    4. AugCRNN-T (proposed)         IAM+NLTK lexicon (238K), n-gram rescoring
+    4. AugCRNN + ext. lexicon       IAM+NLTK lexicon (239K), edit distance only
+    5. AugCRNN-T (proposed)         IAM+NLTK lexicon (239K), n-gram rescoring
 
-Because all four share the same optical hypotheses, the differences isolate
-the contribution of each post-processing stage exactly.
+Because all five share the same optical hypotheses, the differences isolate
+the contribution of each post-processing stage exactly.  Rows 2 vs 3 and 4 vs 5
+isolate the n-gram rescoring at each lexicon size; rows 3 vs 5 (and 2 vs 4)
+isolate the lexicon size at each rescoring setting.
 
 Usage:
     python cloud/ablation_lexicon.py \
@@ -35,6 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "cloud"))
 
+import numpy as np
 import torch
 
 from model_v3 import (
@@ -85,6 +89,62 @@ def correct_lexicon_only(word: str, lm: TrigramLanguageModel) -> str:
             best, best_d = cand, d
             if d == 1:
                 break
+    return best
+
+
+def correct_lexicon_only_fast(word: str, lm: TrigramLanguageModel,
+                              _memo: dict | None = None) -> str:
+    """Same decision rule as correct_lexicon_only, but bucketed + vectorised.
+
+    The naive version scans the whole vocabulary in Python, which is fine for
+    the 7K IAM lexicon and far too slow for the 239K extended one.  This one
+    visits only the admissible length buckets (|len(w)-len(v)| <= max_dist,
+    the others were rejected anyway) and computes their Levenshtein distances
+    with the same numpy DP used by TrigramLanguageModel.correct_word.
+
+    Ties are broken deterministically: buckets are sorted, shorter candidate
+    lengths are visited first, and only a STRICTLY smaller distance replaces
+    the incumbent -- so the result does not depend on set iteration order.
+    """
+    if _memo is not None and word in _memo:
+        return _memo[word]
+
+    if word in lm.vocabulary or word.lower() in lm.vocabulary_lower:
+        if _memo is not None:
+            _memo[word] = word
+        return word
+
+    if len(word) <= 4:
+        max_dist = 1
+    else:
+        max_dist = 2
+
+    by_len = lm.__dict__.get("_vocab_by_len")
+    if by_len is None or lm.__dict__.get("_vocab_by_len_n") != len(lm.vocabulary):
+        by_len = {}
+        for v in lm.vocabulary:
+            by_len.setdefault(len(v), []).append(v)
+        for _k in by_len:
+            by_len[_k].sort()
+        lm._vocab_by_len = by_len
+        lm._vocab_by_len_n = len(lm.vocabulary)
+
+    best, best_d = word, max_dist + 1
+    for L in range(len(word) - max_dist, len(word) + max_dist + 1):
+        bucket = by_len.get(L, ())
+        if not bucket:
+            continue
+        dists = lm._bucket_distances(word, L, bucket, max_dist)
+        idxs = np.nonzero(dists <= max_dist)[0]
+        if idxs.size == 0:
+            continue
+        i = int(idxs[int(np.argmin(dists[idxs]))])
+        d = int(dists[i])
+        if d < best_d:
+            best, best_d = bucket[i], d
+
+    if _memo is not None:
+        _memo[word] = best
     return best
 
 
@@ -169,19 +229,37 @@ def main():
     print("\n Building IAM+NLTK lexicon ...")
     lm_full = TrigramLanguageModel(aachen_words, use_nltk_extension=True)
 
-    # ── four configurations over the SAME hypotheses ────────────────────────
+    # ── equivalence check: fast bucketed corrector vs the naive scan ────────
+    # Only runs on the 7K IAM lexicon, where the naive version is affordable.
+    # Any difference can only be an exact-distance tie (the fast version breaks
+    # them lexicographically, the naive one by set iteration order).
+    uniq = sorted(set(raw))
+    naive = [correct_lexicon_only(w, lm_iam) for w in uniq]
+    memo_iam = {}
+    fast = [correct_lexicon_only_fast(w, lm_iam, memo_iam) for w in uniq]
+    diffs = [(w, a, b) for w, a, b in zip(uniq, naive, fast) if a != b]
+    print(f"\n equivalence check on the IAM lexicon: {len(diffs)} of "
+          f"{len(uniq)} unique hypotheses differ (exact-distance ties)")
+    for w, a, b in diffs[:5]:
+        print(f"   {w!r}: naive -> {a!r}, deterministic -> {b!r}")
+
+    # ── five configurations over the SAME hypotheses ────────────────────────
+    memo_full = {}
     configs = {
         "AugCRNN (no lexicon)":
             raw,
         "AugCRNN + IAM lexicon":
-            [correct_lexicon_only(w, lm_iam) for w in raw],
+            [correct_lexicon_only_fast(w, lm_iam, memo_iam) for w in raw],
         "AugCRNN + IAM lexicon + trigram":
             [lm_iam.correct_word(w) for w in raw],
+        "AugCRNN + IAM+NLTK lexicon (no trigram)":
+            [correct_lexicon_only_fast(w, lm_full, memo_full) for w in raw],
         "AugCRNN-T (IAM+NLTK lexicon + trigram)":
             [lm_full.correct_word(w) for w in raw],
     }
 
     out = {"n_samples": len(refs), "model": args.model,
+           "iam_lexicon_tie_diffs": len(diffs),
            "lexicon_sizes": {"iam_only": len(lm_iam.vocabulary),
                              "iam_plus_nltk": len(lm_full.vocabulary)},
            "configurations": []}

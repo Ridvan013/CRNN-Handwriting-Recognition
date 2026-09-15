@@ -17,11 +17,11 @@ checkpoint ayrı süreçte iki kez çalıştırıldığında 0 fark; farklı che
 
 | Mod | epoch | en iyi val WA | @epoch | son val WA | durdurma |
 |---|---:|---:|---:|---:|---|
-| narrow (CRNN-L) | 100 | 84,61 | 87 | 84,58 | epoch sınırı |
+| narrow (CRNN-B) | 100 | 84,61 | 87 | 84,58 | epoch sınırı |
 | photo | 91 | 84,34 | 76 | 83,75 | 76+15 |
 | elastic | 92 | 84,69 | 77 | 84,40 | 77+15 |
 | morph | 99 | 84,58 | 84 | 84,40 | 84+15 |
-| full (AugCRNN-T) | 85 | 84,77 | 70 | 84,41 | 70+15 |
+| full (CRNN-LX) | 85 | 84,77 | 70 | 84,41 | 70+15 |
 
 ## Tablo A — augmentation ablation (test, N=20.310, greedy + IAM+NLTK trigram)
 
@@ -30,11 +30,11 @@ Nihai sayılar `results/ablation_lexicon_<mod>.json` (deterministik beraberlik
 
 | Konfigürasyon | wide photo | elastic | morph | WA (%) | CER (%) | Δ vs CRNN-L |
 |---|:---:|:---:|:---:|---:|---:|---:|
-| CRNN-L (baseline) | ✗ | ✗ | ✗ | 80,35 | 9,34 | — |
+| CRNN-B (baseline) | ✗ | ✗ | ✗ | 80,35 | 9,34 | — |
 | + wide photometric | ✓ | ✗ | ✗ | 80,34 | 9,34 | −0,01 |
 | + elastic | ✓ | ✓ | ✗ | 80,68 | 9,09 | +0,33 |
 | + morphological | ✓ | ✗ | ✓ | 80,64 | 9,09 | +0,29 |
-| **AugCRNN-T** (hepsi) | ✓ | ✓ | ✓ | **80,73** | **9,09** | **+0,38** |
+| **CRNN-LX** (hepsi) | ✓ | ✓ | ✓ | **80,73** | **9,09** | **+0,38** |
 
 McNemar (eğitim scriptinin CSV bayrakları, N=20.310):
 
@@ -77,7 +77,7 @@ Test kelimelerinin sözlük kapsaması: yalnız IAM %84,8, IAM+NLTK %94,0.
 
 ## Bulgular (makale için)
 
-1. Ana sayı: **AugCRNN-T %80,73 WA / %9,09 CER**, N=20.310, Aachen
+1. Ana sayı: **CRNN-LX %80,73 WA / %9,09 CER**, N=20.310, Aachen
    writer-disjoint, sözlük yardımlı. Sözlüksüz (ham) **%78,82**.
 2. Augmentation katkısı istatistiksel olarak sıfırdan ayırt edilemiyor.
    Birinci katkı iddiası düşüyor; dürüst ifade: "geniş fotometrik, elastik
@@ -106,12 +106,102 @@ Test kelimelerinin sözlük kapsaması: yalnız IAM %84,8, IAM+NLTK %94,0.
    noktalama yok, sentetik ön-eğitim, TTA). Satır "re-trained in [Rajesh]"
    olarak düzeltildi; Mondal 2022 (YOLOv3, sözlüksüz 70,79) eklendi.
 
+## Düzeltme (12 Eylül) — n-gram katkısı ve tek kaynak
+
+Tablo B'de **eksik bir hücre** vardı: genişletilmiş sözlük *trigram olmadan*
+hiç ölçülmemişti, dolayısıyla trigram'ın katkısı yalnızca 7K sözlükte
+biliniyordu. Ölçülünce makaledeki "belirleyici olan kapsama, n-gram değil"
+iddiasının **yanlış** olduğu çıktı.
+
+`cloud/ablation_lexicon_all.py` ile beş model x beş düzeltme, tek süreçte,
+fp32 (deterministik: iki bağımsız koşu 20.310/20.310 aynı):
+
+| Düzeltme | narrow | photo | elastic | morph | **full** |
+|---|---:|---:|---:|---:|---:|
+| yok (ham greedy) | 78,76 | 78,68 | 79,18 | 78,75 | 78,83 |
+| IAM sözlüğü (7.173), sadece edit | 76,14 | 76,26 | 76,46 | 76,25 | 76,42 |
+| IAM sözlüğü + n-gram | 76,64 | 76,75 | 76,94 | 76,80 | 77,04 |
+| **genişletilmiş (239.126), sadece edit** | 79,27 | 79,23 | 79,50 | 79,37 | **79,51** |
+| genişletilmiş + n-gram (CRNN-LX) | 80,36 | 80,33 | 80,67 | 80,64 | **80,74** |
+
+Türetilen katkılar (pp):
+
+| | narrow | photo | elastic | morph | full |
+|---|---:|---:|---:|---:|---:|
+| IAM sözlüğü vs yok | −2,62 | −2,42 | −2,71 | −2,50 | −2,42 |
+| n-gram @ IAM sözlüğü | +0,50 | +0,49 | +0,47 | +0,55 | +0,63 |
+| genişletilmiş vs yok | +0,51 | +0,55 | +0,32 | +0,63 | +0,67 |
+| **n-gram @ genişletilmiş** | +1,09 | +1,10 | +1,18 | +1,26 | **+1,23** |
+| toplam düzeltici | +1,60 | +1,65 | +1,50 | +1,89 | +1,91 |
+
+**Sonuç:** kapsama işaretin yönünü belirliyor, frekans önceliği ise
+büyüklüğün çoğunu sağlıyor; ve n-gram'ın değeri sözlük büyüdükçe artıyor
+(7K'da ~+0,5, 239K'da ~+1,2), çünkü büyük sözlükte aynı edit mesafesindeki
+aday sayısı artıyor ve sıralama kritik hale geliyor.
+
+### Yan bulgular
+
+1. **Berabere adaylarda seçim kuralı tanımsızdı.** Eski "sadece edit mesafesi"
+   kodu eşit mesafeli adaylar arasında Python `set` sırasına göre seçiyordu;
+   6.143 benzersiz hipotezin 1.239'unda sonuç değişiyor, WA'yı 0,41 pp
+   oynatıyordu (76,83 → 76,42). Yeni kod deterministik (kısa aday önce, sonra
+   alfabetik) ve `correct_word`'ün yapısıyla örtüşüyor, böylece n-gram katkısını
+   doğru izole ediyor.
+2. **AMP (fp16) çıkarımı bit düzeyinde tekrarlanabilir değil**: aynı
+   checkpoint'in iki koşusu 20.310 kelimenin 2'sinde farklıydı. fp32'de 0 fark.
+3. **Makale iki değerlendirme yolunu karıştırıyordu**: Tablo II'nin WA sütunu
+   sözlük-ablation'ından, p sütunu ve hata analizi eğitim script'inin
+   CSV'sinden geliyordu; ikisi ~9 kelime farklıydı. Artık her şey tek
+   kaynaktan: `results/ablation_lexicon5_all.json` + `results/preds_det/`.
+
+Güncellenen sayılar: WA 80,73→80,74; ham 78,82→78,83; baseline 80,35→80,36;
+McNemar p 0,058→0,060 (photo 0,901, elastic 0,122, morph 0,165); hatalı kelime
+3.903→3.912.
+
+### Sıfır-augmentation çapası (12 Eylül, eklendi)
+
+Beş konfigürasyonun hepsinde konvansiyonel augmentation açıktı, dolayısıyla
+"augmentation işe yarıyor mu" sorusu ölçülmemişti. `--aug-mode none` ile
+altıncı model eğitildi (aynı ayarlar: 100 epoch, batch 128, lr 7e-4,
+patience 15, seed 42; early stopping epoch 53, en iyi val WA %82,57 @ep38).
+
+| Konfigürasyon | WA | CER | ΔWA vs narrow | p | en iyi val WA |
+|---|---:|---:|---:|---:|---:|
+| **augmentation yok** | **77,87** | 11,00 | **−2,49** | **2×10⁻²⁷** | 82,57 @38 |
+| narrow (konvansiyonel) | 80,36 | 9,34 | — | — | 84,61 @87 |
+| + geniş fotometrik | 80,33 | 9,34 | −0,03 | 0,901 | 84,34 @76 |
+| + elastik | 80,67 | 9,09 | +0,32 | 0,122 | 84,69 @77 |
+| + morfolojik | 80,64 | 9,09 | +0,28 | 0,165 | 84,58 @84 |
+| CRNN-LX | 80,74 | 9,09 | +0,38 | 0,060 | 84,77 @70 |
+
+Sözlüksüz fark daha da büyük: 78,76 vs **74,33** (−4,43 pp). Yani sözlük,
+zayıf optik modelin açığını kısmen kapatıyor.
+
+**Bu bir pozitif kontrol.** Aynı test, aynı veri, aynı seed konvansiyonel
+augmentation'ı p=2×10⁻²⁷ ile yakalıyor; bizim üç dönüşümümüzde ise hiçbir şey
+bulmuyor (+0,38 pp, p=0,060). Yani null sonuç "deney duyarsız" değil,
+**doygunluk**. Hakem "farkı göremediniz çünkü deneyiniz zayıf" derse cevap bu.
+
+Mekanizma: çapa modeli eğitim kaybını 0,018'e kadar indiriyor (augmentation'lı
+koşuların beşte biri), val loss'u yükseliyor, 38. epoch'ta doyup 53'te duruyor
+— yani ezberliyor. Augmentation'lı koşular 70–87. epoch'a kadar öğrenmeye
+devam ediyor.
+
+Sözlük etkileri çapada daha büyük (optik çıktı zayıf olduğu için düzeltecek
+daha çok hata var): IAM sözlüğü −1,08, genişletilmiş +1,43, n-gram +2,10,
+toplam **+3,54** pp (augmentation'lı beşlide toplam +1,50…+1,91).
+
 ## Dosyalar
 
 - `Model_abl_<mod>/` — `best_model_wa.pth`, `test_results_analysis.csv`
   (kelime bazlı), `training_history.json`, `training_log.csv`, `results.json`
-- `results/ablation_lexicon_<mod>.json` — Tablo B, nihai
-- `results/ablation_lexicon.json` — full için ilk (deterministik olmayan) ölçüm
+- `results/ablation_lexicon5_all.json` — **tek geçerli kaynak**: 6 optik model
+  x 5 düzeltme, fp32, deterministik, tek değerlendirme geçişi
+- `results/preds_det/preds_<mod>.csv` — kelime bazlı tahminler (McNemar, hata
+  analizi ve Şekil 4 bunlardan üretiliyor)
+- `results/_superseded/` — eski per-mode JSON'lar; AMP, tanımsız beraberlik
+  kuralı ve eksik hücre içeriyorlar, **atıf yapılmamalı** (gerekçe o klasörün
+  README'sinde)
 
 ## Eski 84,54 sayısı neden yeniden üretilemiyor (7 Eylül, ek ölçüm)
 
@@ -122,7 +212,7 @@ eğitim sözlüğü (+NLTK):
 |---|---|---:|---:|
 | Eski (Berhat'ın ağırlıkları, 31.615 kelimeyle) | yok | 74,97 | 74,55 |
 | | +lexicon | **78,34** | 77,32 |
-| Yeni AugCRNN-T (47.997 kelimeyle) | yok | 79,19 | 78,15 |
+| Yeni CRNN-LX (47.997 kelimeyle) | yok | 79,19 | 78,15 |
 | | +lexicon | **81,21** | 80,37 |
 
 - Berhat'ın ağırlıkları yerelde iki bağımsız scriptle 78,29 ve 78,34 veriyor;
@@ -138,3 +228,23 @@ eğitim sözlüğü (+NLTK):
 
 Sonuç: 84,54 → 80,73 bir düşüş değildir; ilki yeniden üretilemeyen bir sayı,
 ikincisi dört kat büyük ve daha çeşitli bir test kümesinde doğrulanmış sayıdır.
+
+## 15 Eylül revizyonu (hoca)
+
+- Başlık: *Decomposing Lexicon-Assisted Correction for Isolated Handwritten
+  Word Recognition on IAM: Effects of Lexicon Coverage and Frequency-Based
+  Ranking*. §6.1 → "Interpretation of the Augmentation Results", §6.3 →
+  "Comparison with Previous Word-Level HTR Systems".
+- Terminoloji: "trigram/n-gram" → **unigram frekans önceliği**. Kodda
+  `score_word` hep `prev_words=None` ile çağrılıyor; bigram/trigram dalları
+  hiç çalışmıyor. Test kelimelerinin sadece %34'ünün önceki iki kelimesi
+  eğitim metninde görülmüş bir trigram bağlamı oluşturuyor.
+- Tek-seed ifadeleri yumuşatıldı (özet, katkı 2, §5.1, §6.1, §6.3, sonuç).
+- Tablo 2: Δ_B (CRNN-B'ye göre) ve Δ_P (+geniş fotometriğe göre) ayrı
+  sütunlar; ikisi de yuvarlanmamış doğruluklardan.
+- Sonuç: "2–4 pp" → "1,8–3,9 pp".
+- Ek düzeltmeler: morfolojik olasılık 0,15 (0,3 değil); early stopping
+  val loss **veya** val WA iyileşince sıfırlanır; eski elastik ayarı 64×256'da
+  eksen başına 0,02–0,04 px RMS (max 0,19 px).
+- **Bekleyen:** seed tekrarları (CRNN-B ve CRNN-LX × seed 123, 456) —
+  Berhat, Kaggle, `cloud/ABLATION_REHBER.md` §10.

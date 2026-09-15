@@ -1,0 +1,413 @@
+{
+  "n_samples": 20310,
+  "fp32_deterministic": true,
+  "lexicon_sizes": {
+    "iam_only": 7173,
+    "iam_plus_nltk": 239126
+  },
+  "models": {
+    "none": {
+      "label": "no augmentation",
+      "checkpoint": "Model_abl_none\\best_model_wa.pth",
+      "configurations": [
+        {
+          "correct": 15097,
+          "n": 20310,
+          "wa_pct": 74.3328,
+          "cer_pct": 10.8476,
+          "wilson_95ci_pct": [
+            73.7275,
+            74.9289
+          ],
+          "name": "none (greedy CTC)"
+        },
+        {
+          "correct": 14877,
+          "n": 20310,
+          "wa_pct": 73.2496,
+          "cer_pct": 13.2953,
+          "wilson_95ci_pct": [
+            72.6365,
+            73.854
+          ],
+          "name": "IAM lexicon, edit only"
+        },
+        {
+          "correct": 15111,
+          "n": 20310,
+          "wa_pct": 74.4018,
+          "cer_pct": 12.7689,
+          "wilson_95ci_pct": [
+            73.797,
+            74.9973
+          ],
+          "name": "IAM lexicon + n-gram"
+        },
+        {
+          "correct": 15388,
+          "n": 20310,
+          "wa_pct": 75.7656,
+          "cer_pct": 11.9933,
+          "wilson_95ci_pct": [
+            75.1715,
+            76.35
+          ],
+          "name": "extended lexicon, edit only"
+        },
+        {
+          "correct": 15815,
+          "n": 20310,
+          "wa_pct": 77.868,
+          "cer_pct": 10.9953,
+          "wilson_95ci_pct": [
+            77.2919,
+            78.4337
+          ],
+          "name": "extended lexicon + n-gram"
+        }
+      ]
+    },
+    "narrow": {
+      "label": "CRNN-B (baseline)",
+      "checkpoint": "Model_abl_narrow\\best_model_wa.pth",
+      "configurations": [
+        {
+          "correct": 15997,
+          "n": 20310,
+          "wa_pct": 78.7642,
+          "cer_pct": 8.7516,
+          "wilson_95ci_pct": [
+            78.1963,
+            79.3212
+          ],
+          "name": "none (greedy CTC)"
+        },
+        {
+          "correct": 15464,
+          "n": 20310,
+          "wa_pct": 76.1398,
+          "cer_pct": 11.4473,
+          "wilson_95ci_pct": [
+            75.5487,
+            76.7211
+          ],
+          "name": "IAM lexicon, edit only"
+        },
+        {
+          "correct": 15566,
+          "n": 20310,
+          "wa_pct": 76.642,
+          "cer_pct": 11.236,
+          "wilson_95ci_pct": [
+            76.0551,
+            77.2189
+          ],
+          "name": "IAM lexicon + n-gram"
+        },
+        {
+          "correct": 16099,
+          "n": 20310,
+          "wa_pct": 79.2664,
+          "cer_pct": 9.8973,
+          "wilson_95ci_pct": [
+            78.7033,
+            79.8184
+          ],
+          "name": "extended lexicon, edit only"
+        },
+        {
+          "correct": 16321,
+          "n": 20310,
+          "wa_pct": 80.3594,
+          "cer_pct": 9.3354,
+          "wilson_95ci_pct": [
+            79.8073,
+            80.9
+          ],
+          "name": "extended lexicon + n-gram"
+        }
+      ]
+    },
+    "photo": {
+      "label": "+ wide photometric",
+      "checkpoint": "Model_abl_photo\\best_model_wa.pth",
+      "configurations": [
+        {
+          "correct": 15980,
+          "n": 20310,
+          "wa_pct": 78.6805,
+          "cer_pct": 8.7125,
+          "wilson_95ci_pct": [
+            78.1118,
+            79.2383
+          ],
+          "name": "none (greedy CTC)"
+        },
+        {
+          "correct": 15488,
+          "n": 20310,
+          "wa_pct": 76.258,
+          "cer_pct": 11.3276,
+          "wilson_95ci_pct": [
+            75.6679,
+            76.8382
+          ],
+          "name": "IAM lexicon, edit only"
+        },
+        {
+          "correct": 15587,
+          "n": 20310,
+          "wa_pct": 76.7454,
+          "cer_pct": 11.1541,
+          "wilson_95ci_pct": [
+            76.1594,
+            77.3214
+          ],
+          "name": "IAM lexicon + n-gram"
+        },
+        {
+          "correct": 16092,
+          "n": 20310,
+          "wa_pct": 79.2319,
+          "cer_pct": 9.7861,
+          "wilson_95ci_pct": [
+            78.6685,
+            79.7842
+          ],
+          "name": "extended lexicon, edit only"
+        },
+        {
+          "correct": 16315,
+          "n": 20310,
+          "wa_pct": 80.3299,
+          "cer_pct": 9.3415,
+          "wilson_95ci_pct": [
+            79.7775,
+            80.8708
+          ],
+          "name": "extended lexicon + n-gram"
+        }
+      ]
+    },
+    "elastic": {
+      "label": "+ elastic",
+      "checkpoint": "Model_abl_elastic\\best_model_wa.pth",
+      "configurations": [
+        {
+          "correct": 16080,
+          "n": 20310,
+          "wa_pct": 79.1728,
+          "cer_pct": 8.4768,
+          "wilson_95ci_pct": [
+            78.6089,
+            79.7258
+          ],
+          "name": "none (greedy CTC)"
+        },
+        {
+          "correct": 15530,
+          "n": 20310,
+          "wa_pct": 76.4648,
+          "cer_pct": 11.1321,
+          "wilson_95ci_pct": [
+            75.8764,
+            77.0432
+          ],
+          "name": "IAM lexicon, edit only"
+        },
+        {
+          "correct": 15626,
+          "n": 20310,
+          "wa_pct": 76.9375,
+          "cer_pct": 10.9929,
+          "wilson_95ci_pct": [
+            76.3531,
+            77.5117
+          ],
+          "name": "IAM lexicon + n-gram"
+        },
+        {
+          "correct": 16146,
+          "n": 20310,
+          "wa_pct": 79.4978,
+          "cer_pct": 9.6371,
+          "wilson_95ci_pct": [
+            78.937,
+            80.0474
+          ],
+          "name": "extended lexicon, edit only"
+        },
+        {
+          "correct": 16385,
+          "n": 20310,
+          "wa_pct": 80.6745,
+          "cer_pct": 9.0887,
+          "wilson_95ci_pct": [
+            80.1257,
+            81.2118
+          ],
+          "name": "extended lexicon + n-gram"
+        }
+      ]
+    },
+    "morph": {
+      "label": "+ morphological",
+      "checkpoint": "Model_abl_morph\\best_model_wa.pth",
+      "configurations": [
+        {
+          "correct": 15994,
+          "n": 20310,
+          "wa_pct": 78.7494,
+          "cer_pct": 8.6148,
+          "wilson_95ci_pct": [
+            78.1814,
+            79.3065
+          ],
+          "name": "none (greedy CTC)"
+        },
+        {
+          "correct": 15487,
+          "n": 20310,
+          "wa_pct": 76.2531,
+          "cer_pct": 11.2384,
+          "wilson_95ci_pct": [
+            75.6629,
+            76.8333
+          ],
+          "name": "IAM lexicon, edit only"
+        },
+        {
+          "correct": 15599,
+          "n": 20310,
+          "wa_pct": 76.8045,
+          "cer_pct": 10.9709,
+          "wilson_95ci_pct": [
+            76.219,
+            77.3799
+          ],
+          "name": "IAM lexicon + n-gram"
+        },
+        {
+          "correct": 16121,
+          "n": 20310,
+          "wa_pct": 79.3747,
+          "cer_pct": 9.7324,
+          "wilson_95ci_pct": [
+            78.8127,
+            79.9256
+          ],
+          "name": "extended lexicon, edit only"
+        },
+        {
+          "correct": 16377,
+          "n": 20310,
+          "wa_pct": 80.6352,
+          "cer_pct": 9.0911,
+          "wilson_95ci_pct": [
+            80.0859,
+            81.1728
+          ],
+          "name": "extended lexicon + n-gram"
+        }
+      ]
+    },
+    "full": {
+      "label": "CRNN-LX (all)",
+      "checkpoint": "Model_abl_full\\best_model_wa.pth",
+      "configurations": [
+        {
+          "correct": 16011,
+          "n": 20310,
+          "wa_pct": 78.8331,
+          "cer_pct": 8.5989,
+          "wilson_95ci_pct": [
+            78.2659,
+            79.3894
+          ],
+          "name": "none (greedy CTC)"
+        },
+        {
+          "correct": 15520,
+          "n": 20310,
+          "wa_pct": 76.4156,
+          "cer_pct": 11.1932,
+          "wilson_95ci_pct": [
+            75.8267,
+            76.9944
+          ],
+          "name": "IAM lexicon, edit only"
+        },
+        {
+          "correct": 15647,
+          "n": 20310,
+          "wa_pct": 77.0409,
+          "cer_pct": 10.9404,
+          "wilson_95ci_pct": [
+            76.4574,
+            77.6141
+          ],
+          "name": "IAM lexicon + n-gram"
+        },
+        {
+          "correct": 16148,
+          "n": 20310,
+          "wa_pct": 79.5076,
+          "cer_pct": 9.7055,
+          "wilson_95ci_pct": [
+            78.9469,
+            80.0572
+          ],
+          "name": "extended lexicon, edit only"
+        },
+        {
+          "correct": 16398,
+          "n": 20310,
+          "wa_pct": 80.7386,
+          "cer_pct": 9.0887,
+          "wilson_95ci_pct": [
+            80.1904,
+            81.2751
+          ],
+          "name": "extended lexicon + n-gram"
+        }
+      ]
+    }
+  },
+  "mcnemar_vs_narrow": {
+    "none": {
+      "only_baseline_correct": 1346,
+      "only_mode_correct": 840,
+      "delta_wa_pp": -2.4914,
+      "p_value": 2.0025284337686038e-27
+    },
+    "photo": {
+      "only_baseline_correct": 818,
+      "only_mode_correct": 812,
+      "delta_wa_pp": -0.0295,
+      "p_value": 0.901443455679326
+    },
+    "elastic": {
+      "only_baseline_correct": 799,
+      "only_mode_correct": 863,
+      "delta_wa_pp": 0.3151,
+      "p_value": 0.12223718995722381
+    },
+    "morph": {
+      "only_baseline_correct": 756,
+      "only_mode_correct": 812,
+      "delta_wa_pp": 0.2757,
+      "p_value": 0.164824139901915
+    },
+    "full": {
+      "only_baseline_correct": 777,
+      "only_mode_correct": 854,
+      "delta_wa_pp": 0.3791,
+      "p_value": 0.059822241587187554
+    }
+  },
+  "determinism_check": {
+    "mode": "full",
+    "differing_words": 0,
+    "n": 20310
+  }
+}

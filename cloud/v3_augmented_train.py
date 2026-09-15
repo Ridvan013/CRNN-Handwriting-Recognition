@@ -29,6 +29,15 @@ import random
 from pathlib import Path
 from typing import List
 
+# Turkce Windows konsolu (cp1254) UTF-8 disi; egitim bitiminde basilan "->"
+# gibi karakterler UnicodeEncodeError ile sureci oldururdu (test degerlendirmesi
+# hic calismadan). Sadece cikti kodlamasini degistirir, hesaplamaya etkisi yok.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "cloud"))
 sys.path.insert(0, str(REPO_ROOT))
@@ -74,8 +83,10 @@ def parse_args():
                    help="1: orijinal kod gibi alpha normalize edilmis blur'u carpar "
                         "(~0.1 px RMS, neredeyse no-op). 0: alpha = RMS yer degistirme (px).")
     p.add_argument("--aug-mode",     type=str,   default="full",
-                   choices=["full", "elastic", "morph", "photo", "narrow"],
-                   help="Augmentation ablation mode; 'full' = proposed AugCRNN-T.")
+                   choices=["full", "elastic", "morph", "photo", "narrow", "none"],
+                   help="Augmentation ablation mode; 'full' = proposed AugCRNN-T, "
+                        "'narrow' = conventional pipeline only, "
+                        "'none' = no augmentation at all (zero-augmentation anchor).")
     return p.parse_args()
 
 
@@ -116,6 +127,7 @@ def _aug_flags(mode: str):
         "morph":   (False, True,  True),
         "photo":   (False, False, True),
         "narrow":  (False, False, False),
+        "none":    (False, False, False),   # every transform skipped, see below
     }[mode]
 
 
@@ -126,6 +138,8 @@ def _augment_v4(img: torch.Tensor) -> torch.Tensor:
     module-level AUG_MODE flag, which is what the ablation study in the paper
     varies; every other transform is identical across all modes.
     """
+    if AUG_MODE == "none":
+        return img          # zero-augmentation anchor: the raw crop is used
     use_elastic, use_morph, use_wide = _aug_flags(AUG_MODE)
     # Geometric (same as V3 baseline)
     if random.random() < 0.6:
@@ -621,8 +635,11 @@ def main():
     print(f" Elastic   : alpha {args.elastic_alpha[0]:g}-{args.elastic_alpha[1]:g}  "
           f"{'legacy amplitude (~no-op)' if args.elastic_legacy_amplitude else 'RMS px (fixed)'}")
     _el, _mo, _wi = _aug_flags(AUG_MODE)
-    print(f" Aug mode  : {AUG_MODE}  "
-          f"(elastic={_el}, morphological={_mo}, wide photometric={_wi})")
+    if AUG_MODE == "none":
+        print(" Aug mode  : none  (augmentation switched off entirely)")
+    else:
+        print(f" Aug mode  : {AUG_MODE}  "
+              f"(elastic={_el}, morphological={_mo}, wide photometric={_wi})")
 
     model_dir = REPO_ROOT / args.model_dir
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -657,7 +674,8 @@ def main():
         # Tum split tek bir uint8 tensor olarak GPU'da; augmentation toplu ve
         # ornek-basina-rastgele olarak GPU'da yapilir (cloud/gpu_aug.py).
         print(f"  Loader    : GPUBatchLoader  ({AUG_H}x{AUG_W} calisma cozunurlugu, num-workers yok sayildi)")
-        train_loader = GPUBatchLoader(train_imgs, train_labs, args.batch, True,  args.aug_mode, DEVICE, drop_last=True)
+        _train_aug = None if args.aug_mode == "none" else args.aug_mode
+        train_loader = GPUBatchLoader(train_imgs, train_labs, args.batch, True,  _train_aug, DEVICE, drop_last=True)
         val_loader   = GPUBatchLoader(val_imgs,   val_labs,   args.batch, False, None, DEVICE)
         test_loader  = GPUBatchLoader(test_imgs,  test_labs,  args.batch, False, None, DEVICE)
         del train_imgs, val_imgs, test_imgs
