@@ -1,9 +1,38 @@
-# Paper — Decomposing Lexicon-Assisted Correction for Isolated Handwritten Word Recognition on IAM
+# Paper — Decomposing Lexicon-Assisted Correction for Word-Level Handwritten Text Recognition on IAM: Lexicon Coverage, Frequency Ranking and Line Context
 
-**Headline:** **CRNN-LX** reaches **80.74% word accuracy** (Wilson 95% CI
-[80.19%, 81.28%], CER 9.09%) on the **complete** IAM Aachen writer-disjoint
-test set (N = 20,310 words, 336 forms, 161 unseen writers). Lexicon-free the
-same model gives 78.83% / CER 8.60%.
+**Headline:** **CRNN-LX** reaches **81.66% word accuracy** (Wilson 95% CI
+[81.13%, 82.19%], CER 8.58%) on the **complete** IAM Aachen writer-disjoint
+test set (N = 20,310 words, 336 forms, 161 unseen writers), with a 239K
+lexicon and an interpolated Kneser-Ney trigram (IAM + Brown) that uses the
+system's **own** outputs for the preceding crops of the line as context.
+Without context (unigram prior, the figure for genuinely isolated words)
+80.74% / CER 9.09%; lexicon-free 78.83% / CER 8.60%.
+
+## 15 Sept (evening): real trigram with line context
+
+| Post-correction on the CRNN-LX optical model | test WA | CER |
+|---|---:|---:|
+| none (greedy) | 78.83 | 8.60 |
+| 239K lexicon + add-one unigram prior (old corrector) | 80.74 | 9.09 |
+| + Kneser-Ney unigram, IAM | 80.74 | 9.09 |
+| + KN trigram with line context, IAM | 80.84 | 9.07 |
+| + KN unigram, IAM + Brown | 81.32 | 8.73 |
+| **+ KN trigram with line context, IAM + Brown (CRNN-LX)** | **81.66** | **8.58** |
+
+- Gain over the unigram prior: +0.84 to +0.95 pp on **all six** optical models
+  (`results/ablation_trigram_all.json`); α = 7 selected on validation for each.
+- Oracle (reference transcriptions as context, diagnostic only): 81.73.
+- Leakage: 0.63% of test 5-grams, 0.11% of 6-grams, 0 of 8-grams occur in
+  Brown; longest shared run 7 words, all idioms (`results/brown_leakage.json`).
+- Model verified numerically: conditional distributions sum to 1 over the
+  271,303-type vocabulary (`cloud/kn_trigram_selftest.py`).
+- **Table 2 with this corrector:** CRNN-LX − CRNN-B = +0.44 pp, **p = 0.025**
+  (not significant at the paper's p < 0.01, nor after Bonferroni over five
+  comparisons); anchor −2.41 pp, p = 8×10⁻²⁷. With the unigram prior the same
+  pair was +0.38 pp, p = 0.060. The paper says so explicitly; seed repeats
+  decide it.
+
+The sections below describe the state before this change (unigram prior).
 
 Every number in the paper comes from **one deterministic evaluation pass**
 (`cloud/ablation_lexicon_all.py`, fp32): five optical models x five

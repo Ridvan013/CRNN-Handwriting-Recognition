@@ -1,0 +1,196 @@
+{
+  "n": 20310,
+  "source": "results\\preds_trigram",
+  "augmented_five": {
+    "words_where_all_agree": 17108,
+    "all_correct": 14726,
+    "all_wrong": 2382,
+    "disagree": 3202,
+    "disagree_pct": 15.8
+  },
+  "pairwise_only_correct": {
+    "none|photo": {
+      "only_none": 821,
+      "only_photo": 1323
+    },
+    "narrow|none": {
+      "only_narrow": 1289,
+      "only_none": 800
+    },
+    "narrow|photo": {
+      "only_narrow": 765,
+      "only_photo": 778
+    },
+    "elastic|none": {
+      "only_elastic": 1356,
+      "only_none": 790
+    },
+    "elastic|narrow": {
+      "only_elastic": 820,
+      "only_narrow": 743
+    },
+    "elastic|photo": {
+      "only_elastic": 804,
+      "only_photo": 740
+    },
+    "elastic|morph": {
+      "only_elastic": 797,
+      "only_morph": 772
+    },
+    "elastic|full": {
+      "only_elastic": 771,
+      "only_full": 784
+    },
+    "morph|none": {
+      "only_morph": 1318,
+      "only_none": 777
+    },
+    "morph|narrow": {
+      "only_morph": 781,
+      "only_narrow": 729
+    },
+    "morph|photo": {
+      "only_morph": 785,
+      "only_photo": 746
+    },
+    "full|none": {
+      "only_full": 1363,
+      "only_none": 784
+    },
+    "full|narrow": {
+      "only_full": 837,
+      "only_narrow": 747
+    },
+    "full|photo": {
+      "only_full": 820,
+      "only_photo": 743
+    },
+    "full|morph": {
+      "only_full": 810,
+      "only_morph": 772
+    }
+  },
+  "error_analysis_full": {
+    "misrecognized": 3724,
+    "misrecognized_pct": 18.34,
+    "case_only": 275,
+    "case_only_pct_of_errors": 7.4,
+    "substitutions": 5050,
+    "deletions": 1563,
+    "insertions": 413,
+    "case_substitutions": 404,
+    "case_substitutions_pct": 8.0,
+    "top10_substitutions_true_to_pred": [
+      [
+        "o",
+        "a",
+        116
+      ],
+      [
+        "a",
+        "o",
+        115
+      ],
+      [
+        "s",
+        "r",
+        75
+      ],
+      [
+        "r",
+        "s",
+        67
+      ],
+      [
+        "t",
+        "l",
+        51
+      ],
+      [
+        "n",
+        "m",
+        50
+      ],
+      [
+        "e",
+        "a",
+        50
+      ],
+      [
+        "r",
+        "n",
+        47
+      ],
+      [
+        "s",
+        "n",
+        46
+      ],
+      [
+        "S",
+        "s",
+        45
+      ]
+    ],
+    "top_symmetric_confusions": [
+      [
+        "a",
+        "o",
+        231
+      ],
+      [
+        "r",
+        "s",
+        142
+      ],
+      [
+        "l",
+        "t",
+        95
+      ],
+      [
+        "m",
+        "n",
+        92
+      ],
+      [
+        "n",
+        "r",
+        89
+      ],
+      [
+        "a",
+        "e",
+        88
+      ],
+      [
+        "n",
+        "s",
+        73
+      ],
+      [
+        ",",
+        "I",
+        70
+      ]
+    ]
+  },
+  "corrector_full": {
+    "greedy_correct": 16011,
+    "hypotheses_changed": 2938,
+    "changed_pct": 14.47,
+    "fixed": 1076,
+    "broken": 501,
+    "net": 575,
+    "unigram_correct": 16398,
+    "trigram_vs_unigram": {
+      "outputs_differ": 727,
+      "only_unigram_correct": 32,
+      "only_trigram_correct": 220
+    }
+  },
+  "context": {
+    "with_previous_word_pct": 88.5,
+    "with_two_previous_words_pct": 77.0
+  }
+}

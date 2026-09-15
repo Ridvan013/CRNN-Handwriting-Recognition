@@ -43,9 +43,10 @@ ABL_MODES = [("none", "no augmentation"),
              ("narrow", "CRNN-B (baseline)"), ("photo", "+ wide photometric"),
              ("elastic", "+ elastic"), ("morph", "+ morphological"),
              ("full", "CRNN-LX (all)")]
-# Deterministic single-source evaluation (see cloud/ablation_lexicon_all.py):
-# the same per-word predictions that Tables II-IV and the error analysis use.
-TEST_CSV = REPO / "results" / "preds_det" / "preds_full.csv"
+# Deterministic single-source evaluation (see cloud/ablation_trigram_all.py):
+# the same per-word CRNN-LX predictions (KN trigram + line context) that
+# Tables 2-4 and the error analysis use.
+TEST_CSV = REPO / "results" / "preds_trigram" / "preds_full.csv"
 IAM_ROOT = REPO / "HTR_Using_CRNN" / "IAM" / "processed" / "archive" / "iam_words" / "words"
 
 # ---- Style ---------------------------------------------------------------
@@ -139,7 +140,7 @@ def fig_pipeline():
 
     # what the ablations measured, so the highlight cannot be read as a claim
     ax.text(xs[1] + BOX_W / 2, Y_TOP - 1.6,
-            "conventional $+2.5$ pp; proposed $+0.4$ pp (n.s.)",
+            "conventional $+2.4$ pp; proposed $+0.4$ pp (n.s.)",
             ha="center", va="top", fontsize=6.0, color=C_GREEN, style="italic")
 
     for i in range(3):
@@ -151,8 +152,9 @@ def fig_pipeline():
     # --- Bottom row (right to left): CTC -> trigram -> output -> eval ------
     box(xs[3], Y_BOT, "CTC decoding",
         ["training: CTC loss", "test: greedy decode"], BLUE_F, BLUE_E)
-    box(xs[2], Y_BOT, "Lexical prior*",
-        ["IAM $+$ NLTK lexicon", "239K types", "edits $+$ frequency"],
+    box(xs[2], Y_BOT, "Lexical corrector*",
+        ["239K lexicon, $\\leq$2 edits", "KN trigram, IAM$+$Brown",
+         "own-line context"],
         OURS_F, OURS_E, lw=1.8)
     box(xs[1], Y_BOT, "Predicted word",
         ["final transcription"], GREY_F, GREY_E)
@@ -163,7 +165,7 @@ def fig_pipeline():
         arrow(xs[i], Y_BOT + BOX_H / 2, xs[i - 1] + BOX_W, Y_BOT + BOX_H / 2)
 
     ax.text(xs[2] + BOX_W / 2, Y_BOT - 1.4,
-            "coverage $+0.7$ pp; prior $+1.2$ pp",
+            "coverage $+0.7$; prior $+1.2$; corpus $+0.6$; context $+0.3$ pp",
             ha="center", va="top", fontsize=6.0, color=C_GREEN, style="italic")
 
     ax.text(50, 0.6, "* stages ablated in this work; italics give their measured effect",
@@ -253,10 +255,10 @@ def fig_confusion_topk():
                 continue
             true = row["ground_truth"]
             pred = row["prediction"]
-            # Only compare when substitution-heavy (similar length)
-            if abs(len(true) - len(pred)) <= 2 and min(len(true), len(pred)) > 0:
-                for tc, pc in _levenshtein_pairs(pred, true):
-                    pair_counter[(tc, pc)] += 1
+            # every misrecognized word, same alignment as
+            # cloud/paper_stats_trigram.py, so the bars match the text
+            for tc, pc in _levenshtein_pairs(pred, true):
+                pair_counter[(tc, pc)] += 1
 
     top10 = pair_counter.most_common(10)
     labels = [f"{tc!r}→{pc!r}" for (tc, pc), _ in top10]
@@ -472,7 +474,9 @@ def fig_lexicon_decomposition():
     x = [0, 1]
     xlab = ["7 K\n(training vocabulary)", "239 K\n(extended)"]
 
-    fig, ax = plt.subplots(figsize=(3.5, 2.7))
+    fig, (ax, axb) = plt.subplots(1, 2, figsize=(5.0, 2.7),
+                                  gridspec_kw={"width_ratios": [1.15, 1]})
+    ax.set_title("(a) lexicon size and frequency prior", fontsize=8)
 
     # the other optical models, faint, to show the pattern is not model-specific
     for m in modes:
@@ -515,6 +519,35 @@ def fig_lexicon_decomposition():
     ax.set_ylim(-3.4, 4.0)
     ax.grid(alpha=.3, axis="y")
     ax.legend(fontsize=7, frameon=False, loc="lower right")
+
+    # (b) build-up on the 239 K lexicon: what the corpus and the line context
+    # add on top of the unigram prior (cloud/ablation_trigram.py, CRNN-LX
+    # optical model, alpha selected on validation for every variant).
+    t = json.load(open(REPO / "results" / "ablation_trigram.json"))["variants"]
+    g = t["none (greedy)"]["test"]["wa_pct"]
+    steps = [("edit\nonly", wa("full", R_EDIT[1]) - g, C_BLUE),
+             ("$+$unigram\nprior", t["U-IAM (paper, alpha=5)"]["test"]["wa_pct"] - g, C_ORANGE),
+             ("$+$Brown\ncorpus", t["KN1-IAM+Brown"]["test"]["wa_pct"] - g, C_PURPLE),
+             ("$+$line\ncontext", t["KN3-IAM+Brown"]["test"]["wa_pct"] - g, C_GREEN)]
+    xb = range(len(steps))
+    axb.bar(xb, [s[1] for s in steps], color=[s[2] for s in steps], width=0.62,
+            edgecolor="black", lw=0.5, zorder=3)
+    prev = 0.0
+    for i, (_, v, _) in enumerate(steps):
+        axb.text(i, v + 0.06, f"$+${v:.2f}", ha="center", va="bottom", fontsize=7)
+        if i:
+            axb.text(i, v / 2, f"$+${v - prev:.2f}", ha="center", va="center",
+                     fontsize=6.5, color="white", fontweight="bold")
+        prev = v
+    axb.axhline(0, color="black", lw=0.9, ls="--", zorder=2)
+    axb.set_xticks(list(xb))
+    axb.set_xticklabels([s[0] for s in steps], fontsize=6.6)
+    axb.set_xlim(-0.6, len(steps) - 0.4)
+    axb.tick_params(axis="x", pad=2)
+    axb.set_ylim(0, 3.4)
+    axb.set_ylabel("$\\Delta$ WA vs. lexicon-free (pp)", fontsize=8)
+    axb.set_title("(b) build-up, 239 K lexicon", fontsize=8)
+    axb.grid(alpha=.3, axis="y")
     plt.tight_layout()
     out = FIG_DIR / "fig4_lexicon_decomposition.pdf"
     plt.savefig(out)

@@ -383,6 +383,21 @@ python cloud/ablation_lexicon_all.py \
     --iam-words <words.txt> --iam-root <words/>
 ```
 
+Makaledeki Tablo 2 artık **trigram + satır bağlamı** düzelticisiyle
+puanlanıyor (`cloud/ablation_trigram_all.py`, aynı `ad=dizin` sözdizimi);
+seed modelleri de aynı script'le puanlanacak:
+
+```bash
+python cloud/ablation_trigram_all.py \
+    --modes narrow,narrow_s123=Model_seed_narrow_123,narrow_s456=Model_seed_narrow_456,full,full_s123=Model_seed_full_123,full_s456=Model_seed_full_456 \
+    --baseline narrow \
+    --out results/ablation_trigram_seeds.json --dump-preds results/preds_trigram_seeds \
+    --iam-words <words.txt> --iam-root <words/>
+```
+
+(NLTK `words` ve `brown` corpus'ları gerekir; script ilk çalıştırmada
+`nltk.download` ile indirir, Internet açık olmalı.)
+
 Çıkan üçer WA'dan ortalama ± SD hesaplanıp Tablo 2'ye hocanın istediği
 satırlar eklenecek. Sonuç iki yöne de çıkabilir: fark seedler arası
 oynamanın içinde kalırsa "anlamlı değil" bulgusu güçlenir; +0,4 puan her

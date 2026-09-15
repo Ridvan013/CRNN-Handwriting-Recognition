@@ -1,0 +1,194 @@
+{
+  "brown_sentences": 57340,
+  "brown_tokens": 1161192,
+  "iam_test_segments": 2338,
+  "iam_test_tokens": 20310,
+  "per_order": {
+    "3": {
+      "test_ngram_tokens": 15635,
+      "found_in_brown": 3349,
+      "pct_in_brown": 21.42,
+      "found_in_iam_train": 831,
+      "pct_in_iam_train": 5.315,
+      "most_frequent_shared_with_brown": [
+        [
+          ", and the",
+          9
+        ],
+        [
+          "as well as",
+          8
+        ],
+        [
+          "to have been",
+          6
+        ],
+        [
+          "of the Gospel",
+          5
+        ],
+        [
+          ", and to",
+          5
+        ],
+        [
+          "he said .",
+          5
+        ],
+        [
+          ", and it",
+          4
+        ],
+        [
+          "for example ,",
+          4
+        ]
+      ]
+    },
+    "4": {
+      "test_ngram_tokens": 13327,
+      "found_in_brown": 579,
+      "pct_in_brown": 4.345,
+      "found_in_iam_train": 82,
+      "pct_in_iam_train": 0.615,
+      "most_frequent_shared_with_brown": [
+        [
+          "out from under the",
+          3
+        ],
+        [
+          ", of course ,",
+          3
+        ],
+        [
+          ", for example ,",
+          3
+        ],
+        [
+          "once a week in",
+          3
+        ],
+        [
+          "as well as the",
+          3
+        ],
+        [
+          "in the case of",
+          2
+        ],
+        [
+          "the end of the",
+          2
+        ],
+        [
+          "that there was nothing",
+          2
+        ]
+      ]
+    },
+    "5": {
+      "test_ngram_tokens": 11048,
+      "found_in_brown": 70,
+      "pct_in_brown": 0.634,
+      "found_in_iam_train": 7,
+      "pct_in_iam_train": 0.063,
+      "most_frequent_shared_with_brown": [
+        [
+          "a couple of times ,",
+          1
+        ],
+        [
+          ", in common with all",
+          1
+        ],
+        [
+          "It is not possible to",
+          1
+        ],
+        [
+          "in the case of the",
+          1
+        ],
+        [
+          ", but it is to",
+          1
+        ],
+        [
+          "The new century opened with",
+          1
+        ],
+        [
+          "it is a good idea",
+          1
+        ],
+        [
+          "is a good idea to",
+          1
+        ]
+      ]
+    },
+    "6": {
+      "test_ngram_tokens": 8812,
+      "found_in_brown": 10,
+      "pct_in_brown": 0.113,
+      "found_in_iam_train": 0,
+      "pct_in_iam_train": 0.0,
+      "most_frequent_shared_with_brown": [
+        [
+          "it is a good idea to",
+          1
+        ],
+        [
+          ", almost as if it were",
+          1
+        ],
+        [
+          ", on the other hand ,",
+          1
+        ],
+        [
+          "at the back of her head",
+          1
+        ],
+        [
+          "At one and the same time",
+          1
+        ],
+        [
+          "one and the same time ,",
+          1
+        ],
+        [
+          "in spite of the fact that",
+          1
+        ],
+        [
+          "There can be little doubt that",
+          1
+        ]
+      ]
+    },
+    "7": {
+      "test_ngram_tokens": 6653,
+      "found_in_brown": 1,
+      "pct_in_brown": 0.015,
+      "found_in_iam_train": 0,
+      "pct_in_iam_train": 0.0,
+      "most_frequent_shared_with_brown": [
+        [
+          "At one and the same time ,",
+          1
+        ]
+      ]
+    },
+    "8": {
+      "test_ngram_tokens": 4684,
+      "found_in_brown": 0,
+      "pct_in_brown": 0.0,
+      "found_in_iam_train": 0,
+      "pct_in_iam_train": 0.0,
+      "most_frequent_shared_with_brown": []
+    }
+  },
+  "longest_shared_ngram": 7
+}

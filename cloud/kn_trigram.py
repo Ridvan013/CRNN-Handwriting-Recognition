@@ -163,8 +163,17 @@ def iam_line_segments(words_file: str) -> List[List[str]]:
 
 
 def brown_sentences() -> List[List[str]]:
+    """Brown corpus sentences (57,340 sentences, 1,161,192 tokens), downloaded
+    through NLTK on first use (needs Internet, e.g. Kaggle 'Internet ON')."""
+    import nltk
+    try:
+        nltk.data.find("corpora/brown")
+    except LookupError:
+        nltk.download("brown", quiet=True)
     from nltk.corpus import brown
-    return [list(s) for s in brown.sents()]
+    sents = [list(s) for s in brown.sents()]
+    assert len(sents) == 57340, f"unexpected Brown corpus size: {len(sents)} sentences"
+    return sents
 
 
 # ---------------------------------------------------------------------------

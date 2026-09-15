@@ -248,3 +248,68 @@ ikincisi dört kat büyük ve daha çeşitli bir test kümesinde doğrulanmış 
   eksen başına 0,02–0,04 px RMS (max 0,19 px).
 - **Bekleyen:** seed tekrarları (CRNN-B ve CRNN-LX × seed 123, 456) —
   Berhat, Kaggle, `cloud/ABLATION_REHBER.md` §10.
+
+## Gerçek trigram + satır bağlamı (15 Eylül, akşam) — yeni önerilen düzeltici
+
+Unigram önceliğinin yerine **interpolated Kneser-Ney trigram** (D=0,75)
+kondu (`cloud/kn_trigram.py`). Bağlam: aynı satırdaki önceki iki kelime
+kırpıntısı için **sistemin kendi çıktısı** (asla etiket). Satır başında ve
+satırda eksik kelime (status≠ok) olan yerde bağlam sıfırlanır. Aday kümesi ve
+kabul kuralı unigram düzelticiyle birebir aynı; sadece sıralama değişti.
+α (edit cezası) doğrulamada {3,5,7,10} arasından seçildi, testte bir kez.
+
+Doğrulama (`cloud/kn_trigram_selftest.py`): P(w), P(w|h), P(w|h1 h2)
+271.303 kelimelik sözlükte **tam 1,000000000000**'e toplanıyor (görülmüş ve
+görülmemiş bağlamlarda); görülmemiş bağlam alt mertebeye birebir düşüyor;
+çıktı satır işleme sırasından bağımsız ve deterministik.
+
+CRNN-LX optik modeli sabit, 239K sözlük (`results/ablation_trigram.json`):
+
+| Sıralama (derlem) | α | test WA | CER | unigram'a göre | p |
+|---|---:|---:|---:|---|---:|
+| add-one unigram (IAM) — eski | 5 | 80,74 | 9,09 | ref. | — |
+| KN unigram (IAM) | 5 | 80,74 | 9,09 | +19 / −18 kelime | 1,0 |
+| KN trigram + bağlam (IAM) | 7 | 80,84 | 9,07 | +45 / −25 | 0,022 |
+| KN unigram (IAM+Brown) | 7 | 81,32 | 8,73 | +155 / −36 | 9×10⁻¹⁹ |
+| **KN trigram + bağlam (IAM+Brown)** | 7 | **81,66** | **8,58** | **+220 / −32** | **1×10⁻³⁵** |
+| kâhin: bağlam = gerçek etiketler (rapor edilmez) | 7 | 81,73 | 8,55 | | |
+
+Ayrıştırma: derlem +0,59, bağlam +0,34 (ters sırada bağlam +0,10, derlem
++0,83 — bağlam ancak derlem büyükken işe yarıyor). Kâhinle fark sadece
+0,06 pp: kendi hatalarımızın bağlamı bozması neredeyse hiç kayıp yaratmıyor.
+Dört α değerinin hepsi testte 81,43–81,66 veriyor. CER ilk kez sözlüksüz
+değerin (8,60) **altına** iniyor.
+
+**Sızıntı kontrolü** (`cloud/brown_leakage_check.py` →
+`results/brown_leakage.json`): IAM test satırlarındaki 5-gram'ların %0,63'ü,
+6-gram'ların %0,11'i Brown'da birebir geçiyor, 8-gram hiç yok; en uzun ortak
+dizi 7 kelime ve hepsi deyim ("in spite of the fact that", "on the other
+hand"). Brown test metnini içermiyor.
+
+Dürüstlük notu makalede: bağlam, IAM kelimeleri satırlardan kesildiği için
+var; gerçekten tek başına kelimeler için geçerli sayı bağlamsız 80,74.
+Tablo 4'te iki satır da var.
+
+### Tablo 2 yeni düzelticiyle (`cloud/ablation_trigram_all.py` → `results/ablation_trigram_all.json`)
+
+Altı model, fp32, α her model için doğrulamada seçildi (hepsinde 7).
+İki bağımsız geçiş 20.310/20.310 aynı.
+
+| Konfigürasyon | greedy | unigram | **trigram+bağlam** | CER | Δ_B | p (vs CRNN-B) |
+|---|---:|---:|---:|---:|---:|---:|
+| augmentation yok | 74,33 | 77,87 | **78,81** | 10,53 | −2,41 | 8×10⁻²⁷ |
+| CRNN-B | 78,76 | 80,36 | **81,22** | 8,91 | ref. | ref. |
+| + geniş fotometrik | 78,68 | 80,33 | **81,29** | 8,84 | +0,06 | 0,760 |
+| + elastik | 79,17 | 80,67 | **81,60** | 8,60 | +0,38 | 0,055 |
+| + morfolojik | 78,75 | 80,64 | **81,48** | 8,68 | +0,26 | 0,189 |
+| CRNN-LX | 78,83 | 80,74 | **81,66** | 8,58 | +0,44 | **0,025** |
+
+**Dikkat:** CRNN-LX − CRNN-B farkı trigramla p=0,025'e indi (unigramla
+0,060). Makalenin eşiği p<0,01 ve beş karşılaştırma için Bonferroni de
+0,01 → hâlâ anlamlı değil, ama p<0,05'i geçiyor. Makalede açıkça yazıldı,
+"çözülmemiş" diye sunuldu. Seed tekrarları bunu belirleyecek.
+
+Kelime bazlı (`cloud/paper_stats_trigram.py` → `results/paper_stats_trigram.json`):
+CRNN-LX 3.724 hata; düzeltici 2.938 hipotezi değiştiriyor, 1.076 düzeltiyor,
+501 bozuyor. Unigram aynı 2.938'i değiştirip aynı 501'i bozuyor ama sadece
+888 düzeltiyor — fark tamamen doğru adayı seçmekten geliyor.
