@@ -14,3 +14,9 @@ The current numbers -- six optical models x five post-corrections, fp32,
 deterministic, one evaluation pass -- are in
 `results/ablation_lexicon5_all.json`, with per-word predictions in
 `results/preds_det/`. The paper uses only those.
+
+- `ablation_trigram_all_nondet.json`, `ablation_viterbi_grid3-10.json` (16 Eylül):
+  cuDNN deterministik bayrakları eklenmeden önceki koşular (süreçler arası
+  1 kelime oynuyordu) ve Viterbi'nin dar {3,5,7,10} α ızgarasıyla ilk denemesi.
+  Geçerli kaynak: `results/ablation_viterbi.json` (Tablo 2, Tablo 3 satır 10-13)
+  ve `results/ablation_trigram.json` (Tablo 3 satır 5-9).

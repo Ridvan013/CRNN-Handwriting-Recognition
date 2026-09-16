@@ -574,7 +574,7 @@ idx,ground_truth,prediction,correct
 572,.,.,1
 573,The,He,0
 574,original,original,1
-575,was,croc,0
+575,was,call,0
 576,written,Hitler,0
 577,on,on,1
 578,a,a,1
@@ -5199,7 +5199,7 @@ idx,ground_truth,prediction,correct
 5197,Then,Thin,0
 5198,they,they,1
 5199,stop,stop,1
-5200,swimming,skimming,0
+5200,swimming,levining,0
 5201,and,and,1
 5202,are,are,1
 5203,caught,ought,0
@@ -18759,7 +18759,7 @@ idx,ground_truth,prediction,correct
 18757,lifeline,lifeline,1
 18758,and,and,1
 18759,Gay,be,0
-18760,got,get,0
+18760,got,got,1
 18761,up,up,1
 18762,quickly,quickly,1
 18763,",",",",1

@@ -91,7 +91,14 @@ def parse_args():
 
 
 def hypotheses(model, loader):
-    """Greedy CTC hypotheses for the whole loader, fp32 (deterministic)."""
+    """Greedy CTC hypotheses for the whole loader, fp32 (deterministic).
+
+    fp32 alone makes a pass reproducible *within* a process; across separate
+    processes cuDNN may pick a different convolution algorithm and one word
+    in 20,310 flipped between two of our runs.  Forcing the deterministic
+    algorithms removes that too."""
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     raw, refs = [], []
     cached_T = None
     with torch.no_grad():

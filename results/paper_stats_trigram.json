@@ -1,192 +1,196 @@
 {
   "n": 20310,
-  "source": "results\\preds_trigram",
+  "source": "results\\preds_viterbi",
   "augmented_five": {
-    "words_where_all_agree": 17108,
-    "all_correct": 14726,
-    "all_wrong": 2382,
-    "disagree": 3202,
-    "disagree_pct": 15.8
+    "words_where_all_agree": 16537,
+    "all_correct": 14532,
+    "all_wrong": 2005,
+    "disagree": 3773,
+    "disagree_pct": 18.6
   },
   "pairwise_only_correct": {
     "none|photo": {
-      "only_none": 821,
-      "only_photo": 1323
+      "only_none": 954,
+      "only_photo": 1528
     },
     "narrow|none": {
-      "only_narrow": 1289,
-      "only_none": 800
+      "only_narrow": 1457,
+      "only_none": 900
     },
     "narrow|photo": {
-      "only_narrow": 765,
-      "only_photo": 778
+      "only_narrow": 933,
+      "only_photo": 950
     },
     "elastic|none": {
-      "only_elastic": 1356,
-      "only_none": 790
+      "only_elastic": 1561,
+      "only_none": 945
     },
     "elastic|narrow": {
-      "only_elastic": 820,
-      "only_narrow": 743
+      "only_elastic": 973,
+      "only_narrow": 914
     },
     "elastic|photo": {
-      "only_elastic": 804,
-      "only_photo": 740
+      "only_elastic": 923,
+      "only_photo": 881
     },
     "elastic|morph": {
-      "only_elastic": 797,
-      "only_morph": 772
+      "only_elastic": 928,
+      "only_morph": 901
     },
     "elastic|full": {
-      "only_elastic": 771,
-      "only_full": 784
+      "only_elastic": 928,
+      "only_full": 933
     },
     "morph|none": {
-      "only_morph": 1318,
-      "only_none": 777
+      "only_morph": 1532,
+      "only_none": 943
     },
     "morph|narrow": {
-      "only_morph": 781,
-      "only_narrow": 729
+      "only_morph": 922,
+      "only_narrow": 890
     },
     "morph|photo": {
-      "only_morph": 785,
-      "only_photo": 746
+      "only_morph": 906,
+      "only_photo": 891
     },
     "full|none": {
-      "only_full": 1363,
-      "only_none": 784
+      "only_full": 1502,
+      "only_none": 881
     },
     "full|narrow": {
-      "only_full": 837,
-      "only_narrow": 747
+      "only_full": 905,
+      "only_narrow": 841
     },
     "full|photo": {
-      "only_full": 820,
-      "only_photo": 743
+      "only_full": 972,
+      "only_photo": 925
     },
     "full|morph": {
-      "only_full": 810,
-      "only_morph": 772
+      "only_full": 955,
+      "only_morph": 923
     }
   },
   "error_analysis_full": {
-    "misrecognized": 3724,
-    "misrecognized_pct": 18.34,
+    "misrecognized": 3665,
+    "misrecognized_pct": 18.05,
     "case_only": 275,
-    "case_only_pct_of_errors": 7.4,
-    "substitutions": 5050,
-    "deletions": 1563,
-    "insertions": 413,
-    "case_substitutions": 404,
-    "case_substitutions_pct": 8.0,
+    "case_only_pct_of_errors": 7.5,
+    "substitutions": 5219,
+    "deletions": 1286,
+    "insertions": 486,
+    "case_substitutions": 405,
+    "case_substitutions_pct": 7.8,
     "top10_substitutions_true_to_pred": [
       [
         "o",
         "a",
-        116
+        132
       ],
       [
         "a",
         "o",
-        115
+        125
       ],
       [
         "s",
         "r",
-        75
+        77
       ],
       [
         "r",
         "s",
-        67
-      ],
-      [
-        "t",
-        "l",
-        51
+        74
       ],
       [
         "n",
         "m",
-        50
+        58
       ],
       [
-        "e",
-        "a",
-        50
+        "l",
+        "t",
+        52
+      ],
+      [
+        "t",
+        "l",
+        49
+      ],
+      [
+        "s",
+        "n",
+        49
+      ],
+      [
+        "m",
+        "n",
+        49
       ],
       [
         "r",
         "n",
         47
-      ],
-      [
-        "s",
-        "n",
-        46
-      ],
-      [
-        "S",
-        "s",
-        45
       ]
     ],
     "top_symmetric_confusions": [
       [
         "a",
         "o",
-        231
+        257
       ],
       [
         "r",
         "s",
-        142
-      ],
-      [
-        "l",
-        "t",
-        95
+        151
       ],
       [
         "m",
         "n",
-        92
+        107
+      ],
+      [
+        "l",
+        "t",
+        101
       ],
       [
         "n",
         "r",
-        89
+        90
       ],
       [
         "a",
         "e",
-        88
+        87
+      ],
+      [
+        "n",
+        "u",
+        79
       ],
       [
         "n",
         "s",
-        73
-      ],
-      [
-        ",",
-        "I",
-        70
+        76
       ]
     ]
   },
   "corrector_full": {
     "greedy_correct": 16011,
-    "hypotheses_changed": 2938,
-    "changed_pct": 14.47,
-    "fixed": 1076,
-    "broken": 501,
-    "net": 575,
-    "unigram_correct": 16398,
-    "trigram_vs_unigram": {
-      "outputs_differ": 727,
-      "only_unigram_correct": 32,
-      "only_trigram_correct": 220
+    "hypotheses_changed": 1925,
+    "changed_pct": 9.48,
+    "fixed": 815,
+    "broken": 181,
+    "net": 634,
+    "reference_corrector": "KN3-left",
+    "reference_correct": 16586,
+    "reference_changed": 2939,
+    "reference_fixed": 1076,
+    "reference_broken": 501,
+    "final_vs_reference": {
+      "outputs_differ": 1579,
+      "only_reference_correct": 335,
+      "only_final_correct": 394
     }
   },
   "context": {

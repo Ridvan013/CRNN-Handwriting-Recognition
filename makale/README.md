@@ -1,12 +1,41 @@
 # Paper — Decomposing Lexicon-Assisted Correction for Word-Level Handwritten Text Recognition on IAM: Lexicon Coverage, Frequency Ranking and Line Context
 
-**Headline:** **CRNN-LX** reaches **81.66% word accuracy** (Wilson 95% CI
-[81.13%, 82.19%], CER 8.58%) on the **complete** IAM Aachen writer-disjoint
+**Headline:** **CRNN-LX** reaches **81.95% word accuracy** (Wilson 95% CI
+[81.42%, 82.48%], CER 8.54%) on the **complete** IAM Aachen writer-disjoint
 test set (N = 20,310 words, 336 forms, 161 unseen writers), with a 239K
-lexicon and an interpolated Kneser-Ney trigram (IAM + Brown) that uses the
-system's **own** outputs for the preceding crops of the line as context.
-Without context (unigram prior, the figure for genuinely isolated words)
-80.74% / CER 9.09%; lexicon-free 78.83% / CER 8.60%.
+lexicon and an interpolated Kneser-Ney trigram (IAM + Brown) that decodes
+each text line **jointly** (exact Viterbi), so every word is conditioned on
+the system's **own** outputs for its neighbours on both sides.
+Left-to-right context only: 81.66 / 8.58. Without context (unigram prior,
+the figure for genuinely isolated words): 80.74 / 9.09. Lexicon-free:
+78.83 / 8.60.
+
+## 16 Sept: whole-line (two-sided) decoding
+
+`LineViterbiCorrector` in `cloud/kn_trigram.py`: exact second-order Viterbi
+over the candidate columns of a line, objective Σ[log P_KN(w_i | w_{i-2},
+w_{i-1}) − α d_i]. Verified against exhaustive search on 400 random layouts
+(`cloud/viterbi_selftest.py`). Options and α (grid 1–30) selected on
+validation (`cloud/ablation_viterbi.py` → `results/ablation_viterbi.json`):
+
+| Decoder (CRNN-LX, 239K lexicon, KN3 IAM+Brown) | α | val WA | test WA | CER | vs left-to-right |
+|---|---:|---:|---:|---:|---|
+| left-to-right | 7 | 85.50 | 81.66 | 8.58 | ref. |
+| whole line | 10 | 85.66 | 81.77 | 8.54 | +56/−34, p=0.026 |
+| **whole line + keep-OOV** (selected on val) | 2 | **85.98** | **81.95** | 8.54 | +394/−335, p=0.032 |
+| whole line + real-word | 10 | 85.69 | 81.94 | 8.51 | +141/−86, p=0.0003 (not selected) |
+| whole line + keep-OOV + real-word | 10 | 84.50 | 79.71 | 8.42 | collapses |
+
+keep-OOV = an out-of-lexicon hypothesis may stay as a distance-0 candidate
+(floor probability); real-word = in-lexicon words may be replaced by
+distance-1 neighbours. The selected decoder gains +0.32…+0.44 pp on the five
+augmented models (p = 0.002–0.034) and +0.08 on the anchor. It wins by being
+conservative: 1,925 replacements, 815 repaired / 181 broken, against
+2,939 / 1,076 / 501 for left-to-right.
+
+**Table 2 with this corrector:** CRNN-LX − CRNN-B = +0.32 pp, p = 0.131
+(unigram 0.38 / 0.060; left-to-right trigram 0.44 / 0.025) — same sign under
+all three correctors, never below p < 0.01. Anchor −2.74, p = 1×10⁻³⁰.
 
 ## 15 Sept (evening): real trigram with line context
 
@@ -20,7 +49,8 @@ Without context (unigram prior, the figure for genuinely isolated words)
 | **+ KN trigram with line context, IAM + Brown (CRNN-LX)** | **81.66** | **8.58** |
 
 - Gain over the unigram prior: +0.84 to +0.95 pp on **all six** optical models
-  (`results/ablation_trigram_all.json`); α = 7 selected on validation for each.
+  (per-model `KN3-left` entries in `results/ablation_viterbi.json`); α = 7
+  selected on validation for each.
 - Oracle (reference transcriptions as context, diagnostic only): 81.73.
 - Leakage: 0.63% of test 5-grams, 0.11% of 6-grams, 0 of 8-grams occur in
   Brown; longest shared run 7 words, all idioms (`results/brown_leakage.json`).

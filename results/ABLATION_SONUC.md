@@ -290,7 +290,7 @@ Dürüstlük notu makalede: bağlam, IAM kelimeleri satırlardan kesildiği içi
 var; gerçekten tek başına kelimeler için geçerli sayı bağlamsız 80,74.
 Tablo 4'te iki satır da var.
 
-### Tablo 2 yeni düzelticiyle (`cloud/ablation_trigram_all.py` → `results/ablation_trigram_all.json`)
+### Tablo 2 sol-bağlamlı trigramla (ara adım; geçerli sayılar artık `results/ablation_viterbi.json` içindeki `KN3-left` girdileri)
 
 Altı model, fp32, α her model için doğrulamada seçildi (hepsinde 7).
 İki bağımsız geçiş 20.310/20.310 aynı.
@@ -313,3 +313,41 @@ Kelime bazlı (`cloud/paper_stats_trigram.py` → `results/paper_stats_trigram.j
 CRNN-LX 3.724 hata; düzeltici 2.938 hipotezi değiştiriyor, 1.076 düzeltiyor,
 501 bozuyor. Unigram aynı 2.938'i değiştirip aynı 501'i bozuyor ama sadece
 888 düzeltiyor — fark tamamen doğru adayı seçmekten geliyor.
+
+## Satırın tamamı (sağ + sol bağlam, Viterbi) — 16 Eylül, nihai düzeltici
+
+`cloud/kn_trigram.py` → `LineViterbiCorrector`: satırdaki her kelimenin aday
+sütunu üzerinden Σ[log P_KN(w_i | w_{i-2}, w_{i-1}) − α·d_i]'yi **tam** en
+büyükleyen dizi (ikinci dereceden Viterbi). w_i, w_{i+1} ve w_{i+2}'nin
+terimlerine de girdiği için her seçim hem soldaki hem sağdaki komşuya bağlı.
+Doğrulama: 400 rastgele satır düzeninde kaba kuvvet aramayla birebir aynı
+(`cloud/viterbi_selftest.py`); sıra bağımsız; deterministik.
+
+Seçenekler (doğrulamada seçildi, α ızgarası 1–30; `cloud/ablation_viterbi.py`
+→ `results/ablation_viterbi.json`, CRNN-LX):
+
+| Çözücü | α | val | test WA | CER | sola göre |
+|---|---:|---:|---:|---:|---|
+| soldan sağa (önceki) | 7 | 85,50 | 81,66 | 8,58 | ref. |
+| tüm satır | 10 | 85,66 | 81,77 | 8,54 | +56/−34, p=0,026 |
+| **tüm satır + keep-OOV** (seçilen) | 2 | **85,98** | **81,95** | 8,54 | +394/−335, p=0,032 |
+| tüm satır + real-word | 10 | 85,69 | 81,94 | 8,51 | +141/−86, p=0,0003 (seçilmedi) |
+| ikisi birlikte | 10 | 84,50 | 79,71 | 8,42 | çöküyor |
+
+keep-OOV: sözlük dışı hipotez d=0 aday olarak kendini koruyabilir (taban
+olasılık). real-word: sözlükteki kelime de 1 mesafedeki komşularıyla yarışır.
+Seçilen çözücü altı modelde: çapa +0,08 (p=0,57); CRNN-B +0,42 (0,002);
+photo +0,44 (0,003); elastic +0,33 (0,025); morph +0,32 (0,034);
+CRNN-LX +0,29 (0,032). Kazanç muhafazakârlıktan: 1.925 değişiklik, 815
+düzeltme / 181 bozma (soldan sağa: 2.939 / 1.076 / 501).
+
+**Tablo 2 (nihai düzeltici):** CRNN-LX − CRNN-B = +0,32, p=0,132
+(unigram 0,38/0,060; sol trigram 0,44/0,025). Üç düzelticide de aynı işaret,
+hiçbirinde p<0,01 yok. Çapa −2,74, p=1×10⁻³⁰. Tablo 4: Kang18'in 0,6,
+Kang21'in 2,1, AttentionHTR'nin 2,7 pp altında; Sueiras'ın 5,8 üstünde.
+
+**Süreçler arası determinizm:** fp32 tek süreçte 20.310/20.310 aynı, ama iki
+ayrı süreç arasında 1 kelime ('phywied'/'phycied', ikisi de yanlış) değişti —
+cuDNN algoritma seçimi. `hypotheses()`'e `cudnn.deterministic=True` eklendi
+(`cloud/determinism_probe.py` ile iki ayrı süreçte aynı sha256 doğrulandı) ve
+üç puanlama script'i bu ayarla yeniden koşuldu.

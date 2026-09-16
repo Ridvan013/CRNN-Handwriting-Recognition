@@ -209,14 +209,18 @@ class ContextCorrector:
     def in_lexicon(self, w: str) -> bool:
         return w in self.lex.vocabulary or w.lower() in self.lex.vocabulary_lower
 
-    def candidates(self, w: str) -> List[Tuple[str, int]]:
-        """(candidate, distance) within the edit bound, in tie-break order.
-        Independent of context and alpha, so memoised per hypothesis."""
-        c = self._cands.get(w)
+    def candidates(self, w: str, max_dist: Optional[int] = None) -> List[Tuple[str, int]]:
+        """(candidate, distance) within the edit bound, in tie-break order
+        (shorter length first, lexicographic within a length).  The default
+        bound is the paper's: 1 for |w| <= 4, else 2.  Independent of context
+        and alpha, so memoised per (hypothesis, bound)."""
+        if max_dist is None:
+            max_dist = 1 if len(w) <= 4 else 2
+        key = (w, max_dist)
+        c = self._cands.get(key)
         if c is not None:
             return c
         import numpy as np
-        max_dist = 1 if len(w) <= 4 else 2
         out: List[Tuple[str, int]] = []
         for L in range(len(w) - max_dist, len(w) + max_dist + 1):
             bucket = self.by_len.get(L, ())
@@ -225,7 +229,7 @@ class ContextCorrector:
             dists = self.lex._bucket_distances(w, L, bucket, max_dist)
             for i in np.nonzero(dists <= max_dist)[0]:
                 out.append((bucket[int(i)], int(dists[int(i)])))
-        self._cands[w] = out
+        self._cands[key] = out
         return out
 
     def correct_one(self, w: str, h1: Optional[str], h2: Optional[str], alpha: float,
@@ -262,4 +266,147 @@ class ContextCorrector:
             ctx_word = context_source[i] if context_source is not None else o
             h1, h2 = h2, ctx_word
             prev_line, prev_idx = line_id, idx
+        return out  # type: ignore[return-value]
+
+
+# ---------------------------------------------------------------------------
+# Two-sided (whole-line) correction: exact second-order Viterbi
+# ---------------------------------------------------------------------------
+def line_segments(rows: Sequence[Tuple[str, int, str]]) -> List[List[int]]:
+    """Row indices grouped into contiguous runs (same line, consecutive word
+    indices), in reading order.  Runs are independent: no n-gram crosses a
+    line start or a missing word."""
+    order = sorted(range(len(rows)), key=lambda i: (rows[i][0], rows[i][1]))
+    segs: List[List[int]] = []
+    prev_line, prev_idx = None, None
+    for i in order:
+        line_id, idx, _ = rows[i]
+        if segs and line_id == prev_line and idx == prev_idx + 1:
+            segs[-1].append(i)
+        else:
+            segs.append([i])
+        prev_line, prev_idx = line_id, idx
+    return segs
+
+
+class LineViterbiCorrector(ContextCorrector):
+    """Chooses the word sequence of a whole line jointly.
+
+    Every word crop contributes a column of candidates (word, edit distance
+    from the recognizer's hypothesis).  The decoder returns the sequence
+    w_1..w_n that maximises
+
+        sum_i  log P_KN(w_i | w_{i-2}, w_{i-1})  -  alpha * d_i
+
+    over all paths through the columns.  Because w_i enters the terms of
+    w_{i+1} and w_{i+2} as well as its own, each choice is conditioned on the
+    words to its LEFT and to its RIGHT -- the joint probability of the line,
+    not a left-to-right greedy decision.  The maximisation is exact (second-
+    order Viterbi, state = last two columns), deterministic (strict '>' keeps
+    the first maximiser; columns are in a fixed order) and independent of the
+    order in which lines are supplied.
+
+    Column construction (options are selected on the validation set):
+      * hypothesis outside the lexicon: its lexicon candidates within the
+        paper's edit bound; if there are none, the hypothesis itself.
+        keep_oov=True also keeps the hypothesis as a candidate (d = 0), so a
+        correct out-of-lexicon word such as a proper noun can survive when
+        the line supports it; its probability is the model's unseen-word floor.
+      * hypothesis inside the lexicon: kept unchanged, unless real_word=True,
+        in which case lexicon entries within distance `rw_dist` compete with
+        it (d = 0 for the hypothesis), so real-word errors ("form"/"from")
+        become correctable.
+      * columns are pruned to the `topk` candidates with the best
+        context-free score  log P(w) - alpha * d  (the hypothesis itself,
+        when kept, is always retained).
+    """
+
+    def __init__(self, lexicon_lm, kn: KNTrigram, topk: int = 10,
+                 memo_limit: int = 5_000_000):
+        super().__init__(lexicon_lm, kn)
+        self.topk = int(topk)
+        self.memo_limit = memo_limit
+        self._lp: Dict[Tuple[Optional[str], Optional[str], str], float] = {}
+
+    def _logp(self, w3: str, w1: Optional[str], w2: Optional[str]) -> float:
+        key = (w1, w2, w3)
+        v = self._lp.get(key)
+        if v is None:
+            v = self.kn.logp(w3, w1, w2)
+            if len(self._lp) < self.memo_limit:
+                self._lp[key] = v
+        return v
+
+    def column(self, w: str, alpha: float, real_word: bool = False,
+               keep_oov: bool = False, rw_dist: int = 1) -> List[Tuple[str, int]]:
+        if self.in_lexicon(w):
+            if not real_word:
+                return [(w, 0)]
+            cands = [(c, d) for c, d in self.candidates(w, rw_dist) if c != w]
+            keep_self = True
+        else:
+            cands = self.candidates(w)
+            if not cands:
+                return [(w, 0)]
+            keep_self = keep_oov
+        # stable sort: ties keep the candidate generator's order
+        ranked = sorted(cands, key=lambda cd: -(self._logp(cd[0], None, None) - alpha * cd[1]))
+        k = max(self.topk - (1 if keep_self else 0), 0)
+        return ([(w, 0)] if keep_self else []) + ranked[:k]
+
+    def sequence_score(self, words: Sequence[str], dists: Sequence[int], alpha: float) -> float:
+        s = 0.0
+        for i, (w, d) in enumerate(zip(words, dists)):
+            w1 = words[i - 2] if i >= 2 else None
+            w2 = words[i - 1] if i >= 1 else None
+            s += self._logp(w, w1, w2) - alpha * d
+        return s
+
+    def viterbi(self, cols: Sequence[Sequence[Tuple[str, int]]], alpha: float) -> Tuple[List[int], float]:
+        """Exact argmax over paths; returns (chosen index per column, score)."""
+        n = len(cols)
+        # state key (j, k): j = index in column i-1 (-1 before the start), k = index in column i
+        first: Dict[Tuple[int, int], Tuple[float, Optional[Tuple[int, int]]]] = {}
+        for k, (c, d) in enumerate(cols[0]):
+            first[(-1, k)] = (self._logp(c, None, None) - alpha * d, None)
+        hist = [first]
+        for i in range(1, n):
+            prev = hist[-1]
+            cur: Dict[Tuple[int, int], Tuple[float, Optional[Tuple[int, int]]]] = {}
+            c_prev = cols[i - 1]
+            c_pp = cols[i - 2] if i >= 2 else None
+            for k, (c, d) in enumerate(cols[i]):
+                pen = alpha * d
+                for (h, j), (s, _) in prev.items():
+                    w1 = c_pp[h][0] if h >= 0 else None
+                    sc = s + self._logp(c, w1, c_prev[j][0]) - pen
+                    old = cur.get((j, k))
+                    if old is None or sc > old[0]:
+                        cur[(j, k)] = (sc, (h, j))
+            hist.append(cur)
+        best_key, best = None, None
+        for key, (s, _) in hist[-1].items():
+            if best is None or s > best:
+                best_key, best = key, s
+        idx = [0] * n
+        key = best_key
+        for i in range(n - 1, -1, -1):
+            idx[i] = key[1]
+            key = hist[i][key][1]
+        return idx, best  # type: ignore[return-value]
+
+    def decode_lines(self, rows: Sequence[Tuple[str, int, str]], alpha: float,
+                     real_word: bool = False, keep_oov: bool = False,
+                     rw_dist: int = 1) -> List[str]:
+        """rows: (line_id, word_idx, hypothesis) in any order; outputs aligned with rows."""
+        out: List[Optional[str]] = [None] * len(rows)
+        for seg in line_segments(rows):
+            cols = [self.column(rows[i][2], alpha, real_word, keep_oov, rw_dist) for i in seg]
+            if all(len(c) == 1 for c in cols):
+                for i, c in zip(seg, cols):
+                    out[i] = c[0][0]
+                continue
+            idx, _ = self.viterbi(cols, alpha)
+            for i, c, k in zip(seg, cols, idx):
+                out[i] = c[k][0]
         return out  # type: ignore[return-value]

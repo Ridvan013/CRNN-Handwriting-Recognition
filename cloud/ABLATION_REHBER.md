@@ -383,15 +383,16 @@ python cloud/ablation_lexicon_all.py \
     --iam-words <words.txt> --iam-root <words/>
 ```
 
-Makaledeki Tablo 2 artık **trigram + satır bağlamı** düzelticisiyle
-puanlanıyor (`cloud/ablation_trigram_all.py`, aynı `ad=dizin` sözdizimi);
-seed modelleri de aynı script'le puanlanacak:
+Makaledeki Tablo 2 artık **trigram + tüm-satır (Viterbi) çözücü**yle
+puanlanıyor (`cloud/ablation_viterbi.py`, aynı `ad=dizin` sözdizimi; `full`
+listede olmalı çünkü çözücü seçimi onun doğrulamasında yapılıyor); seed
+modelleri de aynı script'le puanlanacak:
 
 ```bash
-python cloud/ablation_trigram_all.py \
+python cloud/ablation_viterbi.py \
     --modes narrow,narrow_s123=Model_seed_narrow_123,narrow_s456=Model_seed_narrow_456,full,full_s123=Model_seed_full_123,full_s456=Model_seed_full_456 \
     --baseline narrow \
-    --out results/ablation_trigram_seeds.json --dump-preds results/preds_trigram_seeds \
+    --out results/ablation_viterbi_seeds.json --dump-preds results/preds_viterbi_seeds \
     --iam-words <words.txt> --iam-root <words/>
 ```
 
@@ -406,6 +407,13 @@ sonuçtur, hangisi çıkarsa o.
 
 ### Dikkat
 
+- Eğitim script'inin sonunda basılan `SONUÇ` bloğu ve `results.json`'daki
+  `greedy_trigram_wa_pct`, **eski düzelticiyle (unigram) ve fp16 ile**
+  hesaplanır; makaledeki sayılar değildir. Sadece "eğitim bitti mi" kontrolü
+  için bak. Makaleye giren sayılar yukarıdaki puanlama komutlarından çıkar.
+  Eğitim kodunu **değiştirme**: checkpoint seçimi ve early stopping seed 42
+  modellerinde nasıl yapıldıysa seedlerde de aynı olmalı, yoksa karşılaştırma
+  bozulur.
 - `--seed` bayrağını **her komutta** ver; vermezsen 42 ile eğitir ve mevcut
   sonucu tekrarlamış olursun.
 - `--model-dir` adlarını aynen kullan; puanlama komutu bu adlara göre.

@@ -14,7 +14,7 @@
           "correct": 15097,
           "n": 20310,
           "wa_pct": 74.3328,
-          "cer_pct": 10.8476,
+          "cer_pct": 10.8463,
           "wilson_95ci_pct": [
             73.7275,
             74.9289
@@ -25,7 +25,7 @@
           "correct": 14877,
           "n": 20310,
           "wa_pct": 73.2496,
-          "cer_pct": 13.2953,
+          "cer_pct": 13.2941,
           "wilson_95ci_pct": [
             72.6365,
             73.854
@@ -36,7 +36,7 @@
           "correct": 15111,
           "n": 20310,
           "wa_pct": 74.4018,
-          "cer_pct": 12.7689,
+          "cer_pct": 12.7676,
           "wilson_95ci_pct": [
             73.797,
             74.9973
@@ -47,7 +47,7 @@
           "correct": 15388,
           "n": 20310,
           "wa_pct": 75.7656,
-          "cer_pct": 11.9933,
+          "cer_pct": 11.992,
           "wilson_95ci_pct": [
             75.1715,
             76.35
@@ -58,7 +58,7 @@
           "correct": 15815,
           "n": 20310,
           "wa_pct": 77.868,
-          "cer_pct": 10.9953,
+          "cer_pct": 10.9941,
           "wilson_95ci_pct": [
             77.2919,
             78.4337
@@ -72,57 +72,57 @@
       "checkpoint": "Model_abl_narrow\\best_model_wa.pth",
       "configurations": [
         {
-          "correct": 15997,
+          "correct": 15998,
           "n": 20310,
-          "wa_pct": 78.7642,
+          "wa_pct": 78.7691,
           "cer_pct": 8.7516,
           "wilson_95ci_pct": [
-            78.1963,
-            79.3212
+            78.2012,
+            79.326
           ],
           "name": "none (greedy CTC)"
         },
         {
-          "correct": 15464,
+          "correct": 15465,
           "n": 20310,
-          "wa_pct": 76.1398,
+          "wa_pct": 76.1448,
           "cer_pct": 11.4473,
           "wilson_95ci_pct": [
-            75.5487,
-            76.7211
+            75.5537,
+            76.7259
           ],
           "name": "IAM lexicon, edit only"
         },
         {
-          "correct": 15566,
+          "correct": 15567,
           "n": 20310,
-          "wa_pct": 76.642,
+          "wa_pct": 76.647,
           "cer_pct": 11.236,
           "wilson_95ci_pct": [
-            76.0551,
-            77.2189
+            76.0601,
+            77.2238
           ],
           "name": "IAM lexicon + n-gram"
         },
         {
-          "correct": 16099,
+          "correct": 16100,
           "n": 20310,
-          "wa_pct": 79.2664,
-          "cer_pct": 9.8973,
+          "wa_pct": 79.2713,
+          "cer_pct": 9.8985,
           "wilson_95ci_pct": [
-            78.7033,
-            79.8184
+            78.7083,
+            79.8232
           ],
           "name": "extended lexicon, edit only"
         },
         {
-          "correct": 16321,
+          "correct": 16322,
           "n": 20310,
-          "wa_pct": 80.3594,
-          "cer_pct": 9.3354,
+          "wa_pct": 80.3644,
+          "cer_pct": 9.3379,
           "wilson_95ci_pct": [
-            79.8073,
-            80.9
+            79.8123,
+            80.9049
           ],
           "name": "extended lexicon + n-gram"
         }
@@ -136,7 +136,7 @@
           "correct": 15980,
           "n": 20310,
           "wa_pct": 78.6805,
-          "cer_pct": 8.7125,
+          "cer_pct": 8.7149,
           "wilson_95ci_pct": [
             78.1118,
             79.2383
@@ -147,7 +147,7 @@
           "correct": 15488,
           "n": 20310,
           "wa_pct": 76.258,
-          "cer_pct": 11.3276,
+          "cer_pct": 11.33,
           "wilson_95ci_pct": [
             75.6679,
             76.8382
@@ -158,7 +158,7 @@
           "correct": 15587,
           "n": 20310,
           "wa_pct": 76.7454,
-          "cer_pct": 11.1541,
+          "cer_pct": 11.1566,
           "wilson_95ci_pct": [
             76.1594,
             77.3214
@@ -169,7 +169,7 @@
           "correct": 16092,
           "n": 20310,
           "wa_pct": 79.2319,
-          "cer_pct": 9.7861,
+          "cer_pct": 9.7898,
           "wilson_95ci_pct": [
             78.6685,
             79.7842
@@ -180,7 +180,7 @@
           "correct": 16315,
           "n": 20310,
           "wa_pct": 80.3299,
-          "cer_pct": 9.3415,
+          "cer_pct": 9.344,
           "wilson_95ci_pct": [
             79.7775,
             80.8708
@@ -255,57 +255,57 @@
       "checkpoint": "Model_abl_morph\\best_model_wa.pth",
       "configurations": [
         {
-          "correct": 15994,
+          "correct": 15993,
           "n": 20310,
-          "wa_pct": 78.7494,
-          "cer_pct": 8.6148,
+          "wa_pct": 78.7445,
+          "cer_pct": 8.616,
           "wilson_95ci_pct": [
-            78.1814,
-            79.3065
+            78.1764,
+            79.3017
           ],
           "name": "none (greedy CTC)"
         },
         {
-          "correct": 15487,
+          "correct": 15486,
           "n": 20310,
-          "wa_pct": 76.2531,
-          "cer_pct": 11.2384,
+          "wa_pct": 76.2482,
+          "cer_pct": 11.2396,
           "wilson_95ci_pct": [
-            75.6629,
-            76.8333
+            75.6579,
+            76.8284
           ],
           "name": "IAM lexicon, edit only"
         },
         {
-          "correct": 15599,
+          "correct": 15598,
           "n": 20310,
-          "wa_pct": 76.8045,
-          "cer_pct": 10.9709,
+          "wa_pct": 76.7996,
+          "cer_pct": 10.9721,
           "wilson_95ci_pct": [
-            76.219,
-            77.3799
+            76.214,
+            77.375
           ],
           "name": "IAM lexicon + n-gram"
         },
         {
-          "correct": 16121,
+          "correct": 16120,
           "n": 20310,
-          "wa_pct": 79.3747,
-          "cer_pct": 9.7324,
+          "wa_pct": 79.3698,
+          "cer_pct": 9.7348,
           "wilson_95ci_pct": [
-            78.8127,
-            79.9256
+            78.8077,
+            79.9207
           ],
           "name": "extended lexicon, edit only"
         },
         {
-          "correct": 16377,
+          "correct": 16376,
           "n": 20310,
-          "wa_pct": 80.6352,
-          "cer_pct": 9.0911,
+          "wa_pct": 80.6302,
+          "cer_pct": 9.0936,
           "wilson_95ci_pct": [
-            80.0859,
-            81.1728
+            80.0809,
+            81.1679
           ],
           "name": "extended lexicon + n-gram"
         }
@@ -319,7 +319,7 @@
           "correct": 16011,
           "n": 20310,
           "wa_pct": 78.8331,
-          "cer_pct": 8.5989,
+          "cer_pct": 8.6001,
           "wilson_95ci_pct": [
             78.2659,
             79.3894
@@ -330,7 +330,7 @@
           "correct": 15520,
           "n": 20310,
           "wa_pct": 76.4156,
-          "cer_pct": 11.1932,
+          "cer_pct": 11.1908,
           "wilson_95ci_pct": [
             75.8267,
             76.9944
@@ -341,7 +341,7 @@
           "correct": 15647,
           "n": 20310,
           "wa_pct": 77.0409,
-          "cer_pct": 10.9404,
+          "cer_pct": 10.9428,
           "wilson_95ci_pct": [
             76.4574,
             77.6141
@@ -352,7 +352,7 @@
           "correct": 16148,
           "n": 20310,
           "wa_pct": 79.5076,
-          "cer_pct": 9.7055,
+          "cer_pct": 9.7067,
           "wilson_95ci_pct": [
             78.9469,
             80.0572
@@ -363,7 +363,7 @@
           "correct": 16398,
           "n": 20310,
           "wa_pct": 80.7386,
-          "cer_pct": 9.0887,
+          "cer_pct": 9.0899,
           "wilson_95ci_pct": [
             80.1904,
             81.2751
@@ -375,34 +375,34 @@
   },
   "mcnemar_vs_narrow": {
     "none": {
-      "only_baseline_correct": 1346,
+      "only_baseline_correct": 1347,
       "only_mode_correct": 840,
-      "delta_wa_pp": -2.4914,
-      "p_value": 2.0025284337686038e-27
+      "delta_wa_pp": -2.4963,
+      "p_value": 1.623699906442033e-27
     },
     "photo": {
       "only_baseline_correct": 818,
-      "only_mode_correct": 812,
-      "delta_wa_pp": -0.0295,
-      "p_value": 0.901443455679326
+      "only_mode_correct": 811,
+      "delta_wa_pp": -0.0345,
+      "p_value": 0.8818287233955084
     },
     "elastic": {
       "only_baseline_correct": 799,
-      "only_mode_correct": 863,
-      "delta_wa_pp": 0.3151,
-      "p_value": 0.12223718995722381
+      "only_mode_correct": 862,
+      "delta_wa_pp": 0.3102,
+      "p_value": 0.12816643308148903
     },
     "morph": {
-      "only_baseline_correct": 756,
-      "only_mode_correct": 812,
-      "delta_wa_pp": 0.2757,
-      "p_value": 0.164824139901915
+      "only_baseline_correct": 757,
+      "only_mode_correct": 811,
+      "delta_wa_pp": 0.2659,
+      "p_value": 0.1807307674851576
     },
     "full": {
-      "only_baseline_correct": 777,
+      "only_baseline_correct": 778,
       "only_mode_correct": 854,
-      "delta_wa_pp": 0.3791,
-      "p_value": 0.059822241587187554
+      "delta_wa_pp": 0.3742,
+      "p_value": 0.06334549158472262
     }
   },
   "determinism_check": {

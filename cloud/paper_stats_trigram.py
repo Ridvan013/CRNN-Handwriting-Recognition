@@ -23,9 +23,20 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+import argparse
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "makale"))
-PRED_DIR = REPO_ROOT / "results" / "preds_trigram"
+_ap = argparse.ArgumentParser()
+_ap.add_argument("--pred-dir", default="results/preds_viterbi",
+                 help="per-model prediction dumps of the final corrector")
+_ap.add_argument("--variants-csv", default="preds_test_variants.csv",
+                 help="CRNN-LX per-word file with greedy and reference-corrector columns")
+_ap.add_argument("--ref-col", default="KN3-left",
+                 help="column of the previous corrector to compare the final one against")
+_ap.add_argument("--out", default="results/paper_stats_trigram.json")
+_args = _ap.parse_args()
+PRED_DIR = REPO_ROOT / _args.pred_dir
 MODES = ["none", "narrow", "photo", "elastic", "morph", "full"]
 
 
@@ -121,9 +132,10 @@ def main():
     print("  top-10 subs:", ", ".join(f"{t}->{p} {c}" for (t, p), c in top10))
     print("  symmetric  :", ", ".join(f"{a}<->{b} {c}" for (a, b), c in sym.most_common(8)))
 
-    # ---- what the corrector did (full model): unigram vs trigram ------------
+    # ---- what the corrector did (full model): final vs previous corrector ----
+    ref = _args.ref_col
     tri = {}
-    with open(PRED_DIR / "preds_test.csv", encoding="utf-8") as f:
+    with open(PRED_DIR / _args.variants_csv, encoding="utf-8") as f:
         for r in csv.DictReader(f):
             tri[r["word_id"]] = r
     assert len(tri) == n
@@ -131,18 +143,24 @@ def main():
     changed = sum(1 for r in full if tri[r["word_id"]]["greedy"] != r["prediction"])
     fixed = sum(1 for r in full if tri[r["word_id"]]["greedy"] != r["ground_truth"] and r["correct"] == "1")
     broken = sum(1 for r in full if tri[r["word_id"]]["greedy"] == r["ground_truth"] and r["correct"] != "1")
-    u_ok = sum(1 for r in full if tri[r["word_id"]]["U-IAM"] == r["ground_truth"])
-    only_u = sum(1 for r in full if tri[r["word_id"]]["U-IAM"] == r["ground_truth"] and r["correct"] != "1")
-    only_t = sum(1 for r in full if tri[r["word_id"]]["U-IAM"] != r["ground_truth"] and r["correct"] == "1")
-    diff_ut = sum(1 for r in full if tri[r["word_id"]]["U-IAM"] != r["prediction"])
+    u_ok = sum(1 for r in full if tri[r["word_id"]][ref] == r["ground_truth"])
+    only_u = sum(1 for r in full if tri[r["word_id"]][ref] == r["ground_truth"] and r["correct"] != "1")
+    only_t = sum(1 for r in full if tri[r["word_id"]][ref] != r["ground_truth"] and r["correct"] == "1")
+    diff_ut = sum(1 for r in full if tri[r["word_id"]][ref] != r["prediction"])
+    # how the reference corrector itself treated the greedy output
+    r_changed = sum(1 for r in full if tri[r["word_id"]]["greedy"] != tri[r["word_id"]][ref])
+    r_fixed = sum(1 for r in full if tri[r["word_id"]]["greedy"] != r["ground_truth"] and tri[r["word_id"]][ref] == r["ground_truth"])
+    r_broken = sum(1 for r in full if tri[r["word_id"]]["greedy"] == r["ground_truth"] and tri[r["word_id"]][ref] != r["ground_truth"])
     out["corrector_full"] = {"greedy_correct": g_ok, "hypotheses_changed": changed,
                              "changed_pct": round(100 * changed / n, 2),
                              "fixed": fixed, "broken": broken, "net": fixed - broken,
-                             "unigram_correct": u_ok, "trigram_vs_unigram": {
-                                 "outputs_differ": diff_ut, "only_unigram_correct": only_u,
-                                 "only_trigram_correct": only_t}}
-    print(f"corrector: changed {changed:,} hypotheses ({100*changed/n:.2f}%), fixed {fixed}, broke {broken}, "
-          f"net {fixed-broken}; vs unigram: differ {diff_ut}, only-uni {only_u}, only-tri {only_t}")
+                             "reference_corrector": ref, "reference_correct": u_ok,
+                             "reference_changed": r_changed, "reference_fixed": r_fixed, "reference_broken": r_broken,
+                             "final_vs_reference": {"outputs_differ": diff_ut, "only_reference_correct": only_u,
+                                                    "only_final_correct": only_t}}
+    print(f"final corrector: changed {changed:,} hypotheses ({100*changed/n:.2f}%), fixed {fixed}, broke {broken}, "
+          f"net {fixed-broken}; {ref}: changed {r_changed}, fixed {r_fixed}, broke {r_broken}; "
+          f"final vs {ref}: differ {diff_ut}, only-{ref} {only_u}, only-final {only_t}")
 
     # ---- context availability -----------------------------------------------
     ids = {(r["word_id"].rsplit("-", 1)[0], int(r["word_id"].rsplit("-", 1)[1])) for r in full}
@@ -153,7 +171,7 @@ def main():
     print(f"context: {100*with_prev/n:.1f}% of test words have a preceding word on the line, "
           f"{100*with_two/n:.1f}% have two")
 
-    dst = REPO_ROOT / "results" / "paper_stats_trigram.json"
+    dst = REPO_ROOT / _args.out
     json.dump(out, open(dst, "w"), indent=2)
     print("written:", dst)
 
