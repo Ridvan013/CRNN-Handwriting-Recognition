@@ -140,7 +140,7 @@ def fig_pipeline():
 
     # what the ablations measured, so the highlight cannot be read as a claim
     ax.text(xs[1] + BOX_W / 2, Y_TOP - 1.6,
-            "conventional $+2.7$ pp; proposed $+0.3$ pp (n.s.)",
+            'conventional $+2.7$ pp; proposed $+0.2$ pp (n.s., 3 seeds)',
             ha="center", va="top", fontsize=6.0, color=C_GREEN, style="italic")
 
     for i in range(3):

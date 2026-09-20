@@ -37,6 +37,21 @@ conservative: 1,925 replacements, 815 repaired / 181 broken, against
 (unigram 0.38 / 0.060; left-to-right trigram 0.44 / 0.025) — same sign under
 all three correctors, never below p < 0.01. Anchor −2.74, p = 1×10⁻³⁰.
 
+## 20 Sept: seed repeats (3 seeds for the two endpoint configurations)
+
+| Seed | CRNN-B | CRNN-LX | Δ | McNemar p |
+|---|---:|---:|---:|---:|
+| 42 (local RTX 4070) | 81.64 | 81.95 | +0.32 | 0.132 |
+| 123 (Kaggle T4) | 81.93 | 81.43 | −0.49 | **0.024** |
+| 456 (Kaggle T4) | 81.66 | 82.44 | +0.78 | **3.9×10⁻⁴** |
+| **mean ± SD** | **81.74 ± 0.16** | **81.94 ± 0.50** | **+0.20 ± 0.64** | 0.64 (paired t) |
+
+Two of three per-seed tests are "significant" in **opposite** directions, and
+CRNN-LX alone spans 1.00 pp across seeds — larger than any augmentation effect
+measured. The conventional-pipeline effect (−2.74 pp, p = 1×10⁻³⁰) is an order
+of magnitude above that noise floor. Weights: `brht25/seed1-output`,
+`brht25/seed2-output` (public); labels verified byte-identical to ours.
+
 ## 15 Sept (evening): real trigram with line context
 
 | Post-correction on the CRNN-LX optical model | test WA | CER |
@@ -228,7 +243,8 @@ improvement of validation loss **or** WA; the legacy elastic amplitude is
 - [ ] Re-verify every bib entry against the publisher page
 - [ ] One English proofreading pass
 - [ ] Decide venue; switch `\documentclass` if needed
-- [ ] **Seed repeats** (advisor, 5a): CRNN-B and CRNN-LX with seeds 123 and 456 — Berhat, on Kaggle, per `cloud/ABLATION_REHBER.md` §10; then a mean ± SD row for the paper
+- [x] **Seed repeats** (advisor, 5a): CRNN-B and CRNN-LX with seeds 123 and 456, trained on Kaggle (T4) and scored here with the final corrector — **Table 3** of the paper. The difference changes sign across seeds (+0.32 / −0.49 / +0.78 pp; mean +0.20 ± 0.64, paired p = 0.64) and one configuration spans 1.00 pp, so the augmentation comparison is reported as unresolved. Source: `results/ablation_viterbi_seeds.json`
+- [ ] Ask Berhat to confirm his training command included `--elastic-legacy-amplitude 0 --elastic-alpha 1 3` (no stdout log in the published datasets; §4 states "same hyperparameters")
 - [ ] Optional: WBS / TTA / ensembling re-evaluated on the full data (removed from the paper; old numbers were from truncated data)
 
 ## Repo

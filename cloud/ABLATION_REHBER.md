@@ -301,7 +301,14 @@ Bu dosyalar geldiğinde iki tablo makaleye eklenecek.
 
 ---
 
-## 10. Seed tekrarları (hoca revizyonu, 15 Eylül) — Berhat'ın yapacağı iş
+## 10. Seed tekrarları (hoca revizyonu, 15 Eylül) — **TAMAMLANDI (20 Eylül)**
+
+> Berhat dört eğitimi Kaggle'da yaptı, ağırlıkları `brht25/seed1-output` ve
+> `brht25/seed2-output` veri setleriyle paylaştı; puanlama yapıldı. Sonuç:
+> fark seedler arası işaret değiştiriyor (+0,32 / −0,49 / +0,78 pp,
+> ortalama +0,20 ± 0,64), makalede Tablo 3. Ayrıntı:
+> `results/ABLATION_SONUC.md` → "Seed tekrarları". Aşağıdaki talimatlar
+> tekrar gerekirse diye duruyor.
 
 ### Neden?
 

@@ -351,3 +351,55 @@ ayrı süreç arasında 1 kelime ('phywied'/'phycied', ikisi de yanlış) deği�
 cuDNN algoritma seçimi. `hypotheses()`'e `cudnn.deterministic=True` eklendi
 (`cloud/determinism_probe.py` ile iki ayrı süreçte aynı sha256 doğrulandı) ve
 üç puanlama script'i bu ayarla yeniden koşuldu.
+
+
+## Seed tekrarları (20 Eylül) — hocanın 5. maddesi kapandı
+
+Berhat, CRNN-B ve CRNN-LX'i **seed 123 ve 456** ile Kaggle T4'te yeniden
+eğitti (`brht25/seed1-output`, `brht25/seed2-output` — public). Dört ağırlık
+uzaktan zip okumasıyla indirildi (4,1 GB paketten 816 MB;
+`scratchpad/kaggle_partial.py` mantığı), `Model_seed_{narrow,full}_{123,456}/`
+altına konuldu ve makaledeki **aynı** deterministik yolla, **aynı nihai
+düzelticiyle** (239K sözlük + KN trigram IAM+Brown + tüm-satır Viterbi,
+keep-OOV) puanlandı: `cloud/ablation_viterbi.py --modes ... --baseline narrow`
+→ `results/ablation_viterbi_seeds.json`, `results/preds_viterbi_seeds/`.
+
+Doğrulamalar: (a) Berhat'ın `aachen_splits/*` dosyaları bizimkiyle **birebir
+aynı** (yalnız satır sonu CRLF/LF farkı); (b) dört koşunun doğrulama eğrileri
+birbirinden farklı, yani `--seed` gerçekten verilmiş; (c) seed 42 modelleri bu
+koşuda da aynı sayıları verdi (CRNN-B 81,64 / CRNN-LX 81,95), yani puanlama
+yolu değişmedi; (d) ikinci çözüm geçişi 20.310/20.310 aynı.
+
+| Seed | CRNN-B WA | CRNN-LX WA | Δ (LX−B) | McNemar p | CER B / LX |
+|---|---:|---:|---:|---:|---|
+| 42 (yerel, RTX 4070) | 81,64 | 81,95 | +0,32 | 0,132 | 8,83 / 8,54 |
+| 123 (Kaggle T4) | **81,93** | 81,43 | **−0,49** | **0,024** | 8,20 / 8,91 |
+| 456 (Kaggle T4) | 81,66 | **82,44** | **+0,78** | **3,9×10⁻⁴** | 8,53 / 8,28 |
+| **ortalama ± SD** | **81,74 ± 0,16** | **81,94 ± 0,50** | **+0,20 ± 0,64** | 0,64 (eşleştirmeli t, t(2)=0,54) | 8,52 ± 0,32 / 8,57 ± 0,32 |
+
+Sözlüksüz (greedy): CRNN-B 78,82 ± 0,19; CRNN-LX 78,92 ± 0,62.
+Eğitim özetleri: narrow 84,61@87 / 84,69@97 / 85,08@77; full 84,77@70 /
+84,23@53 / 84,84@84 (en iyi val WA @epoch).
+
+**Sonuç — augmentation farkı çözülmedi, hem de net biçimde:**
+
+1. Fark **işaret değiştiriyor**: +0,32 / −0,49 / +0,78 pp.
+2. Üç seedin ikisinde p<0,05 çıkıyor ama **zıt yönlerde** (123'te CRNN-B
+   anlamlı biçimde iyi, 456'da CRNN-LX). Yani tek seedle yapılan McNemar
+   testi 20 bin kelimede her iki yönde de "anlamlı" sonuç üretebiliyor.
+3. Aynı konfigürasyonun seedler arası yayılımı **1,00 pp** (CRNN-LX
+   81,43–82,44) — ölçmeye çalıştığımız etkinin birkaç katı.
+4. Konvansiyonel augmentation'ın etkisi (−2,74 pp, p=1×10⁻³⁰) bu gürültü
+   tabanının bir mertebe üstünde, yani pozitif kontrol etkilenmiyor.
+
+Makaleye giren: yeni **Tablo 3** (seed tekrarları), §5.1'de üç seed paragrafı,
+özet/katkı 2/§6.1/sonuç/tehditler güncellendi; §4'e "seed 123 ve 456 farklı
+makinede (T4), aynı kod sürümü ve aynı hiperparametrelerle" notu eklendi.
+
+**Bekleyen tek doğrulama:** Berhat'ın komut satırında
+`--elastic-legacy-amplitude 0 --elastic-alpha 1 3` var mıydı? Veri setinde
+çıktı günlüğü yok, dosyalardan doğrulanamıyor. Kayıp değerleri
+(full: 0,043/0,020 vs narrow: 0,013/0,014) augmentation'ın açık olduğunu
+gösteriyor ama elastik genliğin düzeltilmiş olup olmadığını ayırt etmiyor.
+Berhat onaylayınca bu not silinecek; onaylamazsa `full` seed satırları
+"elastik ayarı doğrulanmadı" diye işaretlenmeli.

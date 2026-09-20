@@ -31,7 +31,9 @@
 %
 % ALL NUMBERS: full IAM labels, Aachen writer-disjoint split, N_test = 20,310,
 % six configurations trained from scratch on one machine with one code
-% revision, scored in fp32 with cuDNN deterministic algorithms.
+% revision, scored in fp32 with cuDNN deterministic algorithms; the two
+% endpoint configurations additionally with seeds 123 and 456
+% (results/ablation_viterbi_seeds.json -> Table 3).
 % Sources: results/ablation_viterbi.json (Table 2; Table 3 rows 10-13),
 % results/ablation_lexicon5_all.json (Table 3 rows 1-5),
 % results/ablation_trigram.json (Table 3 rows 5-9, oracle),
@@ -113,29 +115,26 @@ Information Sciences,\\ Sakarya University, 54050 Sakarya, T\"urkiye\\
 \end{history}
 
 \begin{abstract}
-Recognizing handwritten words is difficult because handwriting varies
-between writers. We study word-level recognition on the IAM
+Handwriting varies strongly between writers, which makes recognizing
+isolated words hard. We study word-level recognition on the IAM
 database under the Aachen writer-disjoint protocol, on all \nsamples\
 test words. Our system, \ours, is a convolutional-recurrent network
-trained from scratch and followed by a lexicon-aware post-corrector
-that rescores candidates with a Kneser--Ney trigram and decodes each
-text line jointly, conditioning every word on the recognizer's own
-output for both neighbours. Two questions are examined under identical
-conditions. The first concerns the post-corrector, usually reported as
-a single language-model step.
-Decomposing it reveals four ingredients with different jobs: lexicon
-coverage decides the sign of the correction
-(the 7\,K-word training vocabulary lowers accuracy by 2.4 points, a
-239\,K-type general English list raises it by 0.7); the frequency
-prior that ranks candidates supplies most of the magnitude (1.2
-points); an external corpus adds 0.6 and line context another 0.6,
-moving accuracy from \rawwa\ to \ourwa\ without raising the character
-error rate. The second question is whether writing-aware
-augmentation (elastic, morphological and wide photometric transforms)
-helps. Under a single-seed setting, six configurations differing only
-in augmentation show no statistically detectable gain from these
-transforms, whereas removing the conventional pipeline beneath them
-costs \anchordelta\ points.
+trained from scratch, followed by a lexicon-aware post-corrector that
+rescores candidates with a Kneser--Ney trigram and decodes each text
+line jointly, conditioning every word on the recognizer's own output
+for both neighbours. Two questions are examined. The first concerns the post-corrector, usually reported as
+a single language-model step. Decomposing it reveals four ingredients
+with different jobs: lexicon coverage decides the sign of the
+correction (a 7\,K-word training vocabulary costs 2.4 points, a
+239\,K-type English list gains 0.7); the frequency prior that ranks
+candidates supplies most of the magnitude (1.2 points); an external
+corpus adds 0.6 and line context another 0.6, moving accuracy from
+\rawwa\ to \ourwa\ without raising the character error rate. The
+second question is whether writing-aware augmentation helps. Six
+configurations differing only in augmentation show no detectable gain
+from elastic, morphological and wide photometric transforms, whereas removing the conventional pipeline
+beneath them costs \anchordelta\ points. Three seeds turn the
+remaining gap into noise: it changes sign between them.
 \end{abstract}
 
 \keywords{Handwritten text recognition; lexicon-based post-correction;
@@ -236,9 +235,14 @@ configurations compared. Our contributions are:
         change word accuracy by at most \deltawa, and none of those
         differences reaches the significance threshold ($p<0.01$) used
         throughout; removing the conventional pipeline underneath them
-        costs \anchordelta\,pp at $p=1\times10^{-30}$. These results are consistent with a saturation
-effect rather than with an inability of the experimental setup to
-detect augmentation-related improvements.
+        costs \anchordelta\,pp at $p=1\times10^{-30}$. Repeating the two
+        endpoint configurations with three seeds each shows why: the
+        difference between them changes sign across seeds ($-0.49$ to
+        $+0.78$\,pp) and the run-to-run spread of one configuration
+        reaches $1.0$\,pp, several times the effect the transforms were
+        expected to produce. These results are consistent with a
+saturation effect rather than with an inability of the experimental
+setup to detect augmentation-related improvements.
   \item \textbf{A methodological observation on elastic deformation.}
         The common parameterization --- normalized Gaussian-smoothed
         noise scaled by $\alpha\in[2,5]$ --- yields root-mean-square (RMS)
@@ -671,9 +675,15 @@ We treat $p<0.01$ as significant.
 All six configurations were trained on the same machine (one NVIDIA
 GeForce RTX~4070 Laptop GPU with 8\,GB, PyTorch~2.7.1 with CUDA~11.8,
 Python~3.13) from the same code revision, with seed 42, at 35--75\,s per
-epoch; a configuration takes roughly one hour. Because augmentation is
-random, a single seed per configuration is used and differences
-smaller than the confidence interval are not interpreted. Every number
+epoch; a configuration takes roughly one hour. The two endpoint
+configurations, CRNN-B and \ours, were additionally re-trained with
+seeds 123 and 456 by one of the authors on a different machine (one
+NVIDIA T4 through a hosted notebook service), from the same code
+revision, the same split files --- verified byte-identical apart from
+line endings --- and the same hyperparameters; only the seed and the
+hardware differ. The four intermediate configurations were trained
+once, and differences smaller than the confidence interval are not
+interpreted. Every number
 reported below comes from evaluation passes in single precision with
 cuDNN restricted to its deterministic algorithms, in which the six
 optical models and all post-corrections are scored against identical
@@ -729,9 +739,27 @@ post-corrector, which is why we report it under all three: scored with
 the unigram prior the same two optical models differ by $0.38$\,pp at
 $p=0.060$, with the left-to-right trigram by $0.44$\,pp at $p=0.025$,
 and with the whole-line decoder by \deltawa\ at $p=0.131$ --- the same
-sign every time, never below the threshold. With one seed per
-configuration we therefore treat the difference as unresolved rather
-than as an established gain. Because the configurations are nested,
+sign every time, never below the threshold.
+
+Three seeds resolve the question, and they resolve it against the
+transforms. Table~\ref{tab:seeds} repeats CRNN-B and \ours\ with
+seeds 123 and 456. The difference between the two changes sign:
+\ours\ is $0.32$\,pp above CRNN-B at seed 42, $0.49$\,pp
+\emph{below} it at seed 123 and $0.78$\,pp above it at seed 456. Two
+of the three per-seed comparisons would be declared significant at the
+$0.05$ level --- in opposite directions ($p=0.024$ and
+$p=4\times10^{-4}$). Averaged over the three seeds the difference is
+$+0.20\pm0.64$\,pp (paired $t(2)=0.54$, $p=0.64$), and one unchanged
+configuration spans a full point on its own (\ours: 81.43--82.44\%).
+The run-to-run spread is therefore several times the effect under
+study, which is why we report the augmentation comparison as
+unresolved rather than as a small gain; the conventional pipeline, at
+\anchordelta\,pp, sits an order of magnitude above that noise floor
+and is untouched by the argument. A practical consequence is that a
+single-seed McNemar test on 20\,K words can report a significant
+augmentation effect of either sign, so the per-configuration
+$p$-values of Table~\ref{tab:main} should be read as descriptive.
+Because the configurations are nested,
 Table~\ref{tab:main} reports two differences: $\Delta_{\mathrm{B}}$
 against the baseline CRNN-B, and $\Delta_{\mathrm{P}}$ against the
 $+$wide photometric configuration on which elastic and morphological
@@ -774,6 +802,32 @@ $+$ morphological      & 81.80 & 8.25  & [81.26,\,82.32] & $+0.16$ & $+0.07$ & 0
 \textbf{\ours} (all)   & \textbf{81.95} & 8.54 & [81.42,\,82.48] & $+0.32$ & $+0.23$ & 0.132 & 84.77 (70) \\
 \botrule
 \end{tabular}}
+\end{table}
+
+\begin{table}[th]
+\tbl{Seed repeats of the two endpoint configurations, scored with the
+corrector of Table~\ref{tab:main} ($N=\nsamples$). Seed 42 is the run
+reported throughout the paper; seeds 123 and 456 differ from it only in
+the seed and in the machine they were trained on
+(Section~\ref{sec:experiments}). $\Delta$ is \ours\ minus CRNN-B
+within a seed and $p$ the exact McNemar test on that pair; the two
+differences that reach $p<0.05$ have opposite signs.\label{tab:seeds}}
+{\begin{tabular}{lccccc}
+\toprule
+Seed & CRNN-B & \ours & $\Delta$ & $p$ & CER: CRNN-B / \ours \\
+     & WA (\%) & WA (\%) & (pp) & & (\%) \\
+\colrule
+42 & 81.64 & 81.95 & $+0.32$ & 0.132 & 8.83 / 8.54 \\
+123 & 81.93 & 81.43 & $-0.49$ & 0.024 & 8.20 / 8.91 \\
+456 & 81.66 & 82.44 & $+0.78$ & $4\!\times\!10^{-4}$ & 8.53 / 8.28 \\
+\colrule
+mean $\pm$ SD & $81.74\pm0.16$ & $81.94\pm0.50$ & $+0.20\pm0.64$ & 0.644\tabmark{a} & $8.52\pm0.32$ / $8.57\pm0.32$ \\
+\botrule
+\end{tabular}}
+\begin{tabfootnote}
+\tabmark{a} Paired $t$ test on the three per-seed differences,
+$t(2)=0.54$; the $p$ values above it are per-seed McNemar tests.
+\end{tabfootnote}
 \end{table}
 
 Fig.~\ref{fig:curves} shows the mechanism. The anchor separates from
@@ -1084,8 +1138,9 @@ $p=1\times10^{-30}$, 2.7 points of word accuracy. The
 apparatus is not blind to augmentation; at a single seed it cannot
 resolve \emph{these} transforms on \emph{this} training set, whose
 largest effect ($+0.32$\,pp, $p=0.132$; $+0.44$\,pp, $p=0.025$ under
-the left-to-right corrector) stays below the threshold and changes
-with the post-corrector. What we observe is consistent with
+the left-to-right corrector) stays below the threshold, changes with
+the post-corrector, and changes sign with the seed
+(Table~\ref{tab:seeds}). What we observe is consistent with
 saturation, and three further observations indicate where it occurs.
 
 First, the anchor overfits and the augmented runs do not: training
@@ -1208,10 +1263,17 @@ difference is interpretable.
 
 \subsection{Threats to Validity}
 
-Each configuration was trained once. The augmentation differences of
-0.1--0.4\,pp are below what a single seed can resolve, which is why we
-report them as non-significant rather than as small gains; establishing
-an effect of that size would require several seeds per configuration.
+The augmentation differences of 0.1--0.4\,pp are below what one
+training run can resolve: with three seeds the CRNN-B--\ours\
+difference changes sign and averages $+0.20\pm0.64$\,pp
+(Table~\ref{tab:seeds}), so we report the transforms as unresolved
+rather than as small gains. Only the two endpoint configurations were
+repeated; the four intermediate ones were trained once, and their
+individual $p$-values in Table~\ref{tab:main} therefore carry no more
+weight than the seed-42 row of Table~\ref{tab:seeds} does. The
+repeats also ran on different hardware, so the spread we quote
+includes any hardware-related nondeterminism --- which only reinforces
+the conclusion that an effect of this size is not resolvable here.
 The \anchordelta\,pp effect of the conventional pipeline is an order of
 magnitude larger than that resolution limit, so the positive control
 does not depend on the seed in the way the null result does.
@@ -1272,10 +1334,11 @@ in Table~\ref{tab:priorwork}, and 1.8--3.9\,pp below them when the
 words are treated as isolated. Under controlled, single-seed
 conditions, elastic deformation, morphological perturbation and a
 widened photometric range produce no statistically detectable change
-in these figures, while removing the conventional augmentation
-pipeline beneath them costs \anchordelta\,pp --- a pattern consistent
-with the benefit of augmentation saturating before the transforms we
-proposed; a widely used elastic parameterization, moreover, does not
+in these figures --- over three seeds their apparent effect changes
+sign and averages $+0.20\pm0.64$\,pp --- while removing the
+conventional augmentation pipeline beneath them costs
+\anchordelta\,pp, a pattern consistent with the benefit of
+augmentation saturating before the transforms we proposed; a widely used elastic parameterization, moreover, does not
 deform the image at all. The post-correction stage, by contrast, moves
 accuracy by two to three points in either direction, and its four
 ingredients do different jobs: the lexicon's coverage of the test
@@ -1288,9 +1351,11 @@ $0.6$\,pp and returns the character error rate to the lexicon-free
 level.
 
 For word-level HTR the practical conclusions are that augmentation
-gains should be demonstrated, not assumed, on the full training set,
-and that an ablation reporting no effect should include the
-configuration in which the effect is known to exist; that lexicon
+gains should be demonstrated, not assumed, on the full training set;
+that an ablation reporting no effect should include the configuration
+in which the effect is known to exist, and should report the
+run-to-run spread of an unchanged configuration, which at this scale
+exceeded every augmentation effect we measured; that lexicon
 coverage, the ranking rule, its corpus and its context should be
 reported separately alongside lexicon-assisted accuracy; and that word
 accuracy and character error rate should be given together whenever a
