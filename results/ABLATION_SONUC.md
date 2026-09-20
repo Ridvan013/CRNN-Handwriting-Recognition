@@ -270,7 +270,7 @@ CRNN-LX optik modeli sabit, 239K sözlük (`results/ablation_trigram.json`):
 | add-one unigram (IAM) — eski | 5 | 80,74 | 9,09 | ref. | — |
 | KN unigram (IAM) | 5 | 80,74 | 9,09 | +19 / −18 kelime | 1,0 |
 | KN trigram + bağlam (IAM) | 7 | 80,84 | 9,07 | +45 / −25 | 0,022 |
-| KN unigram (IAM+Brown) | 7 | 81,32 | 8,73 | +155 / −36 | 9×10⁻¹⁹ |
+| KN unigram (IAM+Brown) | 7 | 81,32 | 8,74 | +155 / −36 | 9×10⁻¹⁹ |
 | **KN trigram + bağlam (IAM+Brown)** | 7 | **81,66** | **8,58** | **+220 / −32** | **1×10⁻³⁵** |
 | kâhin: bağlam = gerçek etiketler (rapor edilmez) | 7 | 81,73 | 8,55 | | |
 

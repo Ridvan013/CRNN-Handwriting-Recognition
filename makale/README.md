@@ -60,7 +60,7 @@ of magnitude above that noise floor. Weights: `brht25/seed1-output`,
 | 239K lexicon + add-one unigram prior (old corrector) | 80.74 | 9.09 |
 | + Kneser-Ney unigram, IAM | 80.74 | 9.09 |
 | + KN trigram with line context, IAM | 80.84 | 9.07 |
-| + KN unigram, IAM + Brown | 81.32 | 8.73 |
+| + KN unigram, IAM + Brown | 81.32 | 8.74 |
 | **+ KN trigram with line context, IAM + Brown (CRNN-LX)** | **81.66** | **8.58** |
 
 - Gain over the unigram prior: +0.84 to +0.95 pp on **all six** optical models
