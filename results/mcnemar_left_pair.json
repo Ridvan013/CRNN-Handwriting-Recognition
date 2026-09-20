@@ -1,0 +1,32 @@
+{
+  "corrector": "KN3 (IAM+Brown), left-to-right",
+  "alpha": 7.0,
+  "models": {
+    "narrow": {
+      "correct": 16496,
+      "n": 20310,
+      "wa_pct": 81.2211,
+      "cer_pct": 8.914,
+      "wilson_95ci_pct": [
+        80.6781,
+        81.7523
+      ]
+    },
+    "full": {
+      "correct": 16586,
+      "n": 20310,
+      "wa_pct": 81.6642,
+      "cer_pct": 8.583,
+      "wilson_95ci_pct": [
+        81.126,
+        82.1904
+      ]
+    }
+  },
+  "mcnemar_full_vs_narrow": {
+    "only_narrow_correct": 748,
+    "only_full_correct": 838,
+    "delta_wa_pp": 0.4431,
+    "p_value": 0.02539974491579326
+  }
+}

@@ -11,12 +11,12 @@
 % SABLON KURALLARI (ws-ijprai.pdf, ijprai-2e paketi):
 %   - Ozet 200 kelimeden kisa, atifsiz ve denklemsiz olmali.
 %   - Anahtar kelimeler noktali virgulle ayrilir, nokta ile biter.
-%   - Tablo basligi USTTE (	bl), sekil basligi ALTTA.
-%   - Cizgiler 	oprule / \colrule / otrule -- booktabs YUKLENMEZ,
+%   - Tablo basligi USTTE (\tbl), sekil basligi ALTTA.
+%   - Cizgiler \toprule / \colrule / \botrule -- booktabs YUKLENMEZ,
 %     sinif kendi tanimlarini verir; graphicx'i de sinif yukler.
 %   - Tek kolon duzen: figure* yok.
 %   - Kaynakca alfabetik, ws-ijprai.bst ile; atiflar ust simge (overcite).
-%   - Tablo \label'i 	bl{...\label{}} icinde olmali, disarida bolum
+%   - Tablo \label'i \tbl{...\label{}} icinde olmali, disarida bolum
 %     numarasini yakalar.
 %
 % MODEL NAMING (used consistently throughout the paper):
@@ -34,9 +34,11 @@
 % revision, scored in fp32 with cuDNN deterministic algorithms; the two
 % endpoint configurations additionally with seeds 123 and 456
 % (results/ablation_viterbi_seeds.json -> Table 3).
-% Sources: results/ablation_viterbi.json (Table 2; Table 3 rows 10-13),
-% results/ablation_lexicon5_all.json (Table 3 rows 1-5),
-% results/ablation_trigram.json (Table 3 rows 5-9, oracle),
+% Sources: results/ablation_viterbi.json (Table 2; Table 4 rows 10-13),
+% results/ablation_viterbi_seeds.json (Table 3),
+% results/ablation_lexicon5_all.json (Table 4 rows 1-5),
+% results/ablation_trigram.json (Table 4 rows 5-9, oracle),
+% results/mcnemar_left_pair.json (the left-to-right pair in Section 5.1),
 % results/paper_stats_trigram.json (per-word counts), results/brown_leakage.json,
 % per-word predictions in results/preds_viterbi/ (final) and results/preds_det/
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -738,10 +740,10 @@ within one confidence-interval half-width; elastic perturbation alone
 gives $p=0.182$, morphological perturbation $0.466$ and the widened
 photometric range $0.712$. The comparison is also sensitive to the
 post-corrector, which is why we report it under all three: scored with
-the unigram prior the same two optical models differ by $0.38$\,pp at
-$p=0.060$, with the left-to-right trigram by $0.44$\,pp at $p=0.025$,
-and with the whole-line decoder by \deltawa\ at $p=0.131$ --- the same
-sign every time, never below the threshold.
+the unigram prior the same two optical models differ by $0.37$\,pp at
+$p=0.063$, with the left-to-right trigram by $0.44$\,pp at
+$p=0.025$, and with the whole-line decoder by \deltawa\ at
+$p=0.132$ --- the same sign every time, never below the threshold.
 
 Three seeds resolve the question, and they resolve it against the
 transforms. Table~\ref{tab:seeds} repeats CRNN-B and \ours\ with
@@ -773,7 +775,7 @@ which is why $\Delta_{\mathrm{B}}$ is larger by that amount ($+0.29$,
 $+0.16$ and $+0.32$\,pp). On the per-word level these five disagree on
 3\,773 words (18.6\%), yet the disagreements largely cancel: for the
 baseline--\ours\ pair, 841 words are recognized only by the baseline
-and 904 only by \ours. Among configurations that
+and 905 only by \ours. Among configurations that
 already augment, the choice of transform changes \emph{which} words are
 recognized far more than \emph{how many}.
 
@@ -852,8 +854,9 @@ variability that the proposed transforms simulate.
 \vspace*{8pt}
 \caption{Training dynamics of the six configurations: (a) validation
 word accuracy with the best epoch marked, (b) training CTC loss. The
-zero-augmentation anchor reaches the lowest training loss and the
-lowest validation accuracy; the five augmented curves coincide.}
+zero-augmentation anchor drops fastest in training loss, stops
+earliest and reaches the lowest validation accuracy; the five augmented
+curves coincide.}
 \label{fig:curves}
 \alttext{Two line charts over training epochs: validation word accuracy on the left and training CTC loss on the right, one curve per configuration.}
 \end{figure}
@@ -879,11 +882,11 @@ valid English words absent from the 7\,K training list --- 15\% of
 the test tokens --- are forced onto the nearest training word, and most
 of these substitutions are wrong. Replacing that list with 239\,K
 types, which covers 94\% of the test tokens, turns the same
-$-2.41$\,pp into $+0.68$\,pp (76.42 to 79.51\%, a swing of 3.09\,pp
+$-2.42$\,pp into $+0.67$\,pp (76.42 to 79.51\%, a swing of 3.09\,pp
 at identical ranking).
 
 The frequency prior supplies most of the magnitude, and its value
-grows with the lexicon. On the 7\,K list it is worth $+0.62$\,pp
+grows with the lexicon. On the 7\,K list it is worth $+0.63$\,pp
 (76.42 to 77.04\%); on the 239\,K list, $+1.23$\,pp (79.51 to
 \uniwa). Fig.~\ref{fig:lexdecomp}(a) shows both effects at once. The
 reason is combinatorial rather than linguistic: a larger lexicon puts
@@ -944,7 +947,7 @@ give the line objective less to work with. In all, the corrector moves
 $+1.2$, corpus $+0.6$, line context $+0.6$\,pp.
 The unigram pattern holds on the other four augmented optical models of
 Table~\ref{tab:main}: the training lexicon costs 2.4--2.7\,pp, the
-extended lexicon gains 0.3--0.7\,pp over lexicon-free decoding, the
+extended lexicon gains 0.3--0.6\,pp over lexicon-free decoding, the
 prior adds a further 1.1--1.3\,pp, and the complete corrector gains
 1.5--1.9\,pp. On the zero-augmentation anchor, whose greedy output is
 4.4\,pp weaker, the ordering is unchanged but every effect is larger

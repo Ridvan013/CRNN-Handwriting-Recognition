@@ -178,6 +178,35 @@ for pat, truth in [(r"misrecognizes 3\\,(\d+) of", ea["misrecognized"] % 1000),
     else:
         chk(f"prose {pat[:28]}", float(m.group(1)), float(truth), tol=0.5)
 
+print("== prose deltas and counts")
+lx = {x["name"]: x["wa_pct"] for x in L["models"]["full"]["configurations"]}
+g, ie, pi, ee, pe = (lx["none (greedy CTC)"], lx["IAM lexicon, edit only"],
+                     lx["IAM lexicon + n-gram"], lx["extended lexicon, edit only"],
+                     lx["extended lexicon + n-gram"])
+LP = json.load(open("results/mcnemar_left_pair.json"))
+prose = [
+    (r"turns the same\n\$-(\d+\.\d+)\$\\,pp into \$\+(\d+\.\d+)\$", [abs(ie - g), ee - g]),
+    (r"On the 7\\,K list it is worth \$\+(\d+\.\d+)\$", [pi - ie]),
+    (r"on the 239\\,K list, \$\+(\d+\.\d+)\$", [pe - ee]),
+    (r"Neither ingredient alone reaches the \$\+(\d+\.\d+)\$", [pe - g]),
+    (r"and (\d+) only by \\ours", [P["pairwise_only_correct"]["full|narrow"]["only_full"]]),
+    (r"(\d+) words are recognized only by the baseline", [P["pairwise_only_correct"]["full|narrow"]["only_narrow"]]),
+    (r"these five disagree on\n3\\,(\d+) words \((\d+\.\d)\\%\)",
+     [P["augmented_five"]["disagree"] % 1000, P["augmented_five"]["disagree_pct"]]),
+    (r"the unigram prior the same two optical models differ by \$(\d+\.\d+)\$\\,pp at\n\$p=(\d+\.\d+)\$",
+     [L["mcnemar_vs_narrow"]["full"]["delta_wa_pp"], L["mcnemar_vs_narrow"]["full"]["p_value"]]),
+    (r"with the left-to-right trigram by \$(\d+\.\d+)\$\\,pp at\n\$p=(\d+\.\d+)\$",
+     [LP["mcnemar_full_vs_narrow"]["delta_wa_pp"], LP["mcnemar_full_vs_narrow"]["p_value"]]),
+]
+for pat, truths in prose:
+    m = re.search(pat, tex)
+    if not m:
+        bad.append(f"prose pattern missing: {pat[:46]}")
+        continue
+    for i, truth in enumerate(truths):
+        chk(f"prose {pat[:30]} [{i}]", float(m.group(i + 1)), float(truth),
+            tol=0.005 if truth < 100 else 0.5)
+
 print()
 if bad:
     print("MISMATCHES:", len(bad))
