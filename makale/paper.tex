@@ -681,8 +681,9 @@ configurations, CRNN-B and \ours, were additionally re-trained with
 seeds 123 and 456 by one of the authors on a different machine (one
 NVIDIA T4 through a hosted notebook service), from the same code
 revision, the same split files --- verified byte-identical apart from
-line endings --- and the same hyperparameters; only the seed and the
-hardware differ. The four intermediate configurations were trained
+line endings --- and the same hyperparameters, including the corrected
+elastic amplitude of Section~\ref{sec:aug}, which we checked in the
+run logs of those trainings; only the seed and the hardware differ. The four intermediate configurations were trained
 once, and differences smaller than the confidence interval are not
 interpreted. Every number
 reported below comes from evaluation passes in single precision with

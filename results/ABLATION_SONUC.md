@@ -396,10 +396,10 @@ Makaleye giren: yeni **Tablo 3** (seed tekrarları), §5.1'de üç seed paragraf
 özet/katkı 2/§6.1/sonuç/tehditler güncellendi; §4'e "seed 123 ve 456 farklı
 makinede (T4), aynı kod sürümü ve aynı hiperparametrelerle" notu eklendi.
 
-**Bekleyen tek doğrulama:** Berhat'ın komut satırında
-`--elastic-legacy-amplitude 0 --elastic-alpha 1 3` var mıydı? Veri setinde
-çıktı günlüğü yok, dosyalardan doğrulanamıyor. Kayıp değerleri
-(full: 0,043/0,020 vs narrow: 0,013/0,014) augmentation'ın açık olduğunu
-gösteriyor ama elastik genliğin düzeltilmiş olup olmadığını ayırt etmiyor.
-Berhat onaylayınca bu not silinecek; onaylamazsa `full` seed satırları
-"elastik ayarı doğrulanmadı" diye işaretlenmeli.
+**Elastik ayarı doğrulandı (20 Eylül).** Veri setlerinde çıktı günlüğü
+olmadığı için komut satırı dosyalardan çıkarılamıyordu; Berhat Kaggle
+notebook günlüğünden teyit etti, iki koşuda da script'in başında
+`Elastic : alpha 1-3  RMS px (fixed)` yazıyor. Yani düzeltilmiş genlik
+(1–3 px RMS) kullanılmış, varsayılan no-op ayar değil. Dolayısıyla seed
+koşuları bizim altı modelle aynı konfigürasyon; aralarındaki tek fark
+seed ve makine. Makale §4 bu kontrolü de yazıyor.

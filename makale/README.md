@@ -244,7 +244,7 @@ improvement of validation loss **or** WA; the legacy elastic amplitude is
 - [ ] One English proofreading pass
 - [ ] Decide venue; switch `\documentclass` if needed
 - [x] **Seed repeats** (advisor, 5a): CRNN-B and CRNN-LX with seeds 123 and 456, trained on Kaggle (T4) and scored here with the final corrector — **Table 3** of the paper. The difference changes sign across seeds (+0.32 / −0.49 / +0.78 pp; mean +0.20 ± 0.64, paired p = 0.64) and one configuration spans 1.00 pp, so the augmentation comparison is reported as unresolved. Source: `results/ablation_viterbi_seeds.json`
-- [ ] Ask Berhat to confirm his training command included `--elastic-legacy-amplitude 0 --elastic-alpha 1 3` (no stdout log in the published datasets; §4 states "same hyperparameters")
+- [x] Elastic amplitude in the seed runs confirmed from Berhat's Kaggle logs: both print `Elastic : alpha 1-3  RMS px (fixed)`, i.e. the corrected amplitude, not the legacy no-op. §4 records the check.
 - [ ] Optional: WBS / TTA / ensembling re-evaluated on the full data (removed from the paper; old numbers were from truncated data)
 
 ## Repo
