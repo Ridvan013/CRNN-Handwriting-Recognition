@@ -217,17 +217,21 @@ particle (needed `{de Sousa Neto}` as the family name).
 Full report with all tables: `../results/ABLATION_SONUC.md`.
 
 
-## Revision of 15 September 2026 (advisor's review)
+## Advisor's review of 15 September 2026 — all seven points closed
 
-| # | Advisor's point | Change |
-|---|---|---|
-| 1 | §6.1 heading asserted a conclusion | → *Interpretation of the Augmentation Results* |
-| 2 | §6.3 heading named one paper | → *Comparison with Previous Word-Level HTR Systems* |
-| 3 | Title too assertive | → *Decomposing Lexicon-Assisted Correction for Isolated Handwritten Word Recognition on IAM: Effects of Lexicon Coverage and Frequency-Based Ranking* |
-| 4 | "trigram" without word context | The corrector is a **unigram frequency prior** everywhere (`score_word` is always called with `prev_words=None`, so bigram/trigram branches never run). §3.5 says so explicitly and adds the sparsity figure: only 34 % of test tokens have a trigram context seen in the 48 K-word training text. |
-| 5 | Single seed | (a) seed repeats: see `cloud/ABLATION_REHBER.md` §10 — **pending**, Berhat runs them on Kaggle; (b) wording softened to the advisor's phrasing in the abstract, contribution 2, §5.1, §6.1, §6.3 and the Conclusion |
-| 6 | Table 2 ΔWA ≠ numbers in text | Table 2 now has Δ_B (vs CRNN-B) **and** Δ_P (vs +wide photometric); caption states both come from unrounded accuracies |
-| 7 | "2–4 pp" | → "1.8–3.9 pp below the later attention-based systems listed in Table 4" |
+The wording below is our itemisation of the points, not a verbatim quote of
+the messages. "Then" is what the 15 Sept revision did; "now" is where the
+paper stands after the trigram and seed work of 16-20 Sept.
+
+| # | Advisor's point | Then | Now |
+|---|---|---|---|
+| 1 | §6.1 heading asserted a conclusion | → *Interpretation of the Augmentation Results* | unchanged |
+| 2 | §6.3 heading named one paper | → *Comparison with Previous Word-Level HTR Systems* | unchanged |
+| 3 | Title too assertive | → *Decomposing Lexicon-Assisted Correction for Isolated Handwritten Word Recognition on IAM: Effects of Lexicon Coverage and Frequency-Based Ranking* | changed again, to *… for Word-Level Handwritten Text Recognition on IAM: Lexicon Coverage, Frequency Ranking and Line Context* |
+| 4 | "trigram" without word context | Renamed to **unigram frequency prior** throughout, because `score_word` was always called with `prev_words=None`; §3.5 said so and gave the sparsity figure (34 % of test tokens had a seen trigram context) | **fixed at the root**: a real interpolated Kneser-Ney trigram with line context now ranks the candidates (IAM + Brown, whole-line Viterbi). The unigram prior is kept as the no-context reference row. The 34 % figure was dropped with it. |
+| 5 | Single seed | Wording softened in the abstract, contribution 2, §5.1, §6.1, §6.3 and the Conclusion; seed repeats planned | **done**: CRNN-B and CRNN-LX × seeds 42/123/456 → **Table 3**. The difference changes sign (+0.32 / −0.49 / +0.78 pp; mean +0.20 ± 0.64, paired p = 0.64) and one configuration spans 1.00 pp, so the augmentation comparison is reported as unresolved. |
+| 6 | Table 2 ΔWA ≠ numbers in text | Δ_B (vs CRNN-B) **and** Δ_P (vs +wide photometric), caption states both come from unrounded accuracies | unchanged; every cell is now machine-checked by `cloud/verify_paper_numbers.py` |
+| 7 | "2–4 pp" | → "1.8–3.9 pp below the later attention-based systems" | now 0.6–2.7 pp with line context and 1.8–3.9 pp without it; both are in the text |
 
 Three further corrections found while checking Section 3 against the code:
 morphological perturbation fires with probability **0.15**, not 0.3 (half of
