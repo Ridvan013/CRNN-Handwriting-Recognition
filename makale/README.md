@@ -33,8 +33,8 @@ augmented models (p = 0.002–0.034) and +0.08 on the anchor. It wins by being
 conservative: 1,925 replacements, 815 repaired / 181 broken, against
 2,939 / 1,076 / 501 for left-to-right.
 
-**Table 2 with this corrector:** CRNN-LX − CRNN-B = +0.32 pp, p = 0.131
-(unigram 0.38 / 0.060; left-to-right trigram 0.44 / 0.025) — same sign under
+**Table 2 with this corrector:** CRNN-LX − CRNN-B = +0.32 pp, p = 0.132
+(unigram 0.37 / 0.063; left-to-right trigram 0.44 / 0.025) — same sign under
 all three correctors, never below p < 0.01. Anchor −2.74, p = 1×10⁻³⁰.
 
 ## 20 Sept: seed repeats (3 seeds for the two endpoint configurations)
@@ -63,7 +63,7 @@ of magnitude above that noise floor. Weights: `brht25/seed1-output`,
 | + KN unigram, IAM + Brown | 81.32 | 8.74 |
 | **+ KN trigram with line context, IAM + Brown (CRNN-LX)** | **81.66** | **8.58** |
 
-- Gain over the unigram prior: +0.84 to +0.95 pp on **all six** optical models
+- Gain over the unigram prior: +0.85 to +0.96 pp on **all six** optical models
   (per-model `KN3-left` entries in `results/ablation_viterbi.json`); α = 7
   selected on validation for each.
 - Oracle (reference transcriptions as context, diagnostic only): 81.73.
@@ -114,6 +114,9 @@ displaces pixels by only 0.02–0.04 px RMS per axis at the 64×256 working
 resolution (max 0.19 px) — a no-op; the paper uses a unit-RMS field × 1–3 px.
 
 ## Model naming (fixed — use these names everywhere)
+
+The WA column below is the 15 Sept state (unigram corrector). Current numbers
+are in the tables at the top of this file and in the paper.
 
 | Name | wide photometric | elastic | morph | test WA |
 |---|:---:|:---:|:---:|---:|
