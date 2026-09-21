@@ -1,14 +1,55 @@
 # Paper — Decomposing Lexicon-Assisted Correction for Word-Level Handwritten Text Recognition on IAM: Lexicon Coverage, Frequency Ranking and Line Context
 
-**Headline:** **CRNN-LX** reaches **81.95% word accuracy** (Wilson 95% CI
-[81.42%, 82.48%], CER 8.54%) on the **complete** IAM Aachen writer-disjoint
-test set (N = 20,310 words, 336 forms, 161 unseen writers), with a 239K
-lexicon and an interpolated Kneser-Ney trigram (IAM + Brown) that decodes
-each text line **jointly** (exact Viterbi), so every word is conditioned on
-the system's **own** outputs for its neighbours on both sides.
-Left-to-right context only: 81.66 / 8.58. Without context (unigram prior,
-the figure for genuinely isolated words): 80.74 / 9.09. Lexicon-free:
-78.83 / 8.60.
+**Headline:** **CRNN-LX** reaches **83.80% word accuracy** (Wilson 95% CI
+[83.29%, 84.30%], **CER 7.96%**) on the **complete** IAM Aachen
+writer-disjoint test set (N = 20,310 words, 336 forms, 161 unseen writers).
+That is 1.3 pp above Kang et al. 2018 (82.55), 0.29 pp below Kang et al. 2021
+(84.09) and 0.80 pp below AttentionHTR (84.60) — with a plain CRNN trained
+from scratch, no synthetic pre-training, no transfer and no ensembling.
+
+The corrector: the **corpus lexicon** (57,382 types = the vocabulary of the
+IAM training lines + the Brown corpus, 96.4% coverage of the test tokens),
+candidates within <=2 edits ranked by an interpolated Kneser-Ney **trigram**
+whose context is the system's **own output** for the preceding words of the
+line. Selected on validation (`cloud/ablation_final.py`).
+
+Without line context (unigram prior, the figure for genuinely isolated
+words): 82.91 / 8.43. Lexicon-free (CRNN-G): 78.83 / 8.60.
+
+## 21 Sept: the lexicon dominates (81.95 -> 83.80)
+
+`cloud/ablation_lexicon_source.py` gives the same corrector three lexicons;
+`cloud/ablation_wbs.py` runs word beam search (the authors' implementation)
+on the same probabilities. All on the CRNN-LX optical model, N = 20,310:
+
+| Lexicon (coverage) | edit only | + unigram | **+ KN3, left ctx** | + KN3, line, keep-OOV | WBS (Words) |
+|---|---:|---:|---:|---:|---:|
+| training 7K (84.8%) | 76.42 | 77.04 | 77.56 | 81.32 | 76.02 |
+| word list 239K (93.9%) | 79.51 | 80.74 | 81.66 | 81.95 | 81.26 (81.70 +case) |
+| **corpus 57K (96.4%)** | 81.72 | 82.91 | **83.80** | 82.77 | **84.13** |
+
+Findings:
+
+1. **Composition beats size.** The corpus lexicon is 4x smaller than the NLTK
+   word list and 2.14 pp better under the same corrector, because it holds
+   proper nouns, inflections and the right capitalization.
+2. **"Small lexicon is harmful" was really "forced replacement is harmful".**
+   With the 7K lexicon, forced replacement costs 1.8 pp against lexicon-free
+   decoding; letting an out-of-lexicon hypothesis survive turns the same
+   lexicon into +2.5 pp.
+3. **In-decoding vs post-hoc is nearly a wash.** At the matched corpus
+   lexicon WBS is 0.33 pp above us in WA (p = 0.014, above our 0.01
+   threshold) and 0.27 pp worse in CER. WBS's own bigram LM adds nothing
+   (84.13 -> 84.07).
+4. Table 2 and Table 3 were re-scored with the final corrector; the
+   augmentation conclusion is unchanged (CRNN-LX - CRNN-B = +0.39 pp,
+   p = 0.050; three seeds: +0.39 / -0.45 / +0.66, mean +0.20 +- 0.58).
+
+Sources: `results/ablation_final.json`, `results/ablation_final_seeds.json`,
+`results/ablation_lexicon_source.json`, `results/ablation_wbs.json`,
+`results/paper_stats_final.json`; per-word dumps in `results/preds_final*/`
+and `results/preds_wbs*/`. `python cloud/verify_paper_numbers.py` checks every
+number in the paper against these files.
 
 ## 16 Sept: whole-line (two-sided) decoding
 

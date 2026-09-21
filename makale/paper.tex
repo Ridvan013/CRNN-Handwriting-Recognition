@@ -24,10 +24,13 @@
 %   CRNN-B                    = baseline optical model, conventional augmentation
 %   + wide photometric / + elastic / + morphological = ablation variants
 %   CRNN-G                    = all augmentations, lexicon-free (greedy CTC)
-%   CRNN-LX (PROPOSED)        = CRNN-G + 239K lexicon + Kneser-Ney trigram (IAM+Brown)
-%                               ranked with the system's own line context
-%   "unigram prior"           = the earlier corrector (add-one IAM unigram, alpha=5),
-%                               kept as the no-context reference (80.74)
+%   CRNN-LX (PROPOSED)        = CRNN-G + corpus lexicon (57,382 types, the
+%                               vocabulary of the IAM training lines + Brown)
+%                               + Kneser-Ney trigram ranked with the system's
+%                               own left context on the line  -> 83.80 / 7.96
+%   lexicons compared         = training (7,173) / word list (239,126, IAM+NLTK)
+%                               / corpus (57,382); coverage 84.8 / 93.9 / 96.4 %
+%   "no context"              = corpus lexicon + add-one unigram prior (82.91)
 %
 % ALL NUMBERS: full IAM labels, Aachen writer-disjoint split, N_test = 20,310,
 % six configurations trained from scratch on one machine with one code
@@ -61,17 +64,20 @@
 % ---- Custom commands ------------------------------------------------------
 \newcommand{\ours}{CRNN-LX}            % proposed system (lexicon-extended)
 \newcommand{\oursnolm}{CRNN-G}         % same optical model, greedy, no lexicon
-\newcommand{\ourwa}{81.95\%}           % CRNN-LX: KN trigram, whole-line (Viterbi) decoding
-\newcommand{\ourci}{[81.42\%, 82.48\%]}
-\newcommand{\ourcer}{8.54\%}
-\newcommand{\leftwa}{81.66\%}          % same model, trigram, left-to-right context only
-\newcommand{\uniwa}{80.74\%}           % same model, unigram prior, no context
-\newcommand{\unicer}{9.09\%}
+% CRNN-LX = corpus lexicon (57,382 types) + KN trigram on IAM+Brown,
+% left-to-right line context; alpha selected on validation.
+\newcommand{\ourwa}{83.80\%}
+\newcommand{\ourci}{[83.29\%, 84.30\%]}
+\newcommand{\ourcer}{7.96\%}
+\newcommand{\uniwa}{82.91\%}           % corpus lexicon, unigram prior, no context
+\newcommand{\unicer}{8.43\%}
+\newcommand{\listwa}{81.66\%}          % same corrector on the 239K word-list lexicon
+\newcommand{\listcer}{8.58\%}
 \newcommand{\rawwa}{78.83\%}
 \newcommand{\rawcer}{8.60\%}
-\newcommand{\baselinewa}{81.64\%}      % CRNN-B, final corrector (Table 2 reference)
-\newcommand{\deltawa}{0.32\,pp}        % CRNN-LX minus CRNN-B, final corrector
-\newcommand{\anchordelta}{2.74}        % conventional pipeline removed, pp (final corrector)
+\newcommand{\baselinewa}{83.41\%}      % CRNN-B, final corrector (Table 2 reference)
+\newcommand{\deltawa}{0.39\,pp}        % CRNN-LX minus CRNN-B, final corrector
+\newcommand{\anchordelta}{2.24}        % conventional pipeline removed, pp
 \newcommand{\nsamples}{20{,}310}
 
 
@@ -119,25 +125,23 @@ Information Sciences,\\ Sakarya University, 54050 Sakarya, T\"urkiye\\
 \begin{abstract}
 Handwriting varies strongly between writers, which makes word-level
 recognition hard. We study it on the IAM database under the Aachen
-writer-disjoint protocol, on all \nsamples\ test words. Our system,
-\ours, is a convolutional-recurrent network trained from scratch,
-followed by a lexicon-aware post-corrector that rescores candidates
-with a Kneser--Ney trigram and decodes each text line jointly,
-conditioning every word on the recognizer's own output for both of its
-neighbours. Two questions are examined. The first concerns the
+writer-disjoint protocol, on all \nsamples\ test words. Our system, \ours,
+is a convolutional-recurrent network trained from scratch, followed by a
+lexicon-aware post-corrector that rescores candidates with a Kneser--Ney
+trigram, using the recognizer's own output for the preceding words on the
+text line as context. Two questions are examined. The first concerns the
 post-corrector, usually reported as a single language-model step.
-Decomposing it reveals four ingredients with different jobs: lexicon
-coverage decides the sign of the correction (a 7\,K-word training
-vocabulary costs 2.4 points, a 239\,K-type English list gains 0.7);
-the frequency prior that ranks candidates supplies most of the
-magnitude (1.2 points); an external corpus adds 0.6 and line context
-another 0.6, moving accuracy from \rawwa\ to \ourwa\ without raising
-the character error rate. The second question is whether writing-aware
-augmentation helps. Six configurations differing only in augmentation
-show no detectable gain from elastic, morphological and wide
-photometric transforms, whereas removing the conventional pipeline
-beneath them costs \anchordelta\ points. Three seeds turn the
-remaining gap into noise: it changes sign between them.
+Decomposing it shows that the lexicon dominates the ranking rule: a lexicon
+read off the language-model corpus (57\,K types) beats a 239\,K-word English
+list by 2.1 points although it is four times smaller, because it holds the
+proper nouns, inflections and capitalizations people write. Ranking adds
+about a point and line context half of one, moving accuracy from \rawwa\ to
+\ourwa\ while lowering the character error rate; imposing the same lexicon
+inside the decoder changes little. The second question is whether
+writing-aware augmentation helps. Six configurations differing only in
+augmentation show no detectable gain from elastic, morphological and wide
+photometric transforms, whereas removing the conventional pipeline costs
+\anchordelta\ points, and three seeds turn that gap into noise.
 \end{abstract}
 
 \keywords{Handwritten text recognition; lexicon-based post-correction;
@@ -202,10 +206,11 @@ prior systems already treat elastic distortion as
 one~\cite{dutta2018improving}. On the lexical side, the post-corrector
 replaces a recognized word by a lexicon entry within a small edit
 distance and ranks the candidates with a word-level language model; in
-the proposed system that model is a Kneser--Ney trigram, and the words
-of a text line are decoded jointly, so that each choice is conditioned
-on the recognizer's own output for the neighbouring crops on both
-sides. We
+the proposed system that model is a Kneser--Ney trigram conditioned on
+the recognizer's own output for the preceding crops of the same text
+line. Which words the lexicon contains turns out to matter more than
+how the candidates are ranked, so we compare three lexicons and, for
+each, four ways of choosing inside it. We
 name the proposed system \ours\ (CRNN with lexicon-extended,
 language-model-ranked post-correction) and its lexicon-free
 counterpart \oursnolm; Table~\ref{tab:naming} defines the six
@@ -213,23 +218,29 @@ configurations compared. Our contributions are:
 
 \begin{itemlist}
   \item \textbf{An anatomy of lexicon-assisted correction.} Holding the
-        optical model fixed, we vary the post-correction lexicon, the
-        language model that ranks the candidates, its training corpus
-        and its context independently, which separates four effects
-        that are usually reported as one. Coverage decides the sign:
-        the training vocabulary alone \emph{hurts}, by 2.4 to 2.7
-        percentage points (pp) on the five augmented models, while a
-        general English list helps ($+0.3$ to $+0.7$\,pp). A unigram
-        frequency prior then supplies most of the magnitude ($+1.1$ to
-        $+1.3$\,pp), and its value grows with the lexicon, because a
-        larger candidate set makes the ranking matter more. Replacing
-        the prior by a trigram estimated on an external corpus adds
-        $0.6$\,pp through the corpus and a further $0.6$\,pp through
-        the line context --- read from the recognizer's own outputs,
-        first from the left only and then from both sides by decoding
-        the line jointly --- and brings the character error rate back
-        to that of lexicon-free decoding. The complete corrector
-        delivers $+3.1$\,pp, from \rawwa\ to \ourwa.
+        optical model fixed, we vary the lexicon, the rule that ranks the
+        candidates inside it, the corpus the rule is estimated on, the
+        context it is given and whether the lexicon is imposed during
+        decoding or afterwards. The lexicon dominates: read off the
+        language-model corpus (57\,382 types, 96.4\% coverage of the test
+        tokens) it is worth
+        2.14\,pp over a
+        239\,126-type English word list (93.9\%) under the same corrector,
+        although it is four times smaller. The ranking rule adds
+        1.19\,pp,
+        the trigram with line context a further
+        0.89\,pp,
+        and word beam search --- the same lexicon imposed inside the decoder
+        --- ends 0.32\,pp away
+        ($p=0.014$),
+        with a worse character error rate. We also find that what makes a
+        small lexicon harmful is not its size but the obligation to replace:
+        the 7\,K training vocabulary costs
+        1.79\,pp when
+        every unlisted hypothesis must be replaced and \emph{gains}
+        2.49\,pp
+        when the decoder may keep it. The complete corrector moves
+        \oursnolm\ from \rawwa\ to \ourwa.
   \item \textbf{A controlled augmentation ablation with a positive
         control.} Six networks that differ only in the augmentation
         schedule are trained from scratch on the full Aachen training
@@ -240,10 +251,10 @@ configurations compared. Our contributions are:
         throughout; removing the conventional pipeline underneath them
         costs \anchordelta\,pp at $p=1\times10^{-30}$. Repeating the two
         endpoint configurations with three seeds each shows why: the
-        difference between them changes sign across seeds ($-0.49$ to
-        $+0.78$\,pp) and the run-to-run spread of one configuration
-        reaches $1.0$\,pp, several times the effect the transforms were
-        expected to produce. These results are consistent with a
+        difference between them changes sign across seeds ($-0.45$ to
+        $+0.66$\,pp) and two of the three per-seed tests are significant
+        in opposite directions, while the mean difference is
+        $+0.20\pm0.58$\,pp. These results are consistent with a
 saturation effect rather than with an inability of the experimental
 setup to detect augmentation-related improvements.
   \item \textbf{A methodological observation on elastic deformation.}
@@ -257,6 +268,25 @@ resolution and is effectively a no-op; we report the
         checked programmatically; all \nsamples\ test words are used;
         code, split lists and per-word predictions are public.
 \end{itemlist}
+
+\paragraph{Scope of the claim.}
+The claims of this paper are about measurement, not about rank. Our optical
+model is a plain CRNN trained from scratch on the 48\,K Aachen training
+words, with no synthetic pre-training, no transfer from scene text and no
+ensembling. With the lexical corrector it reaches \ourwa\ on the Aachen
+test set, which is 1.3\,pp above the 2018 attention baseline and
+0.3--0.8\,pp below the two strongest published word-level systems, which use
+a language model or scene-text pre-training (Table~\ref{tab:priorwork}). What
+the paper contributes is the anatomy of two components those systems rely on
+as well, measured where each can be isolated: a lexical corrector taken
+apart into the lexicon, the ranking rule and the place it is applied, whose
+effects differ by an order of magnitude; an
+augmentation ablation with a positive control and three seeds, which shows
+the effect under study to be smaller than the variation between two runs of
+the same configuration; and a parameterization in common use that turns out
+to leave the image unchanged. None of the three depends on our particular
+network, and each is reported so that it can be re-derived from the released
+per-word predictions.
 
 Section~\ref{sec:related} groups the related literature into four groups and positions our work within them.
 Section~\ref{sec:method} describes the pipeline of
@@ -381,10 +411,10 @@ whose effect this paper measures.
 \vspace*{8pt}
 \caption{Overview of \ours. Word crops are augmented (training only),
 normalized, encoded by a CRNN and decoded with CTC; the decoded string
-is then corrected against a 239\,K-type lexicon, the candidates of all
-words on a text line being chosen jointly under a Kneser--Ney trigram,
-so that each word is conditioned on the system's own output for its
-neighbours. The two outlined
+is then corrected against a 57\,K-type lexicon read off the
+language-model corpus, the candidates being ranked by a Kneser--Ney
+trigram conditioned on the system's own output for the preceding words
+of the line. The two outlined
 stages are the ones varied in the ablations, and each carries the
 effects measured for it. The evaluation stage reports
 word accuracy (WA), character error rate (CER) and Wilson confidence
@@ -469,7 +499,7 @@ for at most 100 epochs. Training stops when neither the validation loss nor the 
 word accuracy has improved for 15 epochs, and the checkpoint with the
 best validation word accuracy is evaluated once on the test set. The
 validation accuracy used for early stopping and checkpoint selection is
-computed with the extended lexicon and the unigram prior of
+computed with the word-list lexicon and the unigram prior of
 Section~\ref{sec:trigram}, identically for all six configurations; the
 trigram corrector is applied only afterwards, to the frozen checkpoints,
 so that it never influences which weights are selected.
@@ -527,11 +557,11 @@ After greedy CTC decoding, each hypothesis is checked against a closed
 lexicon. If the hypothesis (case-insensitively) is in the lexicon it is
 accepted unchanged; otherwise it is replaced by the best-scoring
 lexicon entry within a Levenshtein distance of 1 (words of up to four
-characters) or 2 (longer words). On the test set 3\,260 hypotheses
-(16.1\%) fall outside the extended lexicon, and 2\,939 of them have at
-least one candidate within that distance; the other words pass through
-unchanged, so everything the corrector can gain or lose is decided
-among those 2\,939. A candidate $c$ at edit distance $d$ from the hypothesis is
+characters) or 2 (longer words). On the test set 3\,084 hypotheses
+(15.2\%) fall outside the corpus lexicon of the proposed system, and
+2\,724 of them have at least one candidate within that distance; the other
+words pass through unchanged, so everything the corrector can gain or lose
+is decided among those 2\,724. A candidate $c$ at edit distance $d$ from the hypothesis is
 scored as
 \begin{equation}
 s(c) \;=\; \log P(c \mid h_1, h_2) \;-\; \alpha\, d ,
@@ -545,13 +575,32 @@ and Section~\ref{sec:res-lex} varies them one at a time with the
 optical model held fixed.
 
 \paragraph{Lexicon.}
-The \emph{training lexicon} consists of the 7\,173 word types of the
-training transcriptions; the \emph{extended lexicon} adds the Natural
-Language Toolkit (NLTK) English word list, giving 239\,126 types.
-Measured on the test transcriptions, the training lexicon covers
-84.8\% of the test tokens and the extended lexicon 93.9\%; the
-remaining tokens are proper nouns, inflected forms absent from both
-lists, and punctuation-bearing strings.
+Three lexicons are compared, and the difference between them turns out to
+matter more than anything else in the corrector:
+
+\begin{itemlist}
+  \item the \emph{training lexicon}: the 7\,173 word types of the IAM
+        training transcriptions;
+  \item the \emph{word-list lexicon}: those types plus the Natural Language
+        Toolkit (NLTK) English word list, 239\,126 types --- a dictionary in
+        the everyday sense, large but written without reference to any text;
+  \item the \emph{corpus lexicon}: every word type that occurs in the text
+        the language model is estimated on, that is in the IAM training lines
+        and in the Brown corpus, 57\,382 types.
+\end{itemlist}
+
+Measured on the test transcriptions, these cover 84.8\%, 93.9\% and 96.4\%
+of the test tokens. The corpus lexicon is four times smaller than the word
+list and yet covers more, because it is built from running text: it contains
+proper nouns (\emph{Evans}, \emph{Malcolm}, \emph{BBC}), inflected and
+possessive forms, and each of them in the case in which people write it,
+whereas the word list is largely lower-case uninflected entries and spends
+most of its 239\,K types on words that no one in IAM wrote. What is left
+uncovered in either case is proper nouns absent from the corpus, rare
+inflections and punctuation-bearing strings. \ours\ uses the corpus
+lexicon; that choice, like every other in this section, was made on the
+validation partition (Section~\ref{sec:res-lex}). No lexicon is built from
+test transcriptions.
 
 \paragraph{Language model.}
 Two models are compared. The \emph{unigram frequency prior} ignores the
@@ -566,7 +615,10 @@ degrades to the bigram and then to the unigram estimate. It is estimated
 on the same 47\,999 tokens, read as text lines, and, in the proposed
 configuration, additionally on the Brown corpus~\cite{francis1979brown}
 (57\,340 sentences, 1.16\,M tokens). Tokens are case-sensitive and
-punctuation marks are kept as tokens, matching the IAM transcriptions.
+punctuation marks are kept as tokens, matching the IAM transcriptions. In
+the proposed configuration the lexicon and the language model therefore come
+from the same text: the corpus supplies both the words that may be produced
+and the statistics that rank them.
 
 \paragraph{Context.}
 IAM word crops are cut from text lines and keep their position on the
@@ -583,11 +635,11 @@ reported alongside for the setting in which words are genuinely
 isolated.
 
 \paragraph{Decoding the line.}
-Two decoders are compared. The \emph{left-to-right} decoder corrects
-the words of a line in reading order, scoring each by
+Two decoders are compared. The \emph{left-to-right} decoder, used by
+\ours, corrects the words of a line in reading order, scoring each by
 Eq.~(\ref{eq:score}) with $h_1 h_2$ set to its own two previous
 outputs, so a word is conditioned on its left neighbours only. The
-\emph{whole-line} decoder, used by \ours, instead chooses the word
+\emph{whole-line} decoder instead chooses the word
 sequence $w_1\ldots w_n$ of the line that maximizes
 $\sum_i [\log P(w_i \mid w_{i-2}, w_{i-1}) - \alpha\, d_i]$ over all
 combinations of candidates, by exact second-order Viterbi search; since
@@ -606,9 +658,11 @@ distance one, so that real-word errors such as \emph{form}/\emph{from}
 become correctable (\emph{real-word}). For the whole-line decoder
 $\alpha$ is selected from $\{1,2,3,4,5,7,10,15,20,30\}$, a wider grid
 than the $\{3,5,7,10\}$ of the left-to-right decoder because the line
-objective shifts the useful range. Every selection --- $\alpha$, the
-options, the decoder --- is made on the validation writers and applied
-once to the test set.
+objective shifts the useful range. Every selection --- the lexicon,
+$\alpha$, the options and the decoder itself --- is made on the validation
+writers and applied once to the test set. Which decoder wins depends on the
+lexicon, and the validation partition prefers the left-to-right one once the
+lexicon is the corpus lexicon (Section~\ref{sec:res-lex}).
 
 \paragraph{External corpus.}
 The IAM prompts were taken from the LOB corpus; Brown is a different
@@ -619,7 +673,10 @@ none; the longest shared sequence is seven words and the shared strings
 are idioms (\emph{in spite of the fact that}, \emph{on the other
 hand}). The same check against the IAM training lines gives 0.06\% and
 0\%. The corpus therefore supplies English word statistics, not the
-test text, and the corrector never sees an IAM test transcription.
+test text, and the corrector never sees an IAM test transcription. The
+corpus lexicon inherits that property: it is the vocabulary of this text, so
+it contains words that IAM test pages also use --- which is what any lexicon
+is for --- but no entry is taken from a test transcription.
 
 % ---- 4. Experimental Setup ----------------------------------------------
 \section{Experimental Setup}
@@ -723,38 +780,44 @@ Table~\ref{tab:main} is the central result, and it separates into two
 layers.
 
 The conventional pipeline matters. Removing it costs \anchordelta\,pp
-(81.64 to 78.90\%) and $1.69$\,pp of character error rate; 1\,457
-words are recognized only by the baseline against 900 only by the
+(83.41 to 81.17\%) and $1.55$\,pp of character error rate; 1\,302
+words are recognized only by the baseline against 848 only by the
 anchor, and the exact McNemar test rejects equality at
-$p=1\times10^{-30}$. Without a lexicon the same comparison is wider
+$p=1\times10^{-22}$. Without a lexicon the same comparison is wider
 still, 78.77 against 74.33\% ($-4.44$\,pp), so part of the weaker
 optical model is masked by the post-corrector.
 
 The proposed transforms do not provide a statistically detectable
-improvement. The five
-configurations that keep the conventional pipeline reach
-81.64--81.95\%, and none differs from the baseline at the $p<0.01$
-threshold of Section~\ref{sec:experiments}. The full scheme (\ours) is
-nominally the best, \deltawa\ above the baseline ($p=0.132$), which is
-within one confidence-interval half-width; elastic perturbation alone
-gives $p=0.182$, morphological perturbation $0.466$ and the widened
-photometric range $0.712$. The comparison is also sensitive to the
-post-corrector, which is why we report it under all three: scored with
-the unigram prior the same two optical models differ by $0.37$\,pp at
-$p=0.063$, with the left-to-right trigram by $0.44$\,pp at
-$p=0.025$, and with the whole-line decoder by \deltawa\ at
-$p=0.132$ --- the same sign every time, never below the threshold.
+improvement. The five configurations that keep the conventional pipeline
+reach 83.41--83.89\%, and none differs from the baseline at the $p<0.01$
+threshold of Section~\ref{sec:experiments}. The fully augmented scheme we
+propose is not even the nominal best: $+$elastic reaches 83.89\% against
+83.80\% for \ours, a difference of 0.09\,pp, or 18 of the \nsamples\
+words. Against the baseline, \ours\ is \deltawa\ higher at $p=0.050$,
+$+$elastic $0.48$\,pp at $p=0.016$, morphological perturbation
+$0.26$\,pp at $p=0.193$ and the widened photometric range $0.21$\,pp at
+$p=0.305$; the two largest would pass a $0.05$ threshold but not the
+$0.01$ used here, nor a correction for the five comparisons made against
+the baseline. The ordering also moves with the post-corrector, which is
+why we report the same pair of optical models under four of them: the
+unigram prior on the word-list lexicon gives $+0.37$\,pp at $p=0.063$,
+the trigram on that lexicon $+0.44$\,pp at $p=0.025$, its whole-line
+variant $+0.32$\,pp at $p=0.132$, and the corrector of
+Table~\ref{tab:main} \deltawa\ at $p=0.050$. The sign never changes and
+the threshold is never crossed, but which augmented configuration comes
+out on top does change.
 
 Three seeds resolve the question, and they resolve it against the
 transforms. Table~\ref{tab:seeds} repeats CRNN-B and \ours\ with
 seeds 123 and 456. The difference between the two changes sign:
-\ours\ is $0.32$\,pp above CRNN-B at seed 42, $0.49$\,pp
-\emph{below} it at seed 123 and $0.78$\,pp above it at seed 456. Two
-of the three per-seed comparisons would be declared significant at the
-$0.05$ level --- in opposite directions ($p=0.024$ and
-$p=4\times10^{-4}$). Averaged over the three seeds the difference is
-$+0.20\pm0.64$\,pp (paired $t(2)=0.54$, $p=0.64$), and one unchanged
-configuration spans a full point on its own (\ours: 81.43--82.44\%).
+\ours\ is \deltawa\ above CRNN-B at seed 42, $0.45$\,pp
+\emph{below} it at seed 123 and $0.66$\,pp above it at seed 456. All
+three per-seed comparisons would be declared significant at the $0.05$
+level, and two of them point in opposite directions ($p=0.026$ against
+the transforms, $p=1\times10^{-3}$ for them). Averaged over the three
+seeds the difference is $+0.20\pm0.58$\,pp (paired $t(2)=0.60$,
+$p=0.61$), and one unchanged configuration spans 0.8\,pp on its own
+(\ours: 83.44--84.21\%).
 The run-to-run spread is therefore several times the effect under
 study, which is why we report the augmentation comparison as
 unresolved rather than as a small gain; the conventional pipeline, at
@@ -768,23 +831,25 @@ Table~\ref{tab:main} reports two differences: $\Delta_{\mathrm{B}}$
 against the baseline CRNN-B, and $\Delta_{\mathrm{P}}$ against the
 $+$wide photometric configuration on which elastic and morphological
 perturbation are built, which isolates each transform. By
-$\Delta_{\mathrm{P}}$, elastic perturbation adds $0.21$\,pp,
-morphological perturbation $0.07$\,pp and the two together
-$0.23$\,pp; the widened photometric range itself adds $0.08$\,pp,
-which is why $\Delta_{\mathrm{B}}$ is larger by that amount ($+0.29$,
-$+0.16$ and $+0.32$\,pp). On the per-word level these five disagree on
-3\,773 words (18.6\%), yet the disagreements largely cancel: for the
-baseline--\ours\ pair, 841 words are recognized only by the baseline
-and 905 only by \ours. Among configurations that
+$\Delta_{\mathrm{P}}$, elastic perturbation adds $0.28$\,pp,
+morphological perturbation $0.05$\,pp and the two together
+$0.19$\,pp; the widened photometric range itself adds $0.21$\,pp,
+which is why $\Delta_{\mathrm{B}}$ is larger by that amount ($+0.48$,
+$+0.26$ and $+0.39$\,pp). On the per-word level these five disagree on
+3\,315 words (16.3\%), yet the disagreements largely cancel: for the
+baseline--\ours\ pair, 769 words are recognized only by the baseline
+and 849 only by \ours. Among configurations that
 already augment, the choice of transform changes \emph{which} words are
 recognized far more than \emph{how many}.
 
 \begin{table}[th]
 \tbl{Augmentation ablation on the Aachen writer-disjoint test set
 ($N=\nsamples$). All rows share the network, schedule and
-post-corrector (239\,K lexicon, Kneser--Ney trigram on IAM$+$Brown,
-whole-line decoding with keep-OOV; the edit penalty, selected on
-validation for each model separately, is $\alpha=2$ or $3$).
+post-corrector (the corpus lexicon of Section~\ref{sec:trigram},
+Kneser--Ney trigram on IAM$+$Brown, left-to-right line context; the edit
+penalty, selected on validation for each model separately, is $\alpha=7$,
+and $10$ for \ours). The nominal best row is not the proposed
+configuration, and the difference is 18 words; see the text.
 $\Delta_{\mathrm{B}}$ is the difference in WA to
 CRNN-B and $\Delta_{\mathrm{P}}$ the difference to the $+$wide
 photometric configuration on which elastic and morphological
@@ -798,12 +863,12 @@ writers).\label{tab:main}}
 \toprule
 Configuration & WA (\%) & CER (\%) & Wilson 95\% CI & $\Delta_{\mathrm{B}}$ & $\Delta_{\mathrm{P}}$ & $p$ & best val WA (ep.) \\
 \colrule
-no augmentation        & 78.90 & 10.52 & [78.33,\,79.45] & $-2.74$ & ---     & $1\!\times\!10^{-30}$ & 82.57 (38) \\
-CRNN-B (baseline)      & 81.64 & 8.83  & [81.10,\,82.17] & (ref.)  & ---     & (ref.) & 84.61 (87) \\
-$+$ wide photometric   & 81.72 & 8.39  & [81.19,\,82.25] & $+0.08$ & (ref.)  & 0.712  & 84.34 (76) \\
-$+$ elastic            & 81.93 & \textbf{8.21} & [81.39,\,82.45] & $+0.29$ & $+0.21$ & 0.182  & 84.69 (77) \\
-$+$ morphological      & 81.80 & 8.25  & [81.26,\,82.32] & $+0.16$ & $+0.07$ & 0.466  & 84.58 (84) \\
-\textbf{\ours} (all)   & \textbf{81.95} & 8.54 & [81.42,\,82.48] & $+0.32$ & $+0.23$ & 0.132 & 84.77 (70) \\
+no augmentation        & 81.17 & 9.82  & [80.63,\,81.70] & $-2.24$ & ---     & $1\!\times\!10^{-22}$ & 82.57 (38) \\
+CRNN-B (baseline)      & 83.41 & 8.27  & [82.89,\,83.91] & (ref.)  & ---     & (ref.) & 84.61 (87) \\
+$+$ wide photometric   & 83.61 & 8.20  & [83.10,\,84.12] & $+0.21$ & (ref.)  & 0.305  & 84.34 (76) \\
+$+$ elastic            & \textbf{83.89} & 7.97 & [83.38,\,84.39] & $+0.48$ & $+0.28$ & 0.016  & 84.69 (77) \\
+$+$ morphological      & 83.66 & 8.12  & [83.15,\,84.17] & $+0.26$ & $+0.05$ & 0.193  & 84.58 (84) \\
+\textbf{\ours} (all)   & 83.80 & \textbf{7.96} & [83.29,\,84.30] & $+0.39$ & $+0.19$ & 0.050 & 84.77 (70) \\
 \botrule
 \end{tabular}}
 \end{table}
@@ -821,16 +886,16 @@ differences that reach $p<0.05$ have opposite signs.\label{tab:seeds}}
 Seed & CRNN-B & \ours & $\Delta$ & $p$ & CER: CRNN-B / \ours \\
      & WA (\%) & WA (\%) & (pp) & & (\%) \\
 \colrule
-42 & 81.64 & 81.95 & $+0.32$ & 0.132 & 8.83 / 8.54 \\
-123 & 81.93 & 81.43 & $-0.49$ & 0.024 & 8.20 / 8.91 \\
-456 & 81.66 & 82.44 & $+0.78$ & $4\!\times\!10^{-4}$ & 8.53 / 8.28 \\
+42 & 83.41 & 83.80 & $+0.39$ & 0.050 & 8.27 / 7.96 \\
+123 & 83.89 & 83.44 & $-0.45$ & 0.026 & 7.96 / 8.34 \\
+456 & 83.55 & 84.21 & $+0.66$ & $1\!\times\!10^{-3}$ & 8.30 / 7.72 \\
 \colrule
-mean $\pm$ SD & $81.74\pm0.16$ & $81.94\pm0.50$ & $+0.20\pm0.64$ & 0.644\tabmark{a} & $8.52\pm0.32$ / $8.57\pm0.32$ \\
+mean $\pm$ SD & $83.62\pm0.25$ & $83.82\pm0.38$ & $+0.20\pm0.58$ & 0.610\tabmark{a} & $8.18\pm0.19$ / $8.01\pm0.31$ \\
 \botrule
 \end{tabular}}
 \begin{tabfootnote}
 \tabmark{a} Paired $t$ test on the three per-seed differences,
-$t(2)=0.54$; the $p$ values above it are per-seed McNemar tests.
+$t(2)=0.60$; the $p$ values above it are per-seed McNemar tests.
 \end{tabfootnote}
 \end{table}
 
@@ -867,123 +932,98 @@ curves coincide.}
 Table~\ref{tab:lexicon} holds the optical model fixed (\ours, best
 checkpoint) and varies only what happens after greedy decoding. The
 effect is an order of magnitude larger than that of the augmentation.
-The corrector has four ingredients --- the lexicon a hypothesis is
-tested against, the language model that ranks the candidates within
-edit distance, the corpus that model is estimated on, and the context
-it is given --- and the table varies them one at a time, so that rows
-2 and 4 isolate coverage at fixed ranking, rows 2$\to$3 and 4$\to$5
-isolate the frequency prior at a fixed lexicon, rows 5--9 isolate the
-corpus and the left context at a fixed lexicon, and rows 9--13 vary
-only how the line is decoded.
+Table~\ref{tab:lexicon} separates the two things a lexical corrector
+consists of: \emph{which} words it may produce (the lexicon, down the rows)
+and \emph{how} it chooses among them (the ranking and the line decoding,
+across the columns). Reading across a row isolates the ranking at a fixed
+lexicon; reading down a column isolates the lexicon at a fixed ranking. All
+twelve cells correct the same greedy hypotheses of the same checkpoint.
 
-Coverage decides the sign. Against the training vocabulary alone,
-accuracy \emph{falls} from \rawwa\ to 76.42\%: hypotheses that are
-valid English words absent from the 7\,K training list --- 15\% of
-the test tokens --- are forced onto the nearest training word, and most
-of these substitutions are wrong. Replacing that list with 239\,K
-types, which covers 94\% of the test tokens, turns the same
-$-2.42$\,pp into $+0.67$\,pp (76.42 to 79.51\%, a swing of 3.09\,pp
-at identical ranking).
+Composition decides, not size (Fig.~\ref{fig:lexdecomp}). Reading
+Table~\ref{tab:lexicon} down a column: with the same corrector, the corpus lexicon beats the word-list
+lexicon by 2.14\,pp
+(81.66 to
+83.80\%) although it holds four times
+fewer types, and it does so in every column. The reason is coverage of the
+words people actually wrote: 96.4\% against 93.9\%, because a lexicon read
+off running text contains the proper nouns, the inflected and possessive
+forms and the capitalizations that a dictionary list omits, and spends none
+of its entries on words that never occur. Coverage, in turn, is what the
+corrector can reach at all: the 3.6\% of test tokens outside the corpus
+lexicon can only be got right by leaving them alone.
 
-The frequency prior supplies most of the magnitude, and its value
-grows with the lexicon. On the 7\,K list it is worth $+0.63$\,pp
-(76.42 to 77.04\%); on the 239\,K list, $+1.23$\,pp (79.51 to
-\uniwa). Fig.~\ref{fig:lexdecomp}(a) shows both effects at once. The
-reason is combinatorial rather than linguistic: a larger lexicon puts
-more entries within the same edit distance of a hypothesis, so the
-choice among equidistant candidates --- which is exactly what the prior
-makes --- decides more cases, and Section~\ref{sec:disc-lex} takes the
-argument further. Neither ingredient alone reaches the $+1.91$\,pp of
-the unigram corrector.
+The sign of the correction is set by whether replacement is forced, not by
+the size of the lexicon. Against the training lexicon, replacing every
+unlisted hypothesis costs accuracy: edit distance alone gives
+76.42\% and the unigram prior
+77.04\%, both below the
+78.83\% of lexicon-free decoding, because a correctly recognized
+word that the 7\,K list happens not to contain is replaced by a wrong one.
+The same 7\,K lexicon becomes useful as soon as the decoder may decline to
+replace: the whole-line decoder with keep-OOV reaches
+81.32\%, i.e.\
+2.49\,pp
+\emph{above} lexicon-free decoding with a lexicon that covers only 84.8\%
+of the test tokens. What hurts is not a small vocabulary but the obligation
+to use it.
 
-The corpus and the context supply the rest
-(Fig.~\ref{fig:lexdecomp}(b)). Rows 5--9 keep the extended lexicon and
-change only the language model of Eq.~(\ref{eq:score}). Replacing the
-add-one prior by a Kneser--Ney unigram estimated on the same IAM text
-changes nothing (\uniwa\ in both cases; 19 words gained, 18 lost), so
-the smoothing is immaterial. Giving that model the line context, still
-on IAM text alone, adds only $0.10$\,pp (80.84\%, $p=0.022$): 48\,K
-tokens of training text rarely contain the context of a test word.
-Adding the Brown corpus to the context-free model adds $+0.59$\,pp
-(81.32\%, $p=9\times10^{-19}$; 155 words gained against 36 lost), and
-the trigram with line context on the enlarged corpus adds a further
-$+0.34$\,pp, reaching \leftwa\ ($p=1\times10^{-35}$ against the
-unigram prior; 220 words gained against 32 lost). Decomposed in the
-other order --- context first, corpus second --- the shares are
-$+0.10$ and $+0.83$\,pp, so the two ingredients are not additive:
-context is worth little until the corpus is large enough to have seen
-it. Two diagnostics bound this step. Replacing the system's own
-outputs by the reference transcriptions of the neighbouring crops (an
-oracle, not a reportable system) gives 81.73\%, only $0.06$\,pp more,
-so almost nothing is lost to the recognizer's own errors in the
-context. And the edit penalty is not what carries the result:
-$\alpha=7$ was selected on the validation set, but every value tried
-($3$, $5$, $7$, $10$) gives between 81.43 and 81.66\% on the test set,
-all above the unigram prior.
+Ranking adds about a point and context about another half. Within a lexicon,
+moving from edit distance alone to the unigram prior is worth
+0.63--1.23\,pp,
+and replacing the prior by the trigram with line context a further
+0.52--0.89\,pp.
+On the corpus lexicon the three steps decompose the corrector's
+4.97\,pp as
+$+2.89$ for the lexicon
+and its edit bound, $+1.19$
+for the frequency prior and
+$+0.89$
+for the trigram and the line context; on the word-list lexicon the same three
+steps give $+0.67$,
+$+1.23$ and
+$+0.93$.
+The ranking terms are almost the same in both; the lexicon is where the two
+columns part company.
 
-Decoding the line jointly adds the last step (rows 10--13). With the
-same trigram, choosing all words of a line together instead of left to
-right --- so that a word is also conditioned on what follows it ---
-gains $0.11$\,pp (81.77\%, $p=0.026$; 56 words gained, 34 lost).
-Allowing an out-of-lexicon hypothesis to survive as a candidate
-(keep-OOV) gains a further $0.18$\,pp, reaching \ourwa\ ($p=0.032$
-against the left-to-right decoder, 394 gained against 335 lost), and it
-does so by making the corrector \emph{more} conservative: it now
-replaces 1\,925 hypotheses instead of 2\,939, repairs 815 and breaks
-181, where the left-to-right decoder repaired 1\,076 and broke 501.
-Allowing real-word substitutions (row 12) reaches 81.94\% on the test
-set with fewer but surer changes (141 gained, 86 lost, $p=3\times
-10^{-4}$), but it scored below keep-OOV on the validation set and was
-therefore not selected; the two options together (row 13) interact
-badly, since a hypothesis that keeps itself at distance zero now
-competes with real-word substitutions of its neighbours, and lose
-$2.2$\,pp. The whole-line decoder with keep-OOV was selected on
-validation and is the configuration of \ours; on the four other
-augmented models of Table~\ref{tab:main} it gains $0.32$--$0.44$\,pp
-over the left-to-right decoder ($p=0.002$--$0.034$), and $0.08$\,pp
-($p=0.57$) on the zero-augmentation anchor, whose weaker hypotheses
-give the line objective less to work with. In all, the corrector moves
-\oursnolm\ from \rawwa\ to \ourwa: coverage $+0.7$, frequency prior
-$+1.2$, corpus $+0.6$, line context $+0.6$\,pp.
-The unigram pattern holds on the other four augmented optical models of
-Table~\ref{tab:main}: the training lexicon costs 2.4--2.7\,pp, the
-extended lexicon gains 0.3--0.6\,pp over lexicon-free decoding, the
-prior adds a further 1.1--1.3\,pp, and the complete corrector gains
-1.5--1.9\,pp. On the zero-augmentation anchor, whose greedy output is
-4.4\,pp weaker, the ordering is unchanged but every effect is larger
-and the complete corrector gains 3.54\,pp: the more the optical model
-errs, the more a lexical prior has to repair.
+Which decoder is best depends on the lexicon, and that interaction is worth
+stating because it would be easy to report only one half of it. With the
+training lexicon the whole-line decoder with keep-OOV is
+3.77\,pp
+ahead of the left-to-right decoder, since its freedom to keep an unlisted
+hypothesis is exactly what that lexicon needs; with the corpus lexicon it is
+1.03\,pp
+behind it, because when 96.4\% of the tokens are in the lexicon, the same
+freedom mostly preserves errors. The validation partition prefers the correct
+one in both cases, and \ours\ is the combination it selects: the corpus
+lexicon with the left-to-right trigram, \ourwa\ word accuracy and \ourcer\
+character error rate.
+
+Per word, that corrector changes 2\,724 of the
+\nsamples\ hypotheses (13.4\%), repairs 1\,216
+and breaks 207. The corrector of the word-list lexicon changed
+2\,939, repaired 1\,076 and broke
+501: the corpus lexicon repairs more \emph{and} breaks
+less than half as often, which is the whole of its advantage.
 
 \begin{table}[th]
-\tbl{Post-correction ablation with the optical model fixed (\ours\
-checkpoint, $N=\nsamples$). Each row applies a different
-post-correction to the \emph{same} greedy hypotheses; lexicon,
-language model, corpus, context and line decoding vary one at a time.
-KN1/KN3: interpolated Kneser--Ney unigram/trigram; L$\to$R: the trigram
-is given the system's own outputs for the two preceding crops of the
-line; line: whole-line (Viterbi) decoding, conditioned on both
-neighbours. Edit penalty $\alpha=5$ for the add-one prior; otherwise
-selected on the validation set (5 for row 6, 7 for rows 7--9, 10 for
-rows 10, 12 and 13, 2 for row 11). Rows 12 and 13 are reported for
-completeness; they scored below row 11 on validation and were not
-selected.\label{tab:lexicon}}
-{\begin{tabular}{llrccc}
+\tbl{Post-correction with the optical model fixed (\ours\ checkpoint,
+$N=\nsamples$). Every cell applies a different corrector to the \emph{same}
+greedy hypotheses and reports WA (CER) in per cent; the Wilson half-width is
+about 0.55\,pp throughout. Columns: the candidate within the edit bound is
+chosen by distance alone, by the add-one unigram prior, by the Kneser--Ney
+trigram with the system's own left context, or by the whole-line decoder with
+keep-OOV of Section~\ref{sec:trigram}. Rows: the three lexicons of
+Section~\ref{sec:trigram} with their coverage of the test tokens.
+Lexicon-free greedy decoding (\oursnolm) gives 78.83
+(8.60). The edit penalty is $\alpha=5$ for the unigram prior and
+selected on validation otherwise; \ours\ is the bold cell.\label{tab:lexicon}}
+{\begin{tabular}{lrrcccc}
 \toprule
-Post-correction & Ranking (corpus) & Lexicon & WA (\%) & CER (\%) & Wilson 95\% CI \\
+Lexicon & Types & Coverage & edit only & $+$ unigram & $+$ KN3, L$\to$R & $+$ KN3, line \\
 \colrule
-none (\oursnolm, greedy CTC)              & ---                       & n/a      & 78.83 & 8.60 & [78.27,\,79.39] \\
-training lexicon, edit distance only      & ---                       & 7\,173   & 76.42 & 11.19 & [75.83,\,76.99] \\
-training lexicon $+$ frequency prior     & add-one unigram (IAM)     & 7\,173   & 77.04 & 10.94 & [76.46,\,77.61] \\
-extended lexicon, edit distance only      & ---                       & 239\,126 & 79.51 & 9.71 & [78.95,\,80.06] \\
-extended lexicon $+$ frequency prior     & add-one unigram (IAM)     & 239\,126 & 80.74 & 9.09 & [80.19,\,81.28] \\
-extended lexicon $+$ KN1                  & KN1 (IAM)                 & 239\,126 & 80.74 & 9.09 & [80.20,\,81.28] \\
-extended lexicon $+$ KN3, L$\to$R         & KN3 (IAM)                 & 239\,126 & 80.84 & 9.07 & [80.29,\,81.37] \\
-extended lexicon $+$ KN1                  & KN1 (IAM$+$Brown)         & 239\,126 & 81.32 & 8.74 & [80.78,\,81.85] \\
-extended lexicon $+$ KN3, L$\to$R         & KN3 (IAM$+$Brown)         & 239\,126 & 81.66 & 8.58 & [81.13,\,82.19] \\
-extended lexicon $+$ KN3, line            & KN3 (IAM$+$Brown)         & 239\,126 & 81.77 & 8.54 & [81.24,\,82.30] \\
-\textbf{extended lexicon $+$ KN3, line, keep-OOV} (\ours) & KN3 (IAM$+$Brown) & 239\,126 & \textbf{81.95} & 8.54 & [81.42,\,82.48] \\
-extended lexicon $+$ KN3, line, real-word & KN3 (IAM$+$Brown)         & 239\,126 & 81.94 & \textbf{8.51} & [81.40,\,82.46] \\
-extended lexicon $+$ KN3, line, keep-OOV $+$ real-word & KN3 (IAM$+$Brown) & 239\,126 & 79.71 & 8.42 & [79.16,\,80.26] \\
+training   &    7\,173 & 84.8\% & 76.42 (11.19) & 77.04 (10.94) & 77.56 (10.69) & 81.32 (8.34) \\
+word list  &  239\,126 & 93.9\% & 79.51 (9.71) & 80.74 (9.09) & 81.66 (8.58) & 81.95 (8.54) \\
+corpus     &   57\,382 & 96.4\% & 81.72 (8.95) & 82.91 (8.43) & \textbf{83.80 (7.96)} & 82.77 (8.33) \\
 \botrule
 \end{tabular}}
 \end{table}
@@ -991,33 +1031,100 @@ extended lexicon $+$ KN3, line, keep-OOV $+$ real-word & KN3 (IAM$+$Brown) & 239
 \begin{figure}[th]
 \centerline{\includegraphics[width=\textwidth]{figures/fig4_lexicon_decomposition.pdf}}
 \vspace*{8pt}
-\caption{What the post-corrector contributes, measured against lexicon-free
-decoding. (a) Coverage decides the sign: with 7\,K types both variants
-fall below the baseline, with 239\,K both rise above it. The vertical
-gap between the two lines is the contribution of the frequency prior,
-and it doubles as the lexicon grows. Thick lines: the \ours\ optical
-model; faint lines: the other five configurations of
-Table~\ref{tab:main}. (b) Build-up on the 239\,K lexicon: edit distance
-alone, the unigram prior, the Brown corpus, left-to-right line context,
-and whole-line decoding with keep-OOV (white labels: increment over the
-previous bar).}
+\caption{What the post-corrector contributes, against lexicon-free
+decoding, for the \ours\ optical model. Each line is one lexicon; the four
+points are the correctors of Table~\ref{tab:lexicon}. The lexicon separates
+the lines by more than the correctors separate the points along them: the
+corpus lexicon (57\,K types, 96.4\% coverage) is above the word list
+(239\,K, 93.9\%) everywhere, and the training lexicon (7\,K, 84.8\%) is
+below lexicon-free decoding until the decoder is allowed to keep an
+out-of-lexicon hypothesis.}
 \label{fig:lexdecomp}
-\alttext{Two panels. Left: line chart of the change in word accuracy against lexicon size, with and without the frequency prior, relative to lexicon-free decoding. Right: five bars showing the cumulative gain of edit distance, unigram prior, Brown corpus, left-to-right context and whole-line decoding on the 239K lexicon.}
+\alttext{Line chart with one line per lexicon and four points per line, one
+for each corrector, showing the change in word accuracy relative to
+lexicon-free decoding.}
 \end{figure}
 
-The character error rate does not follow word accuracy. A whole-word
-corrector can only replace a hypothesis by a complete lexicon entry;
-when the replacement is wrong, a near-miss with one character error
-becomes a different word with several. The training lexicon, which
-replaces many correct-but-unlisted words, pays this price most heavily
-(11.19\% against \rawcer\ lexicon-free); the extended lexicon with the
-unigram prior pays it less (9.09\%) but still raises CER by half a
-point while improving WA by almost two. Only the trigram on the larger
-corpus chooses the right candidate often enough to bring CER back to
-the lexicon-free level (8.58\% left to right, \ourcer\ with whole-line
-decoding). Lexicon-assisted word accuracy and
-character error rate therefore measure different things and should be
-reported together.
+The character error rate follows the same ordering, once replacement is not
+forced. A whole-word corrector can only replace a hypothesis by a complete
+lexicon entry; when the replacement is wrong, a near-miss with one character
+error becomes a different word with several. That is why the training lexicon
+with forced replacement pays 11.19\%
+against \rawcer\ for lexicon-free decoding, and why the word-list lexicon
+with the unigram prior still pays 9.09\%
+while gaining word accuracy. The corpus lexicon is the first configuration
+that improves both: \ourcer\ against \rawcer, with
+4.97\,pp of word accuracy
+gained. Word accuracy and character error rate therefore have to be reported
+together whenever a whole-word corrector is used; a configuration can buy one
+with the other, and for most of Table~\ref{tab:lexicon} it does.
+
+\subsection{Lexical Decoding Instead of Post-Hoc Correction}
+\label{sec:res-wbs}
+
+A lexicon can also be imposed while decoding rather than afterwards. Word beam
+search (WBS)~\cite{scheidl2018wbs} restricts CTC beam search to dictionary
+words, and unlike a post-corrector it sees the whole output distribution
+instead of the single string greedy decoding returns. Table~\ref{tab:wbs}
+runs the authors' own implementation on the same CRNN-LX probabilities with
+the same three lexicons.
+
+The pattern of Table~\ref{tab:lexicon} repeats, more sharply. With the
+training lexicon WBS reaches only 76.02\%,
+below lexicon-free decoding, because every output is forced into a 7\,K-word
+dictionary; its character error rate,
+14.87\%, is the worst figure in either
+table. With the word-list lexicon it reaches
+81.26\%
+(81.70\% once the
+dictionary also holds the capitalized forms), and with the corpus lexicon
+84.13\%. Changing the lexicon is therefore worth
+2.4\,pp to WBS, whereas its language model is worth nothing: adding
+the word bigram model leaves word accuracy at
+84.07\% and raises the character
+error rate.
+
+Against our post-corrector the comparison is close. At the matched corpus
+lexicon WBS is 0.32\,pp above \ours\ in
+word accuracy (84.13 against \ourwa) and
+0.27\,pp behind it in character error
+rate, with 316 words recognized only by \ours\ and
+382 only by WBS; the exact McNemar test gives
+$p=0.014$, above the threshold of
+Section~\ref{sec:experiments}. The two fail differently, though. WBS reaches
+words that lie outside the edit bound of a post-corrector ---
+\emph{Seplemben}~$\rightarrow$~\emph{September},
+\emph{playmright}~$\rightarrow$~\emph{playwright},
+\emph{accoumtant}~$\rightarrow$~\emph{accountant} --- because it never
+commits to the greedy string. Our corrector leaves a hypothesis alone unless a
+lexicon entry lies within two edits, which is why its character error rate
+stays lower. Neither can produce a word the lexicon does not contain, and that
+is what sets the ceiling for both.
+
+\begin{table}[th]
+\tbl{Word beam search on the \emph{same} CRNN-LX probabilities (the
+authors' implementation,\cite{scheidl2018wbs} beam width 25,
+smoothing 0.01), against the post-corrector of
+Table~\ref{tab:lexicon}. WBS emits dictionary entries verbatim, so the
+``$+$ case'' rows also hold the lower-case and capitalized form of every
+entry, which our membership test accepts anyway. ``NGrams'' additionally uses
+the word bigram model WBS estimates from the corpus text. The last row is
+\ours.\label{tab:wbs}}
+{\begin{tabular}{llrcc}
+\toprule
+Decoder & Dictionary & Types & WA (\%) & CER (\%) \\
+\colrule
+WBS, Words  & training lexicon            & 7\,173   & 76.02 & 14.87 \\
+WBS, Words  & training lexicon $+$ case   & 13\,281  & 76.48 & 14.28 \\
+WBS, Words  & word-list lexicon           & 239\,126 & 81.26 & 9.69 \\
+WBS, Words  & word-list lexicon $+$ case  & 473\,717 & 81.70 & 9.24 \\
+WBS, Words  & corpus lexicon              & 57\,382  & \textbf{84.13} & 8.23 \\
+WBS, NGrams & corpus text (bigram LM)     & 57\,382  & 84.07 & 8.64 \\
+\colrule
+\ours\ (post-correction) & corpus lexicon & 57\,382 & 83.80 & \textbf{7.96} \\
+\botrule
+\end{tabular}}
+\end{table}
 
 \subsection{Comparison with Prior Word-Level Systems}
 \label{sec:res-prior}
@@ -1026,7 +1133,7 @@ Table~\ref{tab:priorwork} places \ours\ next to seven published
 word-level systems and states, for each, whether a lexicon or language
 model was applied at test time. Three of our own rows are given,
 because they answer different questions: \oursnolm\ is the optical
-model alone; the \emph{no-context} row applies the extended lexicon
+model alone; the \emph{no-context} row applies the corpus lexicon
 with the unigram prior and is the figure for words that are genuinely
 isolated; \ours\ additionally reads the recognizer's own outputs for
 the neighbouring crops of the line, which none of the listed systems
@@ -1041,22 +1148,27 @@ which ours are drawn, and they report lexicon-free word and character
 error rates on the full test partition exactly as we do. Under
 lexicon-free decoding \oursnolm\ is 2.6\,pp more accurate (\rawwa\
 against 76.20\%) at a slightly lower CER (\rawcer\ against 8.80\%);
-with the extended lexicon the margin is 4.5\,pp without context and
-5.8\,pp with it. \ours\ remains below the later attention-based
-systems: 0.6\,pp below Kang et al.~\cite{kang2018convolve}, 2.1\,pp
-below the candidate-fusion model of Kang et
-al.~\cite{kang2021candidate} and 2.7\,pp below
+with the corpus lexicon the margin is
+7.6\,pp (6.7\,pp
+without line context). \ours\ is
+0.29\,pp below the candidate-fusion model of Kang et
+al.~\cite{kang2021candidate} and 0.80\,pp below
 AttentionHTR~\cite{kass2022attentionhtr}, which additionally transfers
-knowledge from 14.4\,M scene-text images; without line context each
-gap is 1.2\,pp wider (1.8, 3.4 and 3.9\,pp), and against our
-lexicon-free figure 3.1\,pp wider. The gap is larger at character
-level (5.79--6.88\% against our 8.54--8.60\%), consistent with the
+knowledge from 14.4\,M scene-text images, and 1.25\,pp
+\emph{above} the attention model of Kang et al.~\cite{kang2018convolve};
+the same optical model decoded with word beam search
+(Section~\ref{sec:res-wbs}) reaches 84.13\%, level with
+Kang et al.~\cite{kang2021candidate}. At character level the gap remains
+(5.79--6.88\% against our 7.96--\rawcer), consistent with the
 autoregressive decoders of those systems modeling inter-character
 dependencies that a CTC output with whole-word post-correction cannot.
 The lower block reports three systems measured on other partitions of
 IAM; \ours\ is above all three and \oursnolm\ above two, but the
 partitions differ in writer overlap and size and we draw no conclusion
-from margins of this size.
+from margins of this size. Our rows in this table are there to situate
+the system, not to compete with it: the comparisons this paper controls
+are those of Tables~\ref{tab:main}--\ref{tab:lexicon}, in which one
+ingredient changes at a time and the optical hypotheses are identical.
 
 \begin{table}[th]
 \tbl{Word-level results on IAM. WA in parentheses is derived as
@@ -1075,8 +1187,9 @@ Kang et al.~\cite{kang2018convolve}           & 2018 & none & (82.55) & 6.88 \\
 Kang et al.~\cite{kang2021candidate}          & 2021 & LM   & (84.09) & \textbf{5.79} \\
 Kass and Vats~\cite{kass2022attentionhtr}     & 2022 & none & (\textbf{84.60}) & 6.50 \\
 \oursnolm\ (ours)                             & 2026 & none & 78.83 & 8.60 \\
-\ours, no context (ours)                      & 2026 & 239\,K $+$ unigram prior & 80.74 & 9.09 \\
-\textbf{\ours} (ours)                         & 2026 & 239\,K $+$ trigram, line context & 81.95 & 8.54 \\
+\ours, no context (ours)                      & 2026 & 57\,K corpus $+$ unigram prior & 82.91 & 8.43 \\
+\textbf{\ours} (ours)                         & 2026 & 57\,K corpus $+$ trigram, line context & 83.80 & \textbf{7.96} \\
+\oursnolm\ $+$ WBS~\cite{scheidl2018wbs} (ours)     & 2026 & 57\,K corpus, in decoding & 84.13 & 8.23 \\
 \colrule
 \multicolumn{5}{l}{\emph{Other partitions of IAM}} \\
 Mondal et al.~\cite{mondal2022yolo}\tabmark{a}                                    & 2022 & none & (70.79) & 9.53 \\
@@ -1093,33 +1206,23 @@ Rajesh et al.~\cite{rajesh2022hwrcnet}\tabmark{b}                               
 \subsection{Error Analysis}
 \label{sec:res-err}
 
-\ours\ misrecognizes 3\,665 of the \nsamples\ test words. Only 275 of
-them (7.5\%) differ from the reference in letter case alone; the
-remaining errors are genuine. At character level the aligned errors
-consist of 5\,219 substitutions, 1\,286 deletions and 486 insertions,
-so the model drops characters far more often than it hallucinates
+\ours\ misrecognizes 3\,290 of the \nsamples\ test
+words, 16.2\%. Only 293 of them
+(8.9\%) differ from the reference in letter
+case alone; the remaining errors are genuine. At character level the aligned
+errors consist of 4\,800 substitutions,
+1\,279 deletions and 441 insertions, so the model
+drops characters far more often than it hallucinates
 them. Fig.~\ref{fig:confusion} shows the ten most frequent
 substitutions: they are mostly symmetric confusions between visually
-similar lower-case glyphs --- \texttt{o}$\leftrightarrow$\texttt{a}
-(257 cases in both directions), \texttt{s}$\leftrightarrow$\texttt{r}
-(151), \texttt{n}$\leftrightarrow$\texttt{m} (107),
-\texttt{t}$\leftrightarrow$\texttt{l} (101),
-\texttt{n}$\leftrightarrow$\texttt{r} (90),
-\texttt{e}$\leftrightarrow$\texttt{a} (87).
-Case substitutions account for 7.8\% of all substitutions.
-Of the post-corrector's decisions, 1\,925 hypotheses (9.5\%) are
-replaced: 815 wrong hypotheses become correct and 181 correct ones,
-valid words absent from the lexicon, become wrong. The left-to-right
-decoder without keep-OOV replaces 2\,939, repairs 1\,076 and breaks
-501; the unigram prior replaces the same 2\,939 and breaks the same
-501 --- the lexicon decides which words are touched --- but repairs
-only 888. Whole-line decoding with keep-OOV thus wins not by repairing
-more but by leaving alone the words it would have broken. The
+similar lower-case glyphs --- \texttt{a}$\leftrightarrow$\texttt{o} (215), \texttt{r}$\leftrightarrow$\texttt{s} (139), \texttt{l}$\leftrightarrow$\texttt{t} (95), \texttt{n}$\leftrightarrow$\texttt{r} (83), \texttt{m}$\leftrightarrow$\texttt{n} (80), \texttt{a}$\leftrightarrow$\texttt{e} (77) --- counting both directions.
+Case substitutions account for 8.2\% of all
+substitutions. The
 confusions themselves are errors of shape, not of vocabulary: a
 whole-word lexicon can repair them
 only when the mis-shaped word falls outside the lexicon and its correct
 form lies within two edits, which is exactly the population that the
-extended lexicon recovers in Table~\ref{tab:lexicon}.
+corpus lexicon recovers in Table~\ref{tab:lexicon}.
 
 \begin{figure}[th]
 \centerline{\includegraphics[width=9.2cm]{figures/fig3_confusion_topk.pdf}}
@@ -1139,14 +1242,13 @@ test set (true\,$\rightarrow$\,predicted).}
 The anchor rules out the explanation that would otherwise be hardest
 to exclude. A null result can always mean that the experiment is too
 noisy to see anything, and the seed repeats confirm that the noise is
-real: an unchanged configuration moves by a full point from seed to
-seed. But the same test, the same data and the same protocol detect the
+real: an unchanged configuration moves by up to 0.8\,pp from seed to
+seed, and the sign of the comparison moves with it. But the same test, the same data and the same protocol detect the
 removal of the conventional pipeline at $p=1\times10^{-30}$, 2.7
 points of word accuracy. The apparatus is not blind to augmentation; it
 cannot resolve \emph{these} transforms on \emph{this} training set,
-whose largest effect ($+0.32$\,pp, $p=0.132$) stays below the
-threshold, changes with the post-corrector ($+0.44$\,pp, $p=0.025$
-under the left-to-right corrector) and changes sign with the seed
+whose largest effect (\deltawa, $p=0.050$) does not survive the threshold,
+moves with the post-corrector, and changes sign with the seed
 (Table~\ref{tab:seeds}). What we observe is consistent with
 saturation, and three further observations indicate where it occurs.
 
@@ -1175,53 +1277,60 @@ transform family, and our own anchor shows the first increment is
 worth 2.7\,pp --- but it does show that further transforms must be
 measured under controlled conditions before being claimed.
 
-\subsection{Coverage and the Frequency Prior}
+\subsection{Which Lexicon, and Where to Apply It}
 \label{sec:disc-lex}
 
-The ablation separates four effects that are usually conflated under
-``adding a language model'', and they turn out to do different jobs.
-Membership testing against a list that covers 85\% of the test tokens
-is harmful, because the corrector cannot distinguish a misrecognized
-word from a correctly recognized word it has never seen and treats
-both as errors; raising coverage to 94\% is what turns the loss into
-a gain. That gain is small on its own, however. What converts it into
-$+1.9$\,pp is the prior that ranks the candidates, and it is worth
-twice as much on the large lexicon as on the small one.
+Three things are usually reported as one when a paper says it ``added a
+language model'': the lexicon, the rule that ranks candidates inside it, and
+whether the lexicon is imposed during decoding or afterwards.
+Table~\ref{tab:lexicon} and Table~\ref{tab:wbs} separate them, and they
+are not equally important.
 
-The unigram prior is not doing linguistic work; it breaks ties. The
-tighter the lexicon, the fewer entries lie within two edits of a
-hypothesis and the less the ranking matters; at 239\,K types a
-mis-shaped word typically has several equidistant neighbours, and
-picking the frequent one is right more often than picking an arbitrary
-one. Edit distance identifies the candidate set and frequency chooses
-inside it: reporting either without the other describes only half of
-the corrector.
+The lexicon dominates. Holding the corrector fixed, the corpus lexicon is
+worth 2.14\,pp over the
+word-list lexicon, more than the ranking rule and the line context together
+contribute on either lexicon. It is also the smaller of the two, so what
+matters is not how many words a lexicon holds but whether it holds the ones
+people write: proper nouns, inflections, possessives and the capitalization
+they appear in. A corpus supplies those by construction; a dictionary list
+does not, and pays for its size with confusable neighbours --- at
+79.51\% for edit distance alone it is
+1.2\,pp behind the corpus lexicon under the same rule. The practical
+consequence is that the coverage of the lexicon on the target vocabulary is
+the first number to report about a lexicon-assisted result, ahead of its size.
 
-The trigram does linguistic work, but only once it has text to learn
-it from. On the 48\,K tokens of IAM training text the line context is
-worth $0.10$\,pp, because the two words preceding a test word rarely
-form a context the model has seen; on 1.2\,M tokens it is worth
-$0.34$\,pp, and the corpus itself, even without context, is worth
-$0.59$\,pp, because 7\,K types observed once or twice give a poor
-estimate of which of two candidates is the commoner English word.
-Decoding the line jointly adds another $0.29$\,pp, but the larger part
-of that comes from a different mechanism than context: letting an
-unlisted hypothesis survive turns the corrector from one that must
-replace every unlisted word into one that may, and the line objective
-then decides. The left-to-right corrector broke 501 correctly
-recognized words that the lexicon did not contain; the whole-line
-decoder breaks 181 (Section~\ref{sec:res-err}). The ceiling is close:
-the corrector only ever touches the 16\% of hypotheses that fall
-outside the lexicon, and with reference transcriptions as context the
-left-to-right corrector gains a further $0.06$\,pp only. What remains
-after correction is therefore not a ranking problem. The character
-error rate confirms the division of labour: the unigram corrector buys
-word accuracy at the price of character accuracy (9.09\% against
-8.60\% lexicon-free), because a wrong whole-word substitution turns a
-near miss into several character errors. The trigram replaces exactly
-the same hypotheses but picks the right candidate for 1\,076 of them
-instead of 888, and ends at the lexicon-free value (8.58\% left to
-right, \ourcer\ whole-line).
+Whether replacement is forced matters next. Our corrector replaces any
+hypothesis outside the lexicon, and with the 7\,K training lexicon that is
+harmful: 77.04\% against
+78.83\% for no correction at all, because a correct word that
+the list does not contain is replaced by a wrong one. The whole-line decoder
+may decline to replace, and with the same lexicon it gains
+2.49\,pp instead.
+The earlier reading of these numbers --- that a small lexicon is harmful ---
+was too quick: what is harmful is the obligation to use it.
+
+The ranking rule does what a ranking rule can. Within a lexicon, replacing
+edit distance by the unigram prior is worth about a point, and replacing the
+prior by a trigram with line context about half of one; the trigram earns
+that only because the corpus is large enough to have seen the contexts (on
+IAM text alone the same context was worth $0.10$\,pp). Neither approaches
+the lexicon term, and the ceiling is close: the corrector only ever touches
+the 3.6\% of hypotheses that
+fall outside the lexicon, and feeding it the reference transcriptions of the
+neighbouring crops instead of its own outputs adds $0.06$\,pp.
+
+Finally, where the lexicon is applied matters less than one might expect.
+Word beam search sees the whole CTC distribution and can therefore reach
+words a post-corrector cannot, but at the matched lexicon the two end within
+0.32\,pp of each other in word accuracy
+($p=0.014$)
+and our corrector is 0.27\,pp better in
+character error rate; WBS's own language model contributes nothing once its
+dictionary comes from the corpus. A post-corrector has the practical
+advantage that the lexicon can be swapped without re-decoding, which is what
+made the comparisons in this section possible at all; a decoder has the
+advantage of not committing to one string. Both stand or fall with the
+lexicon.
 
 A practical consequence is that word-level HTR results obtained with a
 closed lexicon should state the lexicon's coverage of the test
@@ -1252,8 +1361,9 @@ with CTC. Under lexicon-free decoding \oursnolm\ reaches \rawwa\
 against their 76.20\% (23.8\% word error rate), a margin of 2.6\,pp
 that is almost five times the half-width of our confidence interval,
 at a slightly lower character error rate (\rawcer\ against 8.80\%).
-Post-correction with the extended lexicon widens the word-level margin
-to 4.5\,pp without context and 5.8\,pp with it. Sueiras et al. also report lexicon-constrained variants of
+Post-correction with the corpus lexicon widens the word-level margin
+to 6.7\,pp without context and
+7.6\,pp with it. Sueiras et al. also report lexicon-constrained variants of
 their recognizer; those depend on the lexicon employed and are not
 compared here. We read the comparison as evidence that a plain CRNN
 trained from scratch on the 48\,K Aachen training words is competitive
@@ -1272,9 +1382,9 @@ difference is interpretable.
 
 \subsection{Threats to Validity}
 
-The augmentation differences of 0.1--0.3\,pp are below what one
+The augmentation differences of 0.2--0.5\,pp are below what one
 training run can resolve: with three seeds the CRNN-B--\ours\
-difference changes sign and averages $+0.20\pm0.64$\,pp
+difference changes sign and averages $+0.20\pm0.58$\,pp
 (Table~\ref{tab:seeds}), so we report the transforms as unresolved
 rather than as small gains. Only the two endpoint configurations were
 repeated; the four intermediate ones were trained once, and their
@@ -1312,9 +1422,14 @@ for checkpoint selection and are only 55 in number, so this gap is
 expected and does not indicate a fault. The external systems in Table~\ref{tab:priorwork}
 were trained and evaluated by their authors with their own
 preprocessing and, in the lower block, on a different partition; we
-therefore treat only our own runs as a controlled comparison. The extended lexicon is a general English word list and
-contains no IAM test transcriptions, but it is a closed lexicon
-nonetheless, and \ours\ should be read as a lexicon-assisted result.
+therefore treat only our own runs as a controlled comparison. The corpus
+lexicon is the vocabulary of the IAM training lines and of the Brown corpus;
+it contains no IAM test transcription, but it is a closed lexicon built with
+one eye on the domain, and \ours\ should be read as a lexicon-assisted
+result. A lexicon assembled from a corpus closer to the target material
+would raise the figure further, and one assembled from a corpus further away
+would lower it; the coverage we report (96.4\% of the test tokens) is the
+number that makes such results comparable.
 Two further caveats concern the trigram. Its corpus is external to
 IAM; we measured the verbatim overlap with the test lines
 (Section~\ref{sec:trigram}) and found idioms only, but a corpus with
@@ -1338,26 +1453,27 @@ and a post-corrector whose only external resource is a public text
 corpus. Under the same partition and lexicon-free decoding the optical
 model is 2.6\,pp more accurate than the sequence-to-sequence
 recognizer of Sueiras et al.~\cite{sueiras2018offline}; the complete
-system is 0.6--2.7\,pp below the later attention-based systems listed
-in Table~\ref{tab:priorwork}, and 1.8--3.9\,pp below them when the
-words are treated as isolated. Under controlled conditions, elastic
+system is 1.3\,pp above the 2018 attention recognizer of Kang et
+al.~\cite{kang2018convolve} and 0.3--0.8\,pp below the two strongest
+published systems on this partition; treating the words as isolated, without
+the line context, costs 0.9\,pp of that. Under controlled conditions, elastic
 deformation, morphological perturbation and a
 widened photometric range produce no statistically detectable change
 in these figures --- over three seeds their apparent effect changes
-sign and averages $+0.20\pm0.64$\,pp --- while removing the
+sign and averages $+0.20\pm0.58$\,pp --- while removing the
 conventional augmentation pipeline beneath them costs
 \anchordelta\,pp, a pattern consistent with the benefit of
 augmentation saturating before the transforms we proposed; a widely used elastic parameterization, moreover, does not
 deform the image at all. The post-correction stage, by contrast, moves
-accuracy by two to three points in either direction, and its four
-ingredients do different jobs: the lexicon's coverage of the test
-vocabulary decides whether the correction helps or hurts; the
-frequency prior that ranks the candidates supplies most of the gain
-once coverage is sufficient; an external corpus improves that ranking
-further; and the line context, read from the recognizer's own outputs
-on both sides of a word by decoding the line jointly, adds the last
-$0.6$\,pp and returns the character error rate to the lexicon-free
-level.
+accuracy by five points in either direction, and its parts are not equally
+important: the lexicon is worth
+2.1\,pp when it is
+read off the language-model corpus instead of a dictionary list, the ranking
+rule about a point, the line context half of one, and imposing the lexicon
+inside the decoder rather than afterwards
+0.32\,pp, which is not significant at our
+threshold. Whether a small lexicon helps or hurts turns out to depend on
+whether the corrector is obliged to use it.
 
 For word-level HTR the practical conclusions are that augmentation
 gains should be demonstrated, not assumed, on the full training set;
@@ -1368,7 +1484,11 @@ exceeded every augmentation effect we measured; that lexicon
 coverage, the ranking rule, its corpus and its context should be
 reported separately alongside lexicon-assisted accuracy; and that word
 accuracy and character error rate should be given together whenever a
-whole-word corrector is used. Future work will test whether the
+whole-word corrector is used. These are properties of the experimental
+setup rather than of our particular network: any word-level system that
+corrects against a lexicon can be decomposed the same way, and any
+augmentation gain of a few tenths of a point on IAM words has to be read
+against the run-to-run spread measured here. Future work will test whether the
 augmentation becomes useful in the low-data regime, replace the
 whole-word corrector with a character-level open-vocabulary model to
 address the uncovered 6\% of tokens, and decode the line over the

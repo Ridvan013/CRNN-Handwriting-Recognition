@@ -1,0 +1,160 @@
+{
+  "model": "Model_abl_full",
+  "beam": 25,
+  "smoothing": 0.01,
+  "n_samples": 20310,
+  "blank_index": 78,
+  "word_chars": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  "configs": {
+    "WBS Words, 7K": {
+      "mode": "Words",
+      "dictionary_entries": 7173,
+      "test": {
+        "correct": 15439,
+        "n": 20310,
+        "wa_pct": 76.0167,
+        "cer_pct": 14.8722,
+        "wilson_95ci_pct": [
+          75.4246,
+          76.599
+        ]
+      },
+      "seconds": 162.9,
+      "words_per_second": 124.7
+    },
+    "WBS Words, 7K, case variants": {
+      "mode": "Words",
+      "dictionary_entries": 13281,
+      "test": {
+        "correct": 15533,
+        "n": 20310,
+        "wa_pct": 76.4796,
+        "cer_pct": 14.2847,
+        "wilson_95ci_pct": [
+          75.8913,
+          77.0578
+        ]
+      },
+      "seconds": 193.0,
+      "words_per_second": 105.2
+    },
+    "WBS Words, 239K": {
+      "mode": "Words",
+      "dictionary_entries": 239126,
+      "test": {
+        "correct": 16504,
+        "n": 20310,
+        "wa_pct": 81.2605,
+        "cer_pct": 9.6945,
+        "wilson_95ci_pct": [
+          80.7179,
+          81.7912
+        ]
+      },
+      "seconds": 244.2,
+      "words_per_second": 83.2
+    },
+    "WBS Words, 239K, case variants": {
+      "mode": "Words",
+      "dictionary_entries": 473717,
+      "test": {
+        "correct": 16593,
+        "n": 20310,
+        "wa_pct": 81.6987,
+        "cer_pct": 9.2353,
+        "wilson_95ci_pct": [
+          81.1609,
+          82.2245
+        ]
+      },
+      "seconds": 261.1,
+      "words_per_second": 77.8
+    },
+    "WBS NGrams, IAM+Brown": {
+      "mode": "NGrams",
+      "dictionary_entries": null,
+      "test": {
+        "correct": 17075,
+        "n": 20310,
+        "wa_pct": 84.0719,
+        "cer_pct": 8.6416,
+        "wilson_95ci_pct": [
+          83.5622,
+          84.5687
+        ]
+      },
+      "seconds": 235.1,
+      "words_per_second": 86.4
+    },
+    "WBS Words, corpus vocab": {
+      "mode": "Words",
+      "dictionary_entries": 57382,
+      "test": {
+        "correct": 17086,
+        "n": 20310,
+        "wa_pct": 84.126,
+        "cer_pct": 8.2312,
+        "wilson_95ci_pct": [
+          83.617,
+          84.6222
+        ]
+      },
+      "seconds": 218.0,
+      "words_per_second": 93.2
+    }
+  },
+  "reference": {
+    "ours (CRNN-LX)": {
+      "correct": 16645,
+      "n": 20310,
+      "wa_pct": 81.9547,
+      "cer_pct": 8.539,
+      "wilson_95ci_pct": [
+        81.4198,
+        82.4775
+      ]
+    },
+    "greedy": {
+      "correct": 16011,
+      "n": 20310,
+      "wa_pct": 78.8331,
+      "cer_pct": 8.6001,
+      "wilson_95ci_pct": [
+        78.2659,
+        79.3894
+      ]
+    }
+  },
+  "mcnemar_vs_ours": {
+    "WBS Words, 7K": {
+      "only_ours_correct": 1564,
+      "only_wbs_correct": 358,
+      "p_value": 3.164320409452323e-179
+    },
+    "WBS Words, 7K, case variants": {
+      "only_ours_correct": 1474,
+      "only_wbs_correct": 362,
+      "p_value": 8.988297990359697e-159
+    },
+    "WBS Words, 239K": {
+      "only_ours_correct": 676,
+      "only_wbs_correct": 535,
+      "p_value": 5.642601952633114e-05
+    },
+    "WBS Words, 239K, case variants": {
+      "only_ours_correct": 575,
+      "only_wbs_correct": 523,
+      "p_value": 0.12373898430563597
+    },
+    "WBS NGrams, IAM+Brown": {
+      "only_ours_correct": 407,
+      "only_wbs_correct": 837,
+      "p_value": 1.0460954047092558e-34
+    },
+    "WBS Words, corpus vocab": {
+      "only_ours_correct": 395,
+      "only_wbs_correct": 836,
+      "p_value": 7.638925131905286e-37
+    }
+  }
+}

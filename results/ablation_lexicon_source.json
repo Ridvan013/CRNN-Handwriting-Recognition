@@ -1,0 +1,367 @@
+{
+  "model": "Model_abl_full",
+  "n_samples": 20310,
+  "topk": 10,
+  "greedy": {
+    "correct": 16011,
+    "n": 20310,
+    "wa_pct": 78.8331,
+    "cer_pct": 8.6001,
+    "wilson_95ci_pct": [
+      78.2659,
+      79.3894
+    ]
+  },
+  "lexicons": {
+    "training (7K)": {
+      "types": 7173,
+      "test_coverage_pct": 84.81,
+      "correctors": {
+        "edit distance only": {
+          "alpha": 0.0,
+          "val": {
+            "correct": 5822,
+            "n": 7205,
+            "wa_pct": 80.805,
+            "cer_pct": 8.7924,
+            "wilson_95ci_pct": [
+              79.8793,
+              81.6979
+            ]
+          },
+          "test": {
+            "correct": 15520,
+            "n": 20310,
+            "wa_pct": 76.4156,
+            "cer_pct": 11.1908,
+            "wilson_95ci_pct": [
+              75.8267,
+              76.9944
+            ]
+          }
+        },
+        "unigram prior": {
+          "alpha": 5.0,
+          "val": {
+            "correct": 5841,
+            "n": 7205,
+            "wa_pct": 81.0687,
+            "cer_pct": 8.7237,
+            "wilson_95ci_pct": [
+              80.1476,
+              81.9567
+            ]
+          },
+          "test": {
+            "correct": 15647,
+            "n": 20310,
+            "wa_pct": 77.0409,
+            "cer_pct": 10.9428,
+            "wilson_95ci_pct": [
+              76.4574,
+              77.6141
+            ]
+          }
+        },
+        "KN3 left-to-right": {
+          "alpha": 10.0,
+          "val_grid": {
+            "3.0": 81.4573,
+            "5.0": 81.5267,
+            "7.0": 81.5406,
+            "10.0": 81.5545
+          },
+          "test": {
+            "correct": 15752,
+            "n": 20310,
+            "wa_pct": 77.5579,
+            "cer_pct": 10.69,
+            "wilson_95ci_pct": [
+              76.9789,
+              78.1264
+            ]
+          }
+        },
+        "KN3 whole-line, keep-OOV": {
+          "alpha": 4.0,
+          "val_grid": {
+            "1.0": 83.8307,
+            "2.0": 84.7467,
+            "3.0": 85.288,
+            "4.0": 85.4129,
+            "5.0": 85.3435,
+            "7.0": 85.1076,
+            "10.0": 84.4969,
+            "15.0": 83.9278,
+            "20.0": 83.8307,
+            "30.0": 83.8168
+          },
+          "test": {
+            "correct": 16517,
+            "n": 20310,
+            "wa_pct": 81.3245,
+            "cer_pct": 8.3375,
+            "wilson_95ci_pct": [
+              80.7826,
+              81.8545
+            ]
+          }
+        }
+      }
+    },
+    "extended (239K)": {
+      "types": 239126,
+      "test_coverage_pct": 93.94,
+      "correctors": {
+        "edit distance only": {
+          "alpha": 0.0,
+          "val": {
+            "correct": 6055,
+            "n": 7205,
+            "wa_pct": 84.0389,
+            "cer_pct": 7.2685,
+            "wilson_95ci_pct": [
+              83.1751,
+              84.8664
+            ]
+          },
+          "test": {
+            "correct": 16148,
+            "n": 20310,
+            "wa_pct": 79.5076,
+            "cer_pct": 9.7067,
+            "wilson_95ci_pct": [
+              78.9469,
+              80.0572
+            ]
+          }
+        },
+        "unigram prior": {
+          "alpha": 5.0,
+          "val": {
+            "correct": 6113,
+            "n": 7205,
+            "wa_pct": 84.8439,
+            "cer_pct": 6.8921,
+            "wilson_95ci_pct": [
+              83.9973,
+              85.6533
+            ]
+          },
+          "test": {
+            "correct": 16398,
+            "n": 20310,
+            "wa_pct": 80.7386,
+            "cer_pct": 9.0899,
+            "wilson_95ci_pct": [
+              80.1904,
+              81.2751
+            ]
+          }
+        },
+        "KN3 left-to-right": {
+          "alpha": 7.0,
+          "val_grid": {
+            "3.0": 85.3574,
+            "5.0": 85.4545,
+            "7.0": 85.4962,
+            "10.0": 85.4962
+          },
+          "test": {
+            "correct": 16586,
+            "n": 20310,
+            "wa_pct": 81.6642,
+            "cer_pct": 8.583,
+            "wilson_95ci_pct": [
+              81.126,
+              82.1904
+            ]
+          }
+        },
+        "KN3 whole-line, keep-OOV": {
+          "alpha": 2.0,
+          "val_grid": {
+            "1.0": 85.635,
+            "2.0": 85.982,
+            "3.0": 85.9542,
+            "4.0": 85.8432,
+            "5.0": 85.6766,
+            "7.0": 85.1214,
+            "10.0": 84.4552,
+            "15.0": 83.9556,
+            "20.0": 83.8307,
+            "30.0": 83.8168
+          },
+          "test": {
+            "correct": 16645,
+            "n": 20310,
+            "wa_pct": 81.9547,
+            "cer_pct": 8.539,
+            "wilson_95ci_pct": [
+              81.4198,
+              82.4775
+            ]
+          }
+        }
+      }
+    },
+    "corpus vocabulary (57K)": {
+      "types": 57382,
+      "test_coverage_pct": 96.36,
+      "correctors": {
+        "edit distance only": {
+          "alpha": 0.0,
+          "val": {
+            "correct": 6198,
+            "n": 7205,
+            "wa_pct": 86.0236,
+            "cer_pct": 6.6025,
+            "wilson_95ci_pct": [
+              85.2037,
+              86.8051
+            ]
+          },
+          "test": {
+            "correct": 16598,
+            "n": 20310,
+            "wa_pct": 81.7233,
+            "cer_pct": 8.9543,
+            "wilson_95ci_pct": [
+              81.1858,
+              82.2488
+            ]
+          }
+        },
+        "unigram prior": {
+          "alpha": 5.0,
+          "val": {
+            "correct": 6237,
+            "n": 7205,
+            "wa_pct": 86.5649,
+            "cer_pct": 6.36,
+            "wilson_95ci_pct": [
+              85.7579,
+              87.3329
+            ]
+          },
+          "test": {
+            "correct": 16839,
+            "n": 20310,
+            "wa_pct": 82.9099,
+            "cer_pct": 8.4303,
+            "wilson_95ci_pct": [
+              82.386,
+              83.4214
+            ]
+          }
+        },
+        "KN3 left-to-right": {
+          "alpha": 10.0,
+          "val_grid": {
+            "3.0": 87.009,
+            "5.0": 87.1756,
+            "7.0": 87.2727,
+            "10.0": 87.2866
+          },
+          "test": {
+            "correct": 17020,
+            "n": 20310,
+            "wa_pct": 83.8011,
+            "cer_pct": 7.9637,
+            "wilson_95ci_pct": [
+              83.288,
+              84.3014
+            ]
+          }
+        },
+        "KN3 whole-line, keep-OOV": {
+          "alpha": 2.0,
+          "val_grid": {
+            "1.0": 86.3706,
+            "2.0": 86.5371,
+            "3.0": 86.3845,
+            "4.0": 86.1485,
+            "5.0": 85.8154,
+            "7.0": 85.2186,
+            "10.0": 84.483,
+            "15.0": 83.9139,
+            "20.0": 83.8307,
+            "30.0": 83.8168
+          },
+          "test": {
+            "correct": 16811,
+            "n": 20310,
+            "wa_pct": 82.772,
+            "cer_pct": 8.3265,
+            "wilson_95ci_pct": [
+              82.2465,
+              83.2852
+            ]
+          }
+        }
+      }
+    }
+  },
+  "mcnemar_vs_wbs_corpus_vocab": {
+    "training (7K) | edit": {
+      "only_ours_correct": 229,
+      "only_wbs_correct": 1795,
+      "p_value": 6.98981492056056e-301
+    },
+    "training (7K) | unigram": {
+      "only_ours_correct": 294,
+      "only_wbs_correct": 1733,
+      "p_value": 1.1350257554798606e-247
+    },
+    "training (7K) | left": {
+      "only_ours_correct": 363,
+      "only_wbs_correct": 1697,
+      "p_value": 1.5733197055228141e-205
+    },
+    "training (7K) | line": {
+      "only_ours_correct": 425,
+      "only_wbs_correct": 994,
+      "p_value": 8.7134196112916e-53
+    },
+    "extended (239K) | edit": {
+      "only_ours_correct": 250,
+      "only_wbs_correct": 1188,
+      "p_value": 2.856734414372104e-146
+    },
+    "extended (239K) | unigram": {
+      "only_ours_correct": 333,
+      "only_wbs_correct": 1021,
+      "p_value": 1.997896443781057e-81
+    },
+    "extended (239K) | left": {
+      "only_ours_correct": 408,
+      "only_wbs_correct": 908,
+      "p_value": 4.253934754644179e-44
+    },
+    "extended (239K) | line": {
+      "only_ours_correct": 395,
+      "only_wbs_correct": 836,
+      "p_value": 7.638925131905286e-37
+    },
+    "corpus vocabulary (57K) | edit": {
+      "only_ours_correct": 158,
+      "only_wbs_correct": 646,
+      "p_value": 9.350725767881287e-71
+    },
+    "corpus vocabulary (57K) | unigram": {
+      "only_ours_correct": 242,
+      "only_wbs_correct": 489,
+      "p_value": 4.034209380537337e-20
+    },
+    "corpus vocabulary (57K) | left": {
+      "only_ours_correct": 316,
+      "only_wbs_correct": 382,
+      "p_value": 0.013825142277509594
+    },
+    "corpus vocabulary (57K) | line": {
+      "only_ours_correct": 379,
+      "only_wbs_correct": 654,
+      "p_value": 9.847900821723126e-18
+    }
+  }
+}

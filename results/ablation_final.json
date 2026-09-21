@@ -1,0 +1,360 @@
+{
+  "corrector": "corpus-vocabulary lexicon + KN3 trigram, left-to-right line context",
+  "lexicon_types": 57382,
+  "alphas": [
+    3.0,
+    5.0,
+    7.0,
+    10.0
+  ],
+  "n_samples": 20310,
+  "models": {
+    "none": {
+      "label": "no augmentation",
+      "checkpoint": "Model_abl_none\\best_model_wa.pth",
+      "selected_alpha_on_val": 7.0,
+      "val_alpha_grid": {
+        "3.0": 84.6357,
+        "5.0": 84.9549,
+        "7.0": 84.9965,
+        "10.0": 84.9965
+      },
+      "val": {
+        "correct": 6124,
+        "n": 7205,
+        "wa_pct": 84.9965,
+        "cer_pct": 7.5943,
+        "wilson_95ci_pct": [
+          84.1533,
+          85.8025
+        ]
+      },
+      "test": {
+        "greedy": {
+          "correct": 15097,
+          "n": 20310,
+          "wa_pct": 74.3328,
+          "cer_pct": 10.8463,
+          "wilson_95ci_pct": [
+            73.7275,
+            74.9289
+          ]
+        },
+        "final": {
+          "correct": 16486,
+          "n": 20310,
+          "wa_pct": 81.1718,
+          "cer_pct": 9.8215,
+          "wilson_95ci_pct": [
+            80.6283,
+            81.7036
+          ]
+        }
+      }
+    },
+    "narrow": {
+      "label": "CRNN-B (baseline)",
+      "checkpoint": "Model_abl_narrow\\best_model_wa.pth",
+      "selected_alpha_on_val": 7.0,
+      "val_alpha_grid": {
+        "3.0": 86.8425,
+        "5.0": 87.0784,
+        "7.0": 87.1478,
+        "10.0": 87.1478
+      },
+      "val": {
+        "correct": 6279,
+        "n": 7205,
+        "wa_pct": 87.1478,
+        "cer_pct": 6.2152,
+        "wilson_95ci_pct": [
+          86.3552,
+          87.9008
+        ]
+      },
+      "test": {
+        "greedy": {
+          "correct": 15998,
+          "n": 20310,
+          "wa_pct": 78.7691,
+          "cer_pct": 8.7516,
+          "wilson_95ci_pct": [
+            78.2012,
+            79.326
+          ]
+        },
+        "final": {
+          "correct": 16940,
+          "n": 20310,
+          "wa_pct": 83.4072,
+          "cer_pct": 8.2691,
+          "wilson_95ci_pct": [
+            82.8892,
+            83.9125
+          ]
+        }
+      }
+    },
+    "photo": {
+      "label": "+ wide photometric",
+      "checkpoint": "Model_abl_photo\\best_model_wa.pth",
+      "selected_alpha_on_val": 7.0,
+      "val_alpha_grid": {
+        "3.0": 86.0375,
+        "5.0": 86.3428,
+        "7.0": 86.3845,
+        "10.0": 86.3567
+      },
+      "val": {
+        "correct": 6224,
+        "n": 7205,
+        "wa_pct": 86.3845,
+        "cer_pct": 6.5084,
+        "wilson_95ci_pct": [
+          85.5731,
+          87.157
+        ]
+      },
+      "test": {
+        "greedy": {
+          "correct": 15980,
+          "n": 20310,
+          "wa_pct": 78.6805,
+          "cer_pct": 8.7149,
+          "wilson_95ci_pct": [
+            78.1118,
+            79.2383
+          ]
+        },
+        "final": {
+          "correct": 16982,
+          "n": 20310,
+          "wa_pct": 83.614,
+          "cer_pct": 8.1995,
+          "wilson_95ci_pct": [
+            83.0986,
+            84.1167
+          ]
+        }
+      }
+    },
+    "elastic": {
+      "label": "+ elastic",
+      "checkpoint": "Model_abl_elastic\\best_model_wa.pth",
+      "selected_alpha_on_val": 7.0,
+      "val_alpha_grid": {
+        "3.0": 86.5788,
+        "5.0": 86.8563,
+        "7.0": 86.898,
+        "10.0": 86.8702
+      },
+      "val": {
+        "correct": 6261,
+        "n": 7205,
+        "wa_pct": 86.898,
+        "cer_pct": 6.0993,
+        "wilson_95ci_pct": [
+          86.0991,
+          87.6575
+        ]
+      },
+      "test": {
+        "greedy": {
+          "correct": 16080,
+          "n": 20310,
+          "wa_pct": 79.1728,
+          "cer_pct": 8.4768,
+          "wilson_95ci_pct": [
+            78.6089,
+            79.7258
+          ]
+        },
+        "final": {
+          "correct": 17038,
+          "n": 20310,
+          "wa_pct": 83.8897,
+          "cer_pct": 7.9662,
+          "wilson_95ci_pct": [
+            83.3777,
+            84.3889
+          ]
+        }
+      }
+    },
+    "morph": {
+      "label": "+ morphological",
+      "checkpoint": "Model_abl_morph\\best_model_wa.pth",
+      "selected_alpha_on_val": 7.0,
+      "val_alpha_grid": {
+        "3.0": 86.6759,
+        "5.0": 86.9396,
+        "7.0": 86.9674,
+        "10.0": 86.9535
+      },
+      "val": {
+        "correct": 6266,
+        "n": 7205,
+        "wa_pct": 86.9674,
+        "cer_pct": 6.2731,
+        "wilson_95ci_pct": [
+          86.1703,
+          87.7251
+        ]
+      },
+      "test": {
+        "greedy": {
+          "correct": 15993,
+          "n": 20310,
+          "wa_pct": 78.7445,
+          "cer_pct": 8.616,
+          "wilson_95ci_pct": [
+            78.1764,
+            79.3017
+          ]
+        },
+        "final": {
+          "correct": 16992,
+          "n": 20310,
+          "wa_pct": 83.6632,
+          "cer_pct": 8.1164,
+          "wilson_95ci_pct": [
+            83.1484,
+            84.1653
+          ]
+        }
+      }
+    },
+    "full": {
+      "label": "CRNN-LX (all)",
+      "checkpoint": "Model_abl_full\\best_model_wa.pth",
+      "selected_alpha_on_val": 10.0,
+      "val_alpha_grid": {
+        "3.0": 87.009,
+        "5.0": 87.1756,
+        "7.0": 87.2727,
+        "10.0": 87.2866
+      },
+      "val": {
+        "correct": 6289,
+        "n": 7205,
+        "wa_pct": 87.2866,
+        "cer_pct": 5.9618,
+        "wilson_95ci_pct": [
+          86.4975,
+          88.036
+        ]
+      },
+      "test": {
+        "greedy": {
+          "correct": 16011,
+          "n": 20310,
+          "wa_pct": 78.8331,
+          "cer_pct": 8.6001,
+          "wilson_95ci_pct": [
+            78.2659,
+            79.3894
+          ]
+        },
+        "final": {
+          "correct": 17020,
+          "n": 20310,
+          "wa_pct": 83.8011,
+          "cer_pct": 7.9637,
+          "wilson_95ci_pct": [
+            83.288,
+            84.3014
+          ]
+        }
+      }
+    }
+  },
+  "variants_full": {
+    "greedy": {
+      "correct": 16011,
+      "n": 20310,
+      "wa_pct": 78.8331,
+      "cer_pct": 8.6001,
+      "wilson_95ci_pct": [
+        78.2659,
+        79.3894
+      ]
+    },
+    "final (corpus lexicon, KN3 L-R)": {
+      "correct": 17020,
+      "n": 20310,
+      "wa_pct": 83.8011,
+      "cer_pct": 7.9637,
+      "wilson_95ci_pct": [
+        83.288,
+        84.3014
+      ]
+    },
+    "unigram prior (corpus lexicon)": {
+      "correct": 16839,
+      "n": 20310,
+      "wa_pct": 82.9099,
+      "cer_pct": 8.4303,
+      "wilson_95ci_pct": [
+        82.386,
+        83.4214
+      ]
+    },
+    "KN3 L-R (239K NLTK lexicon)": {
+      "correct": 16586,
+      "n": 20310,
+      "wa_pct": 81.6642,
+      "cer_pct": 8.583,
+      "wilson_95ci_pct": [
+        81.126,
+        82.1904
+      ]
+    },
+    "unigram prior (239K NLTK lexicon)": {
+      "correct": 16398,
+      "n": 20310,
+      "wa_pct": 80.7386,
+      "cer_pct": 9.0899,
+      "wilson_95ci_pct": [
+        80.1904,
+        81.2751
+      ]
+    }
+  },
+  "mcnemar_vs_narrow": {
+    "none": {
+      "only_baseline_correct": 1302,
+      "only_mode_correct": 848,
+      "delta_wa_pp": -2.2354,
+      "p_value": 1.0609386770007764e-22
+    },
+    "photo": {
+      "only_baseline_correct": 779,
+      "only_mode_correct": 821,
+      "delta_wa_pp": 0.2068,
+      "p_value": 0.3053619325169253
+    },
+    "elastic": {
+      "only_baseline_correct": 755,
+      "only_mode_correct": 853,
+      "delta_wa_pp": 0.4825,
+      "p_value": 0.015538910209258064
+    },
+    "morph": {
+      "only_baseline_correct": 743,
+      "only_mode_correct": 795,
+      "delta_wa_pp": 0.256,
+      "p_value": 0.19343180686745032
+    },
+    "full": {
+      "only_baseline_correct": 769,
+      "only_mode_correct": 849,
+      "delta_wa_pp": 0.3939,
+      "p_value": 0.04949847640023729
+    }
+  },
+  "determinism_check": {
+    "mode": "full",
+    "differing_words": 0,
+    "n": 20310
+  }
+}

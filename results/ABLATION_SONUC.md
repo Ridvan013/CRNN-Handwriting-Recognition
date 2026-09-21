@@ -403,3 +403,46 @@ notebook günlüğünden teyit etti, iki koşuda da script'in başında
 (1–3 px RMS) kullanılmış, varsayılan no-op ayar değil. Dolayısıyla seed
 koşuları bizim altı modelle aynı konfigürasyon; aralarındaki tek fark
 seed ve makine. Makale §4 bu kontrolü de yazıyor.
+
+
+## 21 Eylül — sözlüğün kaynağı: 81,95 → 83,80
+
+WBS karşılaştırması (hakemin soracağı ilk şey) bir şeyi ortaya çıkardı:
+WBS'nin bizden iyi çıkmasının sebebi algoritması değil, **sözlüğü**. WBS
+derlem sözlüğünü (IAM+Brown'da geçen kelimeler) kullanıyor, biz NLTK'lı
+239K listeyi kullanıyorduk. Aynı sözlüğü bizim düzelticiye verince:
+
+| Sözlük (kapsama) | sadece edit | + unigram | **+ KN3 sol bağlam** | + KN3 tüm satır | WBS |
+|---|---:|---:|---:|---:|---:|
+| eğitim 7K (%84,8) | 76,42 | 77,04 | 77,56 | 81,32 | 76,02 |
+| kelime listesi 239K (%93,9) | 79,51 | 80,74 | 81,66 | 81,95 | 81,26 |
+| **derlem 57K (%96,4)** | 81,72 | 82,91 | **83,80** | 82,77 | **84,13** |
+
+Seçim doğrulamada yapıldı: derlem sözlüğü + sol bağlam doğrulamada 87,29 ile
+en iyi (diğerleri 81,07–86,56). Test'e bir kez uygulandı.
+
+Bulgular:
+
+1. **İçerik boyuttan baskın.** Derlem sözlüğü 4 kat küçük ama 2,14 puan iyi;
+   içinde özel isimler, çekimli haller ve doğru büyük/küçük harf var.
+2. **"Küçük sözlük zararlı" aslında "zorunlu değiştirme zararlı"ymış.** 7K
+   sözlükle zorunlu değiştirme sözlüksüzün 1,8 puan altında; sözlük dışı
+   tahmin kendini koruyabilince aynı sözlük 2,5 puan **üstüne** çıkıyor.
+3. **Çözme sırasında mı sonradan mı — neredeyse fark etmiyor.** Sözlük
+   eşitlendiğinde WBS 84,13, biz 83,80 (p=0,014; eşiğimiz 0,01), CER'de biz
+   iyiyiz (7,96 vs 8,23). WBS'nin bigram dil modeli hiçbir şey katmıyor
+   (84,13 → 84,07).
+
+Tablo 2 ve 3 nihai düzelticiyle yeniden puanlandı (`cloud/ablation_final.py`):
+çapa 81,17; CRNN-B 83,41; photo 83,61; elastic 83,89; morph 83,66;
+CRNN-LX 83,80. Augmentation sonucu değişmedi (+0,39 pp, p=0,050; üç seedde
++0,39 / −0,45 / +0,66, ortalama +0,20 ± 0,58, eşleştirmeli p=0,61).
+
+Literatür konumu değişti: Kang 2018'in (82,55) **1,25 puan üstünde**,
+Kang 2021'in (84,09) 0,29 ve AttentionHTR'nin (84,60) 0,80 puan altında.
+
+Yeni script'ler: `cloud/ablation_wbs.py` (WBS, referans uygulama),
+`cloud/ablation_lexicon_source.py` (üç sözlük × dört düzeltici),
+`cloud/ablation_final.py` (nihai düzelticiyle model puanlama),
+`cloud/mcnemar_left_pair.py`. Doğrulama: `cloud/verify_paper_numbers.py`
+makaledeki her sayıyı bu JSON'larla karşılaştırıyor.

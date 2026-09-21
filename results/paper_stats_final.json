@@ -1,0 +1,200 @@
+{
+  "n": 20310,
+  "source": "results\\preds_final",
+  "augmented_five": {
+    "words_where_all_agree": 16995,
+    "all_correct": 15116,
+    "all_wrong": 1879,
+    "disagree": 3315,
+    "disagree_pct": 16.3
+  },
+  "pairwise_only_correct": {
+    "none|photo": {
+      "only_none": 846,
+      "only_photo": 1342
+    },
+    "narrow|none": {
+      "only_narrow": 1302,
+      "only_none": 848
+    },
+    "narrow|photo": {
+      "only_narrow": 779,
+      "only_photo": 821
+    },
+    "elastic|none": {
+      "only_elastic": 1364,
+      "only_none": 812
+    },
+    "elastic|narrow": {
+      "only_elastic": 853,
+      "only_narrow": 755
+    },
+    "elastic|photo": {
+      "only_elastic": 841,
+      "only_photo": 785
+    },
+    "elastic|morph": {
+      "only_elastic": 837,
+      "only_morph": 791
+    },
+    "elastic|full": {
+      "only_elastic": 818,
+      "only_full": 800
+    },
+    "morph|none": {
+      "only_morph": 1323,
+      "only_none": 817
+    },
+    "morph|narrow": {
+      "only_morph": 795,
+      "only_narrow": 743
+    },
+    "morph|photo": {
+      "only_morph": 795,
+      "only_photo": 785
+    },
+    "full|none": {
+      "only_full": 1363,
+      "only_none": 829
+    },
+    "full|narrow": {
+      "only_full": 849,
+      "only_narrow": 769
+    },
+    "full|photo": {
+      "only_full": 829,
+      "only_photo": 791
+    },
+    "full|morph": {
+      "only_full": 831,
+      "only_morph": 803
+    }
+  },
+  "error_analysis_full": {
+    "misrecognized": 3290,
+    "misrecognized_pct": 16.2,
+    "case_only": 293,
+    "case_only_pct_of_errors": 8.9,
+    "substitutions": 4800,
+    "deletions": 1279,
+    "insertions": 441,
+    "case_substitutions": 395,
+    "case_substitutions_pct": 8.2,
+    "top10_substitutions_true_to_pred": [
+      [
+        "a",
+        "o",
+        114
+      ],
+      [
+        "o",
+        "a",
+        101
+      ],
+      [
+        "r",
+        "s",
+        74
+      ],
+      [
+        "s",
+        "r",
+        65
+      ],
+      [
+        "t",
+        "l",
+        48
+      ],
+      [
+        "l",
+        "t",
+        47
+      ],
+      [
+        "s",
+        "n",
+        44
+      ],
+      [
+        "r",
+        "n",
+        44
+      ],
+      [
+        "e",
+        "a",
+        44
+      ],
+      [
+        "'",
+        ",",
+        44
+      ]
+    ],
+    "top_symmetric_confusions": [
+      [
+        "a",
+        "o",
+        215
+      ],
+      [
+        "r",
+        "s",
+        139
+      ],
+      [
+        "l",
+        "t",
+        95
+      ],
+      [
+        "n",
+        "r",
+        83
+      ],
+      [
+        "m",
+        "n",
+        80
+      ],
+      [
+        "a",
+        "e",
+        77
+      ],
+      [
+        ",",
+        "I",
+        70
+      ],
+      [
+        "n",
+        "s",
+        69
+      ]
+    ]
+  },
+  "corrector_full": {
+    "greedy_correct": 16011,
+    "hypotheses_changed": 2724,
+    "changed_pct": 13.41,
+    "fixed": 1216,
+    "broken": 207,
+    "net": 1009,
+    "reference_corrector": "KN3 L-R (239K NLTK lexicon)",
+    "reference_correct": 16586,
+    "reference_changed": 2939,
+    "reference_fixed": 1076,
+    "reference_broken": 501,
+    "final_vs_reference": {
+      "outputs_differ": 1424,
+      "only_reference_correct": 191,
+      "only_final_correct": 625
+    }
+  },
+  "context": {
+    "with_previous_word_pct": 88.5,
+    "with_two_previous_words_pct": 77.0
+  }
+}

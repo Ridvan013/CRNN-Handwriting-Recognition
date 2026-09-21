@@ -1,0 +1,90 @@
+{
+  "model": "Model_abl_full",
+  "beam": 25,
+  "smoothing": 0.01,
+  "n_samples": 256,
+  "blank_index": 78,
+  "word_chars": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  "configs": {
+    "WBS Words, 7K": {
+      "mode": "Words",
+      "dictionary_entries": 7173,
+      "test": {
+        "correct": 192,
+        "n": 256,
+        "wa_pct": 75.0,
+        "cer_pct": 14.6013,
+        "wilson_95ci_pct": [
+          69.3524,
+          79.9084
+        ]
+      },
+      "seconds": 2.3,
+      "words_per_second": 112.7
+    },
+    "WBS Words, 7K, case variants": {
+      "mode": "Words",
+      "dictionary_entries": 13281,
+      "test": {
+        "correct": 193,
+        "n": 256,
+        "wa_pct": 75.3906,
+        "cer_pct": 14.3132,
+        "wilson_95ci_pct": [
+          69.7645,
+          80.266
+        ]
+      },
+      "seconds": 3.0,
+      "words_per_second": 86.4
+    },
+    "WBS Words, 239K": {
+      "mode": "Words",
+      "dictionary_entries": 239126,
+      "test": {
+        "correct": 201,
+        "n": 256,
+        "wa_pct": 78.5156,
+        "cer_pct": 13.2565,
+        "wilson_95ci_pct": [
+          73.0824,
+          83.1057
+        ]
+      },
+      "seconds": 3.9,
+      "words_per_second": 65.8
+    },
+    "WBS Words, 239K, case variants": {
+      "mode": "Words",
+      "dictionary_entries": 473717,
+      "test": {
+        "correct": 200,
+        "n": 256,
+        "wa_pct": 78.125,
+        "cer_pct": 11.9116,
+        "wilson_95ci_pct": [
+          72.6655,
+          82.7529
+        ]
+      },
+      "seconds": 3.8,
+      "words_per_second": 67.7
+    },
+    "WBS NGrams, IAM+Brown": {
+      "mode": "NGrams",
+      "dictionary_entries": null,
+      "test": {
+        "correct": 210,
+        "n": 256,
+        "wa_pct": 82.0312,
+        "cer_pct": 11.7195,
+        "wilson_95ci_pct": [
+          76.8655,
+          86.2499
+        ]
+      },
+      "seconds": 3.2,
+      "words_per_second": 79.8
+    }
+  }
+}

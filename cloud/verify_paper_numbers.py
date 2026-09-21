@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
-Check every number in makale/paper.tex against the files it came from.
+Check every number in makale/paper.tex against the file it came from.
 
-Parses Tables 2 (augmentation ablation), 3 (seed repeats) and 4
-(post-correction), the 
-ewcommand macros and the per-word counts in the
-error-analysis prose, and compares each value with
-results/ablation_viterbi.json, results/ablation_viterbi_seeds.json,
-results/ablation_lexicon5_all.json, results/ablation_trigram.json,
-results/paper_stats_trigram.json and the Model_*/training_history.json files.
+Parses the four data tables, the \\newcommand macros and the counts quoted in
+the prose, and compares each value with
+
+    results/ablation_final.json          Table 2 (augmentation ablation)
+    results/ablation_final_seeds.json    Table 3 (seed repeats)
+    results/ablation_lexicon_source.json Table 4 (lexicon x corrector)
+    results/ablation_wbs.json            Table 5 (word beam search)
+    results/paper_stats_final.json       per-word counts in Sections 5.1/5.4
+    Model_*/training_history.json        the best-val-WA column of Table 2
+
 Exits non-zero and lists every mismatch, so it can gate a commit.
 
 Usage:  python cloud/verify_paper_numbers.py
@@ -22,35 +25,31 @@ from pathlib import Path
 R = str(Path(__file__).resolve().parent.parent)
 os.chdir(R)
 tex = open(os.path.join("makale", "paper.tex"), encoding="utf-8").read()
-V = json.load(open("results/ablation_viterbi.json"))
-S = json.load(open("results/ablation_viterbi_seeds.json"))
-L = json.load(open("results/ablation_lexicon5_all.json"))
-T = json.load(open("results/ablation_trigram.json"))
-P = json.load(open("results/paper_stats_trigram.json"))
-sel = V["selected_on_val"]
+FIN = json.load(open("results/ablation_final.json", encoding="utf-8"))
+SEED = json.load(open("results/ablation_final_seeds.json", encoding="utf-8"))
+LS = json.load(open("results/ablation_lexicon_source.json", encoding="utf-8"))
+WB = json.load(open("results/ablation_wbs.json", encoding="utf-8"))
+PS = json.load(open("results/paper_stats_final.json", encoding="utf-8"))
 bad = []
 
 
 def chk(name, paper, truth, tol=0.005):
-    if truth is None:
-        bad.append(f"{name}: no source value")
+    if paper is None:
+        bad.append(f"{name}: not found in the paper")
         return
     if abs(paper - truth) > tol:
         bad.append(f"{name}: paper {paper} vs source {truth:.4f}")
 
 
 def rows(label):
-    """table rows between \\colrule and \\botrule of the table with this label"""
-    i = tex.index(r"\label{" + label)
-    body = tex[i:tex.index(r"\botrule", i)]
-    body = body[body.index(r"\colrule"):]
+    i = tex.index("\\label{" + label)
+    body = tex[i:tex.index("\\botrule", i)]
+    body = body[body.index("\\colrule"):]
     out = []
     for line in body.split("\\\\"):
-        line = line.strip()
-        if not line or line.startswith(("\\colrule", "\\toprule")) or "multicolumn" in line:
-            line = line.replace("\\colrule", "").strip()
-            if not line:
-                continue
+        line = line.replace("\\colrule", "").strip()
+        if not line or "multicolumn" in line:
+            continue
         cells = [c.strip() for c in line.split("&")]
         if len(cells) > 1:
             out.append(cells)
@@ -59,153 +58,170 @@ def rows(label):
 
 def num(cell):
     cell = cell.replace("\\textbf{", "").replace("}", "").replace("$", "")
-    m = re.search(r"-?\d+\.\d+|-?\d+", cell.replace("\u2212", "-").replace("--", "-"))
+    cell = cell.replace("\u2212", "-").replace("--", "-")
+    cell = cell.replace(chr(92) + ",", "")
+    m = re.search(r"-?\d+\.\d+|-?\d+", cell)
     return float(m.group()) if m else None
 
 
+def pair(cell):
+    """'83.80 (7.96)' -> (83.80, 7.96)"""
+    m = re.findall(r"\d+\.\d+", cell.replace("\\textbf{", "").replace("}", ""))
+    return (float(m[0]), float(m[1])) if len(m) >= 2 else (None, None)
+
+
+# ---------------------------------------------------------------- Table 2
 print("== Table 2 (augmentation ablation)")
-key = {"no augmentation": "none", "CRNN-B (baseline)": "narrow", "$+$ wide photometric": "photo",
-       "$+$ elastic": "elastic", "$+$ morphological": "morph", "\\textbf{\\ours} (all)": "full"}
-wa = {m: V["models"][m]["variants"][sel]["test"]["wa_pct"] for m in V["models"]}
+KEY = {"no augmentation": "none", "CRNN-B (baseline)": "narrow",
+       "$+$ wide photometric": "photo", "$+$ elastic": "elastic",
+       "$+$ morphological": "morph", "\\textbf{\\ours} (all)": "full"}
+wa = {m: FIN["models"][m]["test"]["final"]["wa_pct"] for m in FIN["models"]}
+seen = 0
 for cells in rows("tab:main"):
-    m = key.get(cells[0].strip())
+    m = KEY.get(cells[0].strip())
     if not m:
         continue
-    t = V["models"][m]["variants"][sel]["test"]
+    seen += 1
+    t = FIN["models"][m]["test"]["final"]
     chk(f"T2 {m} WA", num(cells[1]), t["wa_pct"])
     chk(f"T2 {m} CER", num(cells[2]), t["cer_pct"])
     ci = re.findall(r"\d+\.\d+", cells[3])
-    chk(f"T2 {m} CIlo", float(ci[0]), t["wilson_95ci_pct"][0])
-    chk(f"T2 {m} CIhi", float(ci[1]), t["wilson_95ci_pct"][1])
+    chk(f"T2 {m} CI", float(ci[0]), t["wilson_95ci_pct"][0])
+    chk(f"T2 {m} CI", float(ci[1]), t["wilson_95ci_pct"][1])
     if "ref." not in cells[4] and "---" not in cells[4]:
         chk(f"T2 {m} dB", num(cells[4]), wa[m] - wa["narrow"])
     if "ref." not in cells[5] and "---" not in cells[5]:
         chk(f"T2 {m} dP", num(cells[5]), wa[m] - wa["photo"])
     if "ref." not in cells[6] and "times" not in cells[6]:
-        chk(f"T2 {m} p", num(cells[6]), V["mcnemar_vs_narrow"][m]["p_value"], tol=0.001)
-    h = json.load(open(f"Model_abl_{m}/training_history.json"))
+        chk(f"T2 {m} p", num(cells[6]), FIN["mcnemar_vs_narrow"][m]["p_value"], tol=0.001)
+    h = json.load(open(f"Model_abl_{m}/training_history.json", encoding="utf-8"))
     w = [x * 100 for x in h["val_wa"]]
     b = max(range(len(w)), key=lambda i: w[i])
     chk(f"T2 {m} val", num(cells[7]), w[b])
-    ep = int(re.search(r"\((\d+)\)", cells[7]).group(1))
-    if ep != b + 1:
-        bad.append(f"T2 {m} best epoch: paper {ep} vs source {b+1}")
-print("   ok" if not bad else "   issues so far: " + "; ".join(bad))
+    if int(re.search(r"\((\d+)\)", cells[7]).group(1)) != b + 1:
+        bad.append(f"T2 {m} best epoch mismatch")
+print(f"   {seen} rows")
 
-print("== Table 3 (seeds)")
-ssel = S["selected_on_val"]
-sw = lambda m: S["models"][m]["variants"][ssel]["test"]
-for cells in rows("tab:seeds"):
-    if cells[0].startswith("mean"):
-        continue
-    seed = cells[0].strip()
-    b_, l_ = {"42": ("narrow", "full"), "123": ("narrow_s123", "full_s123"),
-              "456": ("narrow_s456", "full_s456")}[seed]
-    chk(f"T3 s{seed} B", num(cells[1]), sw(b_)["wa_pct"])
-    chk(f"T3 s{seed} LX", num(cells[2]), sw(l_)["wa_pct"])
-    chk(f"T3 s{seed} delta", num(cells[3]), sw(l_)["wa_pct"] - sw(b_)["wa_pct"])
-    cers = re.findall(r"\d+\.\d+", cells[5])
-    chk(f"T3 s{seed} CER-B", float(cers[0]), sw(b_)["cer_pct"])
-    chk(f"T3 s{seed} CER-LX", float(cers[1]), sw(l_)["cer_pct"])
-print("   checked")
-
-print("== Table 4 (post-correction)")
-lex = {x["name"]: x for x in L["models"]["full"]["configurations"]}
-want = {
-    "none (\\oursnolm, greedy CTC)": lex["none (greedy CTC)"],
-    "training lexicon, edit distance only": lex["IAM lexicon, edit only"],
-    "training lexicon $+$ frequency prior": lex["IAM lexicon + n-gram"],
-    "extended lexicon, edit distance only": lex["extended lexicon, edit only"],
-    "extended lexicon $+$ frequency prior": lex["extended lexicon + n-gram"],
-    "extended lexicon $+$ KN1": T["variants"]["KN1-IAM"]["test"],
-    "extended lexicon $+$ KN3, L$\\to$R": T["variants"]["KN3-IAM"]["test"],
-    "extended lexicon $+$ KN3, line": V["variants"]["VIT"]["test"],
-    "\\textbf{extended lexicon $+$ KN3, line, keep-OOV} (\\ours)": V["variants"]["VIT+oov"]["test"],
-    "extended lexicon $+$ KN3, line, real-word": V["variants"]["VIT+rw"]["test"],
-    "extended lexicon $+$ KN3, line, keep-OOV $+$ real-word": V["variants"]["VIT+oov+rw"]["test"],
-}
+# ---------------------------------------------------------------- Table 3
+print("== Table 3 (seed repeats)")
+sw = {m: SEED["models"][m]["test"]["final"] for m in SEED["models"]}
+PAIRS = {"42": ("narrow", "full"), "123": ("narrow_s123", "full_s123"),
+         "456": ("narrow_s456", "full_s456")}
 seen = 0
-for cells in rows("tab:lexicon"):
-    name, rank = cells[0].strip(), cells[1].strip()
-    src = want.get(name)
-    if name == "extended lexicon $+$ KN1" and "Brown" in rank:
-        src = T["variants"]["KN1-IAM+Brown"]["test"]
-    if name == "extended lexicon $+$ KN3, L$\\to$R" and "Brown" in rank:
-        src = T["variants"]["KN3-IAM+Brown"]["test"]
-    if src is None:
-        bad.append(f"T4 unmatched row: {name} | {rank}")
+for cells in rows("tab:seeds"):
+    seed = cells[0].strip()
+    if seed not in PAIRS:
         continue
     seen += 1
-    chk(f"T4 {name[:28]} ({rank[:12]}) WA", num(cells[3]), src["wa_pct"])
-    chk(f"T4 {name[:28]} ({rank[:12]}) CER", num(cells[4]), src["cer_pct"])
-    ci = re.findall(r"\d+\.\d+", cells[5])
-    chk(f"T4 {name[:28]} CIlo", float(ci[0]), src["wilson_95ci_pct"][0])
-print(f"   {seen} rows checked")
+    b, l = PAIRS[seed]
+    chk(f"T3 s{seed} B", num(cells[1]), sw[b]["wa_pct"])
+    chk(f"T3 s{seed} LX", num(cells[2]), sw[l]["wa_pct"])
+    chk(f"T3 s{seed} delta", num(cells[3]), sw[l]["wa_pct"] - sw[b]["wa_pct"])
+    cers = re.findall(r"\d+\.\d+", cells[5])
+    chk(f"T3 s{seed} CER-B", float(cers[0]), sw[b]["cer_pct"])
+    chk(f"T3 s{seed} CER-LX", float(cers[1]), sw[l]["cer_pct"])
+print(f"   {seen} seeds")
 
-print("== macros")
-for macro, truth in [("ourwa", V["variants"]["VIT+oov"]["test"]["wa_pct"]),
-                     ("ourcer", V["variants"]["VIT+oov"]["test"]["cer_pct"]),
-                     ("leftwa", T["variants"]["KN3-IAM+Brown"]["test"]["wa_pct"]),
-                     ("uniwa", lex["extended lexicon + n-gram"]["wa_pct"]),
-                     ("unicer", lex["extended lexicon + n-gram"]["cer_pct"]),
-                     ("rawwa", lex["none (greedy CTC)"]["wa_pct"]),
-                     ("rawcer", lex["none (greedy CTC)"]["cer_pct"]),
-                     ("baselinewa", wa["narrow"]),
-                     ("deltawa", wa["full"] - wa["narrow"]),
-                     ("anchordelta", abs(wa["none"] - wa["narrow"]))]:
-    m = re.search(r"\\newcommand\{\\" + macro + r"\}\{([^}]*)\}", tex)
-    chk(f"macro {macro}", num(m.group(1)), truth)
-ci = re.search(r"\\newcommand\{\\ourci\}\{\[([\d.]+)\\%, ([\d.]+)\\%\]\}", tex)
-chk("macro ourci lo", float(ci.group(1)), V["variants"]["VIT+oov"]["test"]["wilson_95ci_pct"][0])
-chk("macro ourci hi", float(ci.group(2)), V["variants"]["VIT+oov"]["test"]["wilson_95ci_pct"][1])
-
-print("== error analysis prose")
-ea = P["error_analysis_full"]
-for pat, truth in [(r"misrecognizes 3\\,(\d+) of", ea["misrecognized"] % 1000),
-                   (r"Only (\d+) of\nthem", ea["case_only"]),
-                   (r"consist of 5\\,(\d+) substitutions", ea["substitutions"] % 1000),
-                   (r"1\\,(\d+) deletions", ea["deletions"] % 1000),
-                   (r"and (\d+) insertions", ea["insertions"]),
-                   (r"Of the post-corrector's decisions, 1\\,(\d+)", P["corrector_full"]["hypotheses_changed"] % 1000),
-                   (r"replaced: (\d+) wrong", P["corrector_full"]["fixed"]),
-                   (r"and (\d+) correct ones", P["corrector_full"]["broken"]),
-                   (r"replaces 2\\,(\d+), repairs", P["corrector_full"]["reference_changed"] % 1000),
-                   (r"repairs 1\\,(\d+) and breaks", P["corrector_full"]["reference_fixed"] % 1000),
-                   (r"only (\d+)\. Whole-line", 888)]:
-    m = re.search(pat, tex)
-    if not m:
-        bad.append(f"prose pattern not found: {pat}")
-    else:
-        chk(f"prose {pat[:28]}", float(m.group(1)), float(truth), tol=0.5)
-
-print("== prose deltas and counts")
-lx = {x["name"]: x["wa_pct"] for x in L["models"]["full"]["configurations"]}
-g, ie, pi, ee, pe = (lx["none (greedy CTC)"], lx["IAM lexicon, edit only"],
-                     lx["IAM lexicon + n-gram"], lx["extended lexicon, edit only"],
-                     lx["extended lexicon + n-gram"])
-LP = json.load(open("results/mcnemar_left_pair.json"))
-prose = [
-    (r"turns the same\n\$-(\d+\.\d+)\$\\,pp into \$\+(\d+\.\d+)\$", [abs(ie - g), ee - g]),
-    (r"On the 7\\,K list it is worth \$\+(\d+\.\d+)\$", [pi - ie]),
-    (r"on the 239\\,K list, \$\+(\d+\.\d+)\$", [pe - ee]),
-    (r"Neither ingredient alone reaches the \$\+(\d+\.\d+)\$", [pe - g]),
-    (r"and (\d+) only by \\ours", [P["pairwise_only_correct"]["full|narrow"]["only_full"]]),
-    (r"(\d+) words are recognized only by the baseline", [P["pairwise_only_correct"]["full|narrow"]["only_narrow"]]),
-    (r"these five disagree on\n3\\,(\d+) words \((\d+\.\d)\\%\)",
-     [P["augmented_five"]["disagree"] % 1000, P["augmented_five"]["disagree_pct"]]),
-    (r"the unigram prior the same two optical models differ by \$(\d+\.\d+)\$\\,pp at\n\$p=(\d+\.\d+)\$",
-     [L["mcnemar_vs_narrow"]["full"]["delta_wa_pp"], L["mcnemar_vs_narrow"]["full"]["p_value"]]),
-    (r"with the left-to-right trigram by \$(\d+\.\d+)\$\\,pp at\n\$p=(\d+\.\d+)\$",
-     [LP["mcnemar_full_vs_narrow"]["delta_wa_pp"], LP["mcnemar_full_vs_narrow"]["p_value"]]),
-]
-for pat, truths in prose:
-    m = re.search(pat, tex)
-    if not m:
-        bad.append(f"prose pattern missing: {pat[:46]}")
+# ---------------------------------------------------------------- Table 4
+print("== Table 4 (lexicon x corrector)")
+LEXKEY = {"training": "training (7K)", "word list": "extended (239K)",
+          "corpus": "corpus vocabulary (57K)"}
+CORR = ["edit distance only", "unigram prior", "KN3 left-to-right",
+        "KN3 whole-line, keep-OOV"]
+seen = 0
+for cells in rows("tab:lexicon"):
+    key = LEXKEY.get(cells[0].strip())
+    if not key:
         continue
-    for i, truth in enumerate(truths):
-        chk(f"prose {pat[:30]} [{i}]", float(m.group(i + 1)), float(truth),
-            tol=0.005 if truth < 100 else 0.5)
+    seen += 1
+    e = LS["lexicons"][key]["correctors"]
+    chk(f"T4 {key} types", num(cells[1]), LS["lexicons"][key]["types"], tol=0.5)
+    chk(f"T4 {key} coverage", num(cells[2]), LS["lexicons"][key]["test_coverage_pct"], tol=0.05)
+    for i, c in enumerate(CORR):
+        w, cer = pair(cells[3 + i])
+        chk(f"T4 {key} / {c} WA", w, e[c]["test"]["wa_pct"])
+        chk(f"T4 {key} / {c} CER", cer, e[c]["test"]["cer_pct"])
+print(f"   {seen} lexicons x {len(CORR)} correctors")
+
+# ---------------------------------------------------------------- Table 5
+print("== Table 5 (word beam search)")
+WKEY = {("training lexicon", "7"): "WBS Words, 7K",
+        ("training lexicon $+$ case", "13"): "WBS Words, 7K, case variants",
+        ("word-list lexicon", "239"): "WBS Words, 239K",
+        ("word-list lexicon $+$ case", "473"): "WBS Words, 239K, case variants",
+        ("corpus lexicon", "57"): "WBS Words, corpus vocab",
+        ("corpus text (bigram LM)", "57"): "WBS NGrams, IAM+Brown"}
+ours = LS["lexicons"]["corpus vocabulary (57K)"]["correctors"]["KN3 left-to-right"]["test"]
+seen = 0
+for cells in rows("tab:wbs"):
+    dic = cells[1].strip()
+    key = next((v for (d, _), v in WKEY.items() if d == dic), None) if "WBS" in cells[0] else None
+    if key is None:
+        if "post-correction" in cells[0]:
+            chk("T5 ours WA", num(cells[3]), ours["wa_pct"])
+            chk("T5 ours CER", num(cells[4]), ours["cer_pct"])
+            seen += 1
+        continue
+    seen += 1
+    t = WB["configs"][key]["test"]
+    chk(f"T5 {key} WA", num(cells[3]), t["wa_pct"])
+    chk(f"T5 {key} CER", num(cells[4]), t["cer_pct"])
+print(f"   {seen} rows")
+
+# ---------------------------------------------------------------- macros
+print("== macros")
+L = {k: {c: v["test"] for c, v in e["correctors"].items()} for k, e in LS["lexicons"].items()}
+CO, WL = "corpus vocabulary (57K)", "extended (239K)"
+MACROS = [("ourwa", ours["wa_pct"]), ("ourcer", ours["cer_pct"]),
+          ("uniwa", L[CO]["unigram prior"]["wa_pct"]),
+          ("unicer", L[CO]["unigram prior"]["cer_pct"]),
+          ("listwa", L[WL]["KN3 left-to-right"]["wa_pct"]),
+          ("listcer", L[WL]["KN3 left-to-right"]["cer_pct"]),
+          ("rawwa", LS["greedy"]["wa_pct"]), ("rawcer", LS["greedy"]["cer_pct"]),
+          ("baselinewa", wa["narrow"]), ("deltawa", wa["full"] - wa["narrow"]),
+          ("anchordelta", abs(wa["none"] - wa["narrow"]))]
+for macro, truth in MACROS:
+    m = re.search(r"\\newcommand\{\\" + macro + r"\}\{([^}]*)\}", tex)
+    chk(f"macro {macro}", num(m.group(1)) if m else None, truth)
+ci = re.search(r"\\newcommand\{\\ourci\}\{\[([\d.]+)\\%, ([\d.]+)\\%\]\}", tex)
+if ci:
+    chk("macro ourci lo", float(ci.group(1)), ours["wilson_95ci_pct"][0])
+    chk("macro ourci hi", float(ci.group(2)), ours["wilson_95ci_pct"][1])
+else:
+    bad.append("macro ourci: not found")
+
+# ---------------------------------------------------------------- prose
+print("== prose counts")
+ea = PS["error_analysis_full"]
+cf = PS["corrector_full"]
+a5 = PS["augmented_five"]
+pw = PS["pairwise_only_correct"]
+def after(phrase, nth=1):
+    """The nth number following `phrase`; thin-space separators are stripped."""
+    i = tex.find(phrase)
+    if i < 0:
+        return None
+    window = tex[i + len(phrase): i + len(phrase) + 240]
+    nums = re.findall(r"\d[\d]*(?:\\,\d{3})*(?:\.\d+)?", window)
+    vals = [float(n.replace(chr(92) + ",", "")) for n in nums]
+    return vals[nth - 1] if len(vals) >= nth else None
+
+
+PROSE = [
+    ("misrecognizes", 1, ea["misrecognized"]),
+    ("consist of", 1, ea["substitutions"]),
+    ("substitutions,", 1, ea["deletions"]),
+    ("deletions and", 1, ea["insertions"]),
+    ("that corrector changes", 1, cf["hypotheses_changed"]),
+    ("repairs", 1, cf["fixed"]),
+    ("and breaks", 1, cf["broken"]),
+    ("these five disagree on", 1, a5["disagree"]),
+    ("pair,", 1, pw["full|narrow"]["only_narrow"]),
+    ("pair,", 2, pw["full|narrow"]["only_full"]),
+    ("only by the baseline against", 1, pw["narrow|none"]["only_none"]),
+]
+for phrase, nth, truth in PROSE:
+    chk("prose " + repr(phrase[:32]), after(phrase, nth), float(truth), tol=0.5)
 
 print()
 if bad:

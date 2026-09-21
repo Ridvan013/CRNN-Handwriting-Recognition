@@ -46,7 +46,7 @@ ABL_MODES = [("none", "no augmentation"),
 # Deterministic single-source evaluation (see cloud/ablation_trigram_all.py):
 # the same per-word CRNN-LX predictions (KN trigram + line context) that
 # Tables 2-4 and the error analysis use.
-TEST_CSV = REPO / "results" / "preds_viterbi" / "preds_full.csv"
+TEST_CSV = REPO / "results" / "preds_final" / "preds_full.csv"
 IAM_ROOT = REPO / "HTR_Using_CRNN" / "IAM" / "processed" / "archive" / "iam_words" / "words"
 
 # ---- Style ---------------------------------------------------------------
@@ -140,7 +140,7 @@ def fig_pipeline():
 
     # what the ablations measured, so the highlight cannot be read as a claim
     ax.text(xs[1] + BOX_W / 2, Y_TOP - 1.6,
-            'conventional $+2.7$ pp; proposed $+0.2$ pp (n.s., 3 seeds)',
+            'conventional $+2.2$ pp; proposed $+0.2$ pp (n.s., 3 seeds)',
             ha="center", va="top", fontsize=6.0, color=C_GREEN, style="italic")
 
     for i in range(3):
@@ -153,8 +153,8 @@ def fig_pipeline():
     box(xs[3], Y_BOT, "CTC decoding",
         ["training: CTC loss", "test: greedy decode"], BLUE_F, BLUE_E)
     box(xs[2], Y_BOT, "Lexical corrector*",
-        ["239K lexicon, $\\leq$2 edits", "KN trigram, IAM$+$Brown",
-         "whole-line Viterbi"],
+        ["57K corpus lexicon", r"$\leq$2 edits, KN trigram",
+         "own left context"],
         OURS_F, OURS_E, lw=1.8)
     box(xs[1], Y_BOT, "Predicted word",
         ["final transcription"], GREY_F, GREY_E)
@@ -165,7 +165,7 @@ def fig_pipeline():
         arrow(xs[i], Y_BOT + BOX_H / 2, xs[i - 1] + BOX_W, Y_BOT + BOX_H / 2)
 
     ax.text(xs[2] + BOX_W / 2, Y_BOT - 1.4,
-            "coverage $+0.7$; prior $+1.2$; corpus $+0.6$; context $+0.6$ pp",
+            "lexicon $+2.9$; ranking $+1.2$; context $+0.9$ pp",
             ha="center", va="top", fontsize=6.0, color=C_GREEN, style="italic")
 
     ax.text(50, 0.6, "* stages ablated in this work; italics give their measured effect",
@@ -451,110 +451,54 @@ def fig_augmentation_grid():
 # Figure 4: what the post-corrector actually contributes
 # ==========================================================================
 def fig_lexicon_decomposition():
-    """WA vs lexicon size, with and without the unigram frequency prior.
+    """Change in word accuracy against lexicon-free decoding: one line per
+    lexicon, one point per corrector (results/ablation_lexicon_source.json).
 
-    Reads the single deterministic evaluation (cloud/ablation_lexicon_all.py),
-    so the figure and Table III cannot drift apart.
+    The point of the figure is that the lines are further apart than the
+    points along them: the lexicon matters more than the ranking rule.
     """
     import json
-    src = REPO / "results" / "ablation_lexicon5_all.json"
-    d = json.load(open(src))
-    R_NONE = "none (greedy CTC)"
-    R_EDIT = ["IAM lexicon, edit only", "extended lexicon, edit only"]
-    R_NGRAM = ["IAM lexicon + n-gram", "extended lexicon + n-gram"]
+    src = REPO / "results" / "ablation_lexicon_source.json"
+    d = json.load(open(src, encoding="utf-8"))
+    g = d["greedy"]["wa_pct"]
+    CORR = [("edit distance only", "edit\nonly"),
+            ("unigram prior", "$+$unigram\nprior"),
+            ("KN3 left-to-right", "$+$KN3,\nleft ctx"),
+            ("KN3 whole-line, keep-OOV", "$+$KN3, line,\nkeep-OOV")]
+    LEX = [("training (7K)", "training, 7K types (84.8% coverage)", C_BLUE, "o"),
+           ("extended (239K)", "word list, 239K (93.9%)", C_ORANGE, "s"),
+           ("corpus vocabulary (57K)", "corpus, 57K (96.4%)", C_GREEN, "D")]
 
-    def wa(mode, row):
-        for c in d["models"][mode]["configurations"]:
-            if c["name"] == row:
-                return c["wa_pct"]
-        raise KeyError(row)
-
-    modes = [m for m in ["none", "narrow", "photo", "elastic", "morph", "full"]
-             if m in d["models"]]
-    x = [0, 1]
-    xlab = ["7 K\n(training vocabulary)", "239 K\n(extended)"]
-
-    fig, (ax, axb) = plt.subplots(1, 2, figsize=(5.0, 2.7),
-                                  gridspec_kw={"width_ratios": [1, 1.15]})
-    ax.set_title("(a) lexicon size and frequency prior", fontsize=8)
-
-    # the other optical models, faint, to show the pattern is not model-specific
-    for m in modes:
-        if m == "full":
-            continue
-        base = wa(m, R_NONE)
-        ax.plot(x, [wa(m, r) - base for r in R_EDIT], color=C_BLUE,
-                lw=0.7, alpha=0.35, zorder=1)
-        ax.plot(x, [wa(m, r) - base for r in R_NGRAM], color=C_ORANGE,
-                lw=0.7, alpha=0.35, zorder=1)
-
-    base = wa("full", R_NONE)
-    edit = [wa("full", r) - base for r in R_EDIT]
-    ngram = [wa("full", r) - base for r in R_NGRAM]
-
-    ax.axhspan(-3.4, 0, color="#d9d9d9", alpha=0.45, lw=0, zorder=0)
+    fig, ax = plt.subplots(figsize=(5.0, 2.9))
+    x = range(len(CORR))
+    ax.axhspan(-3.5, 0, color="#d9d9d9", alpha=0.45, lw=0, zorder=0)
     ax.axhline(0, color="black", lw=0.9, ls="--", zorder=2)
-    ax.text(1.46, -0.22, "harmful", fontsize=6.5, color="#555555",
+    for key, label, colour, marker in LEX:
+        e = d["lexicons"][key]["correctors"]
+        y = [e[c]["test"]["wa_pct"] - g for c, _ in CORR]
+        ax.plot(list(x), y, marker + "-", color=colour, lw=1.8, ms=5, zorder=3,
+                label=label)
+    best = d["lexicons"]["corpus vocabulary (57K)"]["correctors"]["KN3 left-to-right"]["test"]
+    ax.annotate("CRNN-LX", xy=(2, best["wa_pct"] - g), xytext=(2.05, best["wa_pct"] - g - 1.1),
+                fontsize=7.5, color=C_GREEN,
+                arrowprops=dict(arrowstyle="->", lw=0.8, color=C_GREEN))
+    ax.text(len(CORR) - 0.55, -0.25, "harmful", fontsize=6.5, color="#555555",
             ha="right", va="top")
-    ax.text(1.46, 0.14, "lexicon-free baseline", fontsize=6.5,
+    ax.text(len(CORR) - 0.55, 0.15, "lexicon-free baseline", fontsize=6.5,
             color="#333333", ha="right", va="bottom")
-
-    ax.plot(x, edit, "o-", color=C_BLUE, lw=1.8, ms=5, zorder=3,
-            label="edit distance only")
-    ax.plot(x, ngram, "s-", color=C_ORANGE, lw=1.8, ms=5, zorder=3,
-            label="$+$ frequency prior")
-
-    # the vertical gap between the two lines IS the prior's contribution
-    for xi in x:
-        ax.annotate("", xy=(xi + 0.055, ngram[xi]), xytext=(xi + 0.055, edit[xi]),
-                    arrowprops=dict(arrowstyle="<->", lw=0.8, color="#444444"))
-        ax.text(xi + 0.09, (edit[xi] + ngram[xi]) / 2,
-                f"$+${ngram[xi] - edit[xi]:.2f}", fontsize=7,
-                va="center", color="#444444")
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(xlab, fontsize=7.5)
-    ax.set_xlim(-0.22, 1.5)
+    ax.set_xticks(list(x))
+    ax.set_xticklabels([lab for _, lab in CORR], fontsize=7)
+    ax.set_xlim(-0.25, len(CORR) - 0.45)
+    ax.set_ylim(-3.5, 6.0)
     ax.set_ylabel("$\\Delta$ word accuracy vs.\nlexicon-free (pp)", fontsize=8)
-    ax.set_ylim(-3.4, 4.0)
     ax.grid(alpha=.3, axis="y")
-    ax.legend(fontsize=7, frameon=False, loc="lower right")
-
-    # (b) build-up on the 239 K lexicon: what the corpus and the line context
-    # add on top of the unigram prior (cloud/ablation_trigram.py, CRNN-LX
-    # optical model, alpha selected on validation for every variant).
-    t = json.load(open(REPO / "results" / "ablation_trigram.json"))["variants"]
-    vt = json.load(open(REPO / "results" / "ablation_viterbi.json"))
-    g = t["none (greedy)"]["test"]["wa_pct"]
-    steps = [("edit\nonly", wa("full", R_EDIT[1]) - g, C_BLUE),
-             ("$+$uni-\ngram", t["U-IAM (paper, alpha=5)"]["test"]["wa_pct"] - g, C_ORANGE),
-             ("$+$Brown", t["KN1-IAM+Brown"]["test"]["wa_pct"] - g, C_PURPLE),
-             ("$+$left\ncontext", t["KN3-IAM+Brown"]["test"]["wa_pct"] - g, C_GREEN),
-             ("$+$whole\nline", vt["variants"][vt["selected_on_val"]]["test"]["wa_pct"] - g, C_RED)]
-    xb = range(len(steps))
-    axb.bar(xb, [s[1] for s in steps], color=[s[2] for s in steps], width=0.62,
-            edgecolor="black", lw=0.5, zorder=3)
-    prev = 0.0
-    for i, (_, v, _) in enumerate(steps):
-        axb.text(i, v + 0.06, f"$+${v:.2f}", ha="center", va="bottom", fontsize=7)
-        if i:
-            axb.text(i, v / 2, f"$+${v - prev:.2f}", ha="center", va="center",
-                     fontsize=6.5, color="white", fontweight="bold")
-        prev = v
-    axb.axhline(0, color="black", lw=0.9, ls="--", zorder=2)
-    axb.set_xticks(list(xb))
-    axb.set_xticklabels([s[0] for s in steps], fontsize=6.6)
-    axb.set_xlim(-0.6, len(steps) - 0.4)
-    axb.tick_params(axis="x", pad=2)
-    axb.set_ylim(0, 3.6)
-    axb.set_ylabel("$\\Delta$ WA vs. lexicon-free (pp)", fontsize=8)
-    axb.set_title("(b) build-up, 239 K lexicon", fontsize=8)
-    axb.grid(alpha=.3, axis="y")
+    ax.legend(fontsize=7, frameon=False, loc="upper left", title="lexicon",
+              title_fontsize=7)
     plt.tight_layout()
     out = FIG_DIR / "fig4_lexicon_decomposition.pdf"
     plt.savefig(out)
     plt.close(fig)
-    print(f"  \u2713 {out.name}")
+    print(f"  OK {out.name}")
 
 
 # ==========================================================================
