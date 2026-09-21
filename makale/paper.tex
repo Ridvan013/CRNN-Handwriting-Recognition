@@ -211,7 +211,7 @@ the recognizer's own output for the preceding crops of the same text
 line. Which words the lexicon contains turns out to matter more than
 how the candidates are ranked, so we compare three lexicons and, for
 each, four ways of choosing inside it. We
-name the proposed system \ours\ (CRNN with lexicon-extended,
+name the proposed system \ours\ (CRNN with lexicon-assisted,
 language-model-ranked post-correction) and its lexicon-free
 counterpart \oursnolm; Table~\ref{tab:naming} defines the six
 configurations compared. Our contributions are:
@@ -249,7 +249,7 @@ configurations compared. Our contributions are:
         change word accuracy by at most \deltawa, and none of those
         differences reaches the significance threshold ($p<0.01$) used
         throughout; removing the conventional pipeline underneath them
-        costs \anchordelta\,pp at $p=1\times10^{-30}$. Repeating the two
+        costs \anchordelta\,pp at $p=1\times10^{-22}$. Repeating the two
         endpoint configurations with three seeds each shows why: the
         difference between them changes sign across seeds ($-0.45$ to
         $+0.66$\,pp) and two of the three per-seed tests are significant
@@ -453,9 +453,10 @@ share the optical model of Section~\ref{sec:model}, the training
 schedule and the post-corrector of Section~\ref{sec:trigram}; they
 differ only in the augmentation applied during training. \oursnolm\ is
 the fully augmented optical model decoded greedily, without any
-lexicon; \ours\ is that same model followed by the extended-lexicon
-post-corrector of Section~\ref{sec:trigram} with the trigram and
-whole-line decoding, and is the configuration we propose. The suffixes denote the
+lexicon; \ours\ is that same model followed by the corpus-lexicon
+post-corrector of Section~\ref{sec:trigram}, whose candidates are ranked by
+the trigram with the system's own left context, and is the configuration we
+propose. The suffixes denote the
 post-processing rather than the augmentation, which turns out not to
 matter (Section~\ref{sec:res-aug}). The first row is
 the zero-augmentation anchor: it has the conventional pipeline switched
@@ -551,7 +552,7 @@ compound elastic$+$morphological effect.}
 \alttext{Eight versions of the same handwritten word crop, showing the original and seven augmentation transforms applied to it.}
 \end{figure}
 
-\subsection{Lexicon-Extended Post-Correction with Line Context}
+\subsection{Lexical Post-Correction: Lexicon, Ranking and Context}
 \label{sec:trigram}
 After greedy CTC decoding, each hypothesis is checked against a closed
 lexicon. If the hypothesis (case-insensitively) is in the lexicon it is
@@ -614,7 +615,10 @@ candidate keeps a positive probability; an unseen trigram context
 degrades to the bigram and then to the unigram estimate. It is estimated
 on the same 47\,999 tokens, read as text lines, and, in the proposed
 configuration, additionally on the Brown corpus~\cite{francis1979brown}
-(57\,340 sentences, 1.16\,M tokens). Tokens are case-sensitive and
+(57\,340 sentences, 1.16\,M tokens). Both external resources are taken from
+the Natural Language Toolkit distribution --- the word list of the word-list
+lexicon from its \texttt{words} corpus and the text from its \texttt{brown}
+corpus --- so that either can be reproduced with one download. Tokens are case-sensitive and
 punctuation marks are kept as tokens, matching the IAM transcriptions. In
 the proposed configuration the lexicon and the language model therefore come
 from the same text: the corpus supplies both the words that may be produced
@@ -624,8 +628,9 @@ and the statistics that rank them.
 IAM word crops are cut from text lines and keep their position on the
 line, so the recognizer's outputs for the neighbouring crops are
 available at test time. The context in Eq.~(\ref{eq:score}) is the
-system's \emph{own output} for the neighbouring word crops of the same
-line --- never their reference transcription. A line is a contiguous
+system's \emph{own output} for the preceding word crops of the same line
+--- and, in the whole-line variant below, for the following ones as well ---
+never their reference transcription. A line is a contiguous
 run of crops; the run is broken, and the context reset, wherever a
 crop is missing from the split (crops whose segmentation IAM flags as
 not \texttt{ok}). On the test set 88.5\% of the words have a preceding
@@ -812,13 +817,13 @@ transforms. Table~\ref{tab:seeds} repeats CRNN-B and \ours\ with
 seeds 123 and 456. The difference between the two changes sign:
 \ours\ is \deltawa\ above CRNN-B at seed 42, $0.45$\,pp
 \emph{below} it at seed 123 and $0.66$\,pp above it at seed 456. All
-three per-seed comparisons would be declared significant at the $0.05$
-level, and two of them point in opposite directions ($p=0.026$ against
-the transforms, $p=1\times10^{-3}$ for them). Averaged over the three
+three per-seed comparisons fall under the conventional $0.05$ threshold ---
+at $p=0.050$, $0.026$ and $1\times10^{-3}$ --- yet two of them point in
+opposite directions: seed 123 favours the baseline, seed 456 the transforms. Averaged over the three
 seeds the difference is $+0.20\pm0.58$\,pp (paired $t(2)=0.60$,
 $p=0.61$), and one unchanged configuration spans 0.8\,pp on its own
 (\ours: 83.44--84.21\%).
-The run-to-run spread is therefore several times the effect under
+The run-to-run spread is therefore two to four times the effect under
 study, which is why we report the augmentation comparison as
 unresolved rather than as a small gain; the conventional pipeline, at
 \anchordelta\,pp, sits an order of magnitude above that noise floor
@@ -1244,7 +1249,7 @@ to exclude. A null result can always mean that the experiment is too
 noisy to see anything, and the seed repeats confirm that the noise is
 real: an unchanged configuration moves by up to 0.8\,pp from seed to
 seed, and the sign of the comparison moves with it. But the same test, the same data and the same protocol detect the
-removal of the conventional pipeline at $p=1\times10^{-30}$, 2.7
+removal of the conventional pipeline at $p=1\times10^{-22}$, 2.2
 points of word accuracy. The apparatus is not blind to augmentation; it
 cannot resolve \emph{these} transforms on \emph{this} training set,
 whose largest effect (\deltawa, $p=0.050$) does not survive the threshold,
@@ -1274,7 +1279,7 @@ which augmentation was not the only difference. The result does not
 imply that augmentation is useless for HTR in general --- Wigington et
 al.~\cite{wigington2017data} report gains on lines with a different
 transform family, and our own anchor shows the first increment is
-worth 2.7\,pp --- but it does show that further transforms must be
+worth 2.2\,pp --- but it does show that further transforms must be
 measured under controlled conditions before being claimed.
 
 \subsection{Which Lexicon, and Where to Apply It}
@@ -1374,7 +1379,7 @@ and~\ref{tab:seeds}).
 
 HWRCNet~\cite{rajesh2022hwrcnet}, the closest system in construction
 (a CNN, a bidirectional LSTM and a CTC layer), reports 80.08\% strict
-word accuracy, 1.87\,pp below \ours\ (0.66\,pp below its no-context
+word accuracy, 3.72\,pp below \ours\ (2.83\,pp below its no-context
 variant) and 1.25\,pp above \oursnolm. It
 is measured on a random 95:5 partition whose test set is
 writer-dependent and about 3.5 times smaller than ours, so neither
@@ -1396,25 +1401,24 @@ the conclusion that an effect of this size is not resolvable here.
 The \anchordelta\,pp effect of the conventional pipeline is an order of
 magnitude larger than that resolution limit, so the positive control
 does not depend on the seed in the way the null result does.
-The lexicon and ranking effects ($-2.4$ to $-2.7$\,pp for the
-training vocabulary, $+1.1$ to $+1.3$\,pp for the frequency prior) are
-reproduced in sign and ordering on all six independently trained
-models and are well outside the interval, although their magnitude
-grows as the optical model weakens. The gain of the left-to-right
-trigram over the unigram prior is equally stable: $+0.85$ to
-$+0.96$\,pp on each of the six optical models, with $\alpha=7$ selected
-on validation for all of them; whole-line decoding then adds $+0.29$
-to $+0.44$\,pp on the five augmented models and $+0.08$\,pp on the
-anchor. The whole-line decoder has two options and a wider penalty
-grid, all selected on the 7\,205 validation words; a variant that was
-not selected (real-word substitution) reaches almost the same test
-accuracy by a different route, which shows that the selection is not
-finely tuned to the test set but also that the validation set cannot
-separate the two. These effects are, however, measured
-with one candidate generator and one word list; a different
-edit-distance bound or a different general vocabulary would change
-their size, though the ordering of the post-corrections is unlikely to
-change.
+The corrector effects are stable across optical models where we measured
+them on all of them: with the word-list lexicon, forced replacement against
+the training vocabulary costs $2.4$--$2.7$\,pp and the frequency prior adds
+$1.1$--$1.3$\,pp on each of the six models, and the left-to-right trigram
+adds $0.85$--$0.96$\,pp over that prior on each of them, with $\alpha=7$
+selected on validation every time. The comparison \emph{between} lexicons in
+Table~\ref{tab:lexicon}, on the other hand, was run on one optical model,
+and the six re-scored models of Table~\ref{tab:main} only confirm that the
+final corrector behaves consistently, not that the 2.14\,pp lexicon effect
+has the same size everywhere. The effects are also measured with one
+candidate generator and one edit bound; a different bound would change their
+size, though the ordering of the columns is unlikely to change. The
+whole-line decoder, which has two options and a wider penalty grid, was
+selected against on the corpus lexicon, and the variant that was not
+selected (real-word substitution) reaches almost the same test accuracy by a
+different route --- evidence that the selection is not finely tuned to the
+test set, but also that the validation partition cannot separate such
+variants.
 Validation accuracy, which the training loop measures with the unigram
 corrector, exceeds the test accuracy of that same corrector by about
 four points for every configuration; the validation writers are used
@@ -1465,8 +1469,8 @@ conventional augmentation pipeline beneath them costs
 \anchordelta\,pp, a pattern consistent with the benefit of
 augmentation saturating before the transforms we proposed; a widely used elastic parameterization, moreover, does not
 deform the image at all. The post-correction stage, by contrast, moves
-accuracy by five points in either direction, and its parts are not equally
-important: the lexicon is worth
+accuracy by five points up and two and a half down, and its parts are not
+equally important: the lexicon is worth
 2.1\,pp when it is
 read off the language-model corpus instead of a dictionary list, the ranking
 rule about a point, the line context half of one, and imposing the lexicon
@@ -1490,11 +1494,10 @@ corrects against a lexicon can be decomposed the same way, and any
 augmentation gain of a few tenths of a point on IAM words has to be read
 against the run-to-run spread measured here. Future work will test whether the
 augmentation becomes useful in the low-data regime, replace the
-whole-word corrector with a character-level open-vocabulary model to
-address the uncovered 6\% of tokens, and decode the line over the
-optical model's full output distributions rather than over its
-single-best hypotheses, so that the language model can also weigh
-alternatives the greedy decoder discarded.
+whole-word corrector with a character-level open-vocabulary model to reach
+the 3.6\% of test tokens that the corpus lexicon does not contain, and ask
+how a lexicon should be assembled when the target domain is known, since
+that term dominated everything else we measured.
 
 
 \section*{Acknowledgments}
