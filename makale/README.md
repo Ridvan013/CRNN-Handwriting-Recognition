@@ -308,16 +308,18 @@ paper stands after the trigram and seed work of 16-20 Sept.
 | 2 | §6.3 heading named one paper | → *Comparison with Previous Word-Level HTR Systems* | unchanged |
 | 3 | Title too assertive | → *Decomposing Lexicon-Assisted Correction for Isolated Handwritten Word Recognition on IAM: Effects of Lexicon Coverage and Frequency-Based Ranking* | changed again, to *… for Word-Level Handwritten Text Recognition on IAM: Lexicon Coverage, Frequency Ranking and Line Context* |
 | 4 | "trigram" without word context | Renamed to **unigram frequency prior** throughout, because `score_word` was always called with `prev_words=None`; §3.5 said so and gave the sparsity figure (34 % of test tokens had a seen trigram context) | **fixed at the root**: a real interpolated Kneser-Ney trigram with line context now ranks the candidates (IAM + Brown, whole-line Viterbi). The unigram prior is kept as the no-context reference row. The 34 % figure was dropped with it. |
-| 5 | Single seed | Wording softened in the abstract, contribution 2, §5.1, §6.1, §6.3 and the Conclusion; seed repeats planned | **done**: CRNN-B and CRNN-LX × seeds 42/123/456 → **Table 3**. The difference changes sign (+0.32 / −0.49 / +0.78 pp; mean +0.20 ± 0.64, paired p = 0.64) and one configuration spans 1.00 pp, so the augmentation comparison is reported as unresolved. |
+| 5 | Single seed | Wording softened in the abstract, contribution 2, §5.1, §6.1, §6.3 and the Conclusion; seed repeats planned | **done**: CRNN-B and CRNN-LX × seeds 42/123/456 → **Table 3**, re-scored with the final corrector. The difference changes sign (+0.39 / −0.45 / +0.66 pp; mean +0.20 ± 0.58, paired t(2) = 0.60, p = 0.61) and CRNN-LX alone spans 0.77 pp, so the augmentation comparison is reported as unresolved. |
 | 6 | Table 2 ΔWA ≠ numbers in text | Δ_B (vs CRNN-B) **and** Δ_P (vs +wide photometric), caption states both come from unrounded accuracies | unchanged; every cell is now machine-checked by `cloud/verify_paper_numbers.py` |
-| 7 | "2–4 pp" | → "1.8–3.9 pp below the later attention-based systems" | now 0.6–2.7 pp with line context and 1.8–3.9 pp without it; both are in the text |
+| 7 | "2–4 pp" | → "1.8–3.9 pp below the later attention-based systems" | now stated per system: CRNN-LX is 0.29 pp below Kang 2021, 0.80 pp below AttentionHTR and 1.25 pp **above** Kang 2018; the no-context row is 1.2 pp lower throughout |
 
-Three further corrections found while checking Section 3 against the code:
-morphological perturbation fires with probability **0.15**, not 0.3 (half of
-the 0.3 draws pick a 1×1 no-op kernel); early stopping resets on an
-improvement of validation loss **or** WA; the legacy elastic amplitude is
-0.02–0.04 px RMS per axis (max 0.19 px), measured with the released code at
-64×256.
+Three further corrections found while checking Section 3 against the code,
+and re-checked on 22 September: morphological perturbation is drawn with
+probability **0.3** and a kernel side from {1,2}, and since a 1×1 kernel is a
+no-op the effective rate is 0.15 — §3.4 now says both; early stopping resets
+on an improvement of validation loss **or** WA; and the legacy elastic
+amplitude, measured with the released code at 64×256, has a per-axis RMS
+median of 0.015 px at α=2 and 0.038 px at α=5, never exceeding 0.19 px
+anywhere in the field.
 
 ## Author TODO before submission
 

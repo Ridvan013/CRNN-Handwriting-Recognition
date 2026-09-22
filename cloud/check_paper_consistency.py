@@ -18,8 +18,9 @@ Usage:  python cloud/check_paper_consistency.py
 print('=== structure ===')
 import os
 import re
+from pathlib import Path
 
-os.chdir(r"C:\Users\RIDVAN\Desktop\CRNN\CRNN_1\makale")
+os.chdir(Path(__file__).resolve().parent.parent / "makale")
 s = open("paper.tex", encoding="utf-8").read()
 bib = open("references.bib", encoding="utf-8").read()
 
@@ -64,7 +65,7 @@ import json
 import os
 import re
 
-os.chdir(r"C:\Users\RIDVAN\Desktop\CRNN\CRNN_1")
+os.chdir(Path(__file__).resolve().parent.parent)
 tex = open(os.path.join("makale", "paper.tex"), encoding="utf-8").read()
 tex = re.sub(r"(?m)^%.*$", "", tex)
 
