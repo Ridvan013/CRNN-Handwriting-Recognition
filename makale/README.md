@@ -261,8 +261,8 @@ Two scripts gate the paper; both must print OK before a commit that touches
 
 - `python cloud/verify_paper_numbers.py` — every cell of Tables 2-5, every
   `\newcommand` macro, the counts quoted in the prose, the leakage
-  percentages, the out-of-lexicon counts and the training times, each against
-  its source file.
+  percentages, the out-of-lexicon counts, the character-substitution counts
+  and the training times, each against its source file.
 - `python cloud/check_paper_consistency.py` — labels, references, citations,
   doubled words, and a sweep that traces every per-cent / pp figure in the
   body to a source value or to a difference of two of them.

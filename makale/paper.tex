@@ -82,7 +82,7 @@
 \newcommand{\baselinewa}{83.41\%}      % CRNN-B, final corrector (Table 2 reference)
 \newcommand{\deltawa}{0.39\,pp}        % CRNN-LX minus CRNN-B, final corrector
 \newcommand{\anchordelta}{2.24}        % conventional pipeline removed, pp
-\newcommand{\nsamples}{20{,}310}
+\newcommand{\nsamples}{20\,310}
 
 
 \begin{document}
@@ -553,7 +553,10 @@ entirely, so its crops reach the network with preprocessing only.
 \vspace*{8pt}
 \caption{Augmentation transforms on a training crop. The elastic panel
 uses the corrected amplitude (2\,px RMS); the last panel shows the
-compound elastic$+$morphological effect.}
+compound elastic$+$morphological effect. The parameter values are
+illustrative ones from within the ranges of Section~\ref{sec:aug}; the noise
+panel is labelled in grey levels ($\sigma=15$ of 255), which is the
+$\sigma=0.05$ of Section~\ref{sec:aug} on the normalized scale.}
 \label{fig:augmentation}
 \alttext{Eight versions of the same handwritten word crop, showing the original and seven augmentation transforms applied to it.}
 \end{figure}
@@ -703,7 +706,7 @@ $N=\nsamples$ predicted/reference word pairs. \emph{Word accuracy}
 (WA) is the exact-match rate
 \begin{equation}
 \mathrm{WA} \;=\; \frac{1}{N}\sum_{i=1}^{N}
-      \mathbb{1}\!\left[\hat{y}_i = y_i\right],
+      \mathbf{1}\!\left[\hat{y}_i = y_i\right],
 \label{eq:wa}
 \end{equation}
 and the word error rate (WER) follows as
@@ -730,7 +733,9 @@ boundaries. For $k$ correct predictions out of $N$ and $z=1.96$,
 \qquad \hat{p}=\frac{k}{N}.
 \label{eq:wilson}
 \end{equation}
-With $N=\nsamples$ the half-width of the interval is about 0.55\,pp.
+With $N=\nsamples$ the half-width of the interval is 0.5--0.6\,pp over
+the accuracies reported in this paper: 0.51\,pp at the accuracy of \ours\ and
+0.60\,pp at the lowest figure we report.
 
 \subsection{Significance Testing}
 Two systems evaluated on the same test set produce paired outcomes, so
@@ -1027,8 +1032,8 @@ less than half as often, which is the whole of its advantage.
 \begin{table}[th]
 \tbl{Post-correction with the optical model fixed (\ours\ checkpoint,
 $N=\nsamples$). Every cell applies a different corrector to the \emph{same}
-greedy hypotheses and reports WA (CER) in per cent; the Wilson half-width is
-about 0.55\,pp throughout. Columns: the candidate within the edit bound is
+greedy hypotheses and reports WA (CER) in per cent; the Wilson half-width
+runs from 0.51\,pp in the best cell to 0.58\,pp in the worst. Columns: the candidate within the edit bound is
 chosen by distance alone, by the add-one unigram prior, by the Kneser--Ney
 trigram with the system's own left context, or by the whole-line decoder with
 keep-OOV of Section~\ref{sec:trigram}. Rows: the three lexicons of
@@ -1185,10 +1190,19 @@ dependencies that a CTC output with whole-word post-correction cannot.
 The lower block reports three systems measured on other partitions of
 IAM; \ours\ is above all three and \oursnolm\ above two, but the
 partitions differ in writer overlap and size and we draw no conclusion
-from margins of this size. Our rows in this table are there to situate
+from margins of this size. The row taken from Dutta et
+al.~\cite{dutta2018improving} is HWRCNet's re-training of their network;
+their own figure for it, a 12.61\% word error rate, is measured without
+punctuation or letter case and after synthetic pre-training and test-time
+augmentation, so it is not on the same scale as the case-sensitive
+accuracies listed here. Our rows in this table are there to situate
 the system, not to compete with it: the comparisons this paper controls
-are those of Tables~\ref{tab:main}--\ref{tab:lexicon}, in which one
-ingredient changes at a time and the optical hypotheses are identical.
+are those of Tables~\ref{tab:main}--\ref{tab:wbs}, in which one ingredient
+changes at a time --- the augmentation in Tables~\ref{tab:main}
+and~\ref{tab:seeds}, and the lexicon, the ranking rule or the place it is
+applied in Tables~\ref{tab:lexicon} and~\ref{tab:wbs}, with the optical
+model held fixed and, in Table~\ref{tab:lexicon}, the same greedy
+hypotheses throughout.
 
 \begin{table}[th]
 \tbl{Word-level results on IAM. WA in parentheses is derived as
@@ -1196,8 +1210,8 @@ $1-\mathrm{WER}$ from the cited paper. Lexicon: lexical constraint at
 test time (none = unconstrained decoding; LM = language model without
 a closed lexicon; n/s = not stated). Only \ours\ uses the recognizer's
 outputs for the preceding crops of the line; every other row
-recognizes each word in isolation. Bold marks the best value in each
-column.\label{tab:priorwork}}
+recognizes each word in isolation. Bold marks the best WA and the best
+CER in the table.\label{tab:priorwork}}
 {\begin{tabular}{llccc}
 \toprule
 System & Year & Lexicon & WA (\%) & CER (\%) \\
@@ -1235,8 +1249,12 @@ errors consist of 4\,800 substitutions,
 1\,279 deletions and 441 insertions, so the model
 drops characters far more often than it hallucinates
 them. Fig.~\ref{fig:confusion} shows the ten most frequent
-substitutions: they are mostly symmetric confusions between visually
-similar lower-case glyphs --- \texttt{a}$\leftrightarrow$\texttt{o} (215), \texttt{r}$\leftrightarrow$\texttt{s} (139), \texttt{l}$\leftrightarrow$\texttt{t} (95), \texttt{n}$\leftrightarrow$\texttt{r} (83), \texttt{m}$\leftrightarrow$\texttt{n} (80), \texttt{a}$\leftrightarrow$\texttt{e} (77) --- counting both directions.
+\emph{directed} substitutions. Adding the two directions of each pair, the
+most frequent confusions are between visually similar lower-case glyphs ---
+\texttt{a}$\leftrightarrow$\texttt{o} (215), \texttt{r}$\leftrightarrow$\texttt{s} (139), \texttt{l}$\leftrightarrow$\texttt{t} (95), \texttt{n}$\leftrightarrow$\texttt{r} (83), \texttt{m}$\leftrightarrow$\texttt{n} (80), \texttt{a}$\leftrightarrow$\texttt{e} (77) --- so the same shapes are
+confused in both directions. The figure counts each direction separately, so
+a pair may appear in it twice, once, or --- like
+\texttt{m}/\texttt{n}, with 37 and 43 --- not at all, the tenth entry standing at 44.
 Case substitutions account for 8.2\% of all
 substitutions. The
 confusions themselves are errors of shape, not of vocabulary: a

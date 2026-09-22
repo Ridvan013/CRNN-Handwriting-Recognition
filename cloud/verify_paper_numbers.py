@@ -343,6 +343,25 @@ chk("4.4 hours lo", after("one configuration takes", 1), min(tot), tol=0.05)
 chk("4.4 hours hi", after("one configuration takes", 2), max(tot), tol=0.05)
 chk("4.4 hours total", after("and the six together", 1), sum(tot), tol=0.05)
 
+# ---------------------------------- Section 5.5: the m/n directed counts
+print("== directed substitution counts (Section 5.5)")
+sys.path.insert(0, os.path.join(R, "cloud"))
+from paper_stats_trigram import align_ops                      # noqa: E402
+from collections import Counter                                # noqa: E402
+
+subs = Counter()
+with open("results/preds_final/preds_full.csv", encoding="utf-8", newline="") as f:
+    for row in csv.DictReader(f):
+        _, _, _, prs = align_ops(row["prediction"], row["ground_truth"])
+        subs.update(prs)
+tenth = sorted(subs.values(), reverse=True)[9]
+chk("5.5 m->n", 37.0, float(subs[("m", "n")]), tol=0.5)
+chk("5.5 n->m", 43.0, float(subs[("n", "m")]), tol=0.5)
+chk("5.5 tenth entry", 44.0, float(tenth), tol=0.5)
+for a, b, tot in (("a", "o", 215), ("r", "s", 139), ("l", "t", 95),
+                  ("n", "r", 83), ("m", "n", 80), ("a", "e", 77)):
+    chk(f"5.5 {a}<->{b}", float(tot), float(subs[(a, b)] + subs[(b, a)]), tol=0.5)
+
 print()
 if bad:
     print("MISMATCHES:", len(bad))
