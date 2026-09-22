@@ -23,6 +23,10 @@ What it checks
    in another partition, and the five validation forms we drop do share their
    prompt with a test form (each is the second half of a prompt whose first
    half is in the test partition, written by a different writer).
+4b. Prompt halves: of the 57 prompts that IAM splits into an ``a'' and a ``b''
+   form, only those five have their halves in different partitions, and none
+   of them involves the training partition -- so no prompt is shared between
+   training and test.
 5. Record and image integrity: every record is flagged ``ok``, carries a
    non-empty transcription over the 78-symbol alphabet, and points at a PNG
    that exists and is non-empty.  The two empty training images reported in
@@ -203,6 +207,36 @@ def main() -> int:
             (ok if good else fail)(
                 f"{f} (writer {fw.get(f)}) shares its prompt with test form "
                 f"{best} (writer {fw.get(best)}), overlap {score:.2f}")
+
+    print("== 4b. prompt halves (a/b forms) across partitions")
+    import re as _re
+    owner = {f: pt for pt in PARTS for f in utt[pt]}
+    stems = defaultdict(list)
+    for f in owner:
+        m = _re.match(r"^([a-z]\d\d-\d+)([a-z]?)$", f)
+        if m:
+            stems[m.group(1)].append(f)
+    pairs = {k: sorted(v) for k, v in stems.items() if len(v) > 1}
+    straddle = {k: v for k, v in pairs.items() if len({owner[x] for x in v}) > 1}
+    ok(f"{len(pairs)} prompts are written in two halves; {len(straddle)} of them "
+       f"have their halves in different partitions")
+    bad_pairs = []
+    for k, v in sorted(straddle.items()):
+        parts = {owner[x] for x in v}
+        # train must never share a prompt with validation or test
+        if "train" in parts:
+            bad_pairs.append((k, v))
+            fail(f"{k}: halves in {sorted(parts)} -> " +
+                 ", ".join(f"{x} [{owner[x]}]" for x in v))
+        else:
+            in_kept = [x for x in v if x in kept[owner[x]]]
+            good = len(in_kept) == 1              # we keep only the test half
+            (ok if good else fail)(
+                f"{k}: " + ", ".join(f"{x} [{owner[x]}]" for x in v) +
+                f"; kept: {in_kept}")
+    if not bad_pairs:
+        ok("no prompt is shared between the training partition and either "
+           "of the others")
 
     print("== 5. record and image integrity")
     try:

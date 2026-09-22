@@ -445,7 +445,10 @@ forms whose prompt text also occurs in the test set were removed from
 the validation partition so that checkpoint selection is independent
 of the test prompts; each of them is the second half of a prompt whose
 first half is a test form, written by a different writer, so what
-overlaps is the text and not the hand. The test partition is used exactly
+overlaps is the text and not the hand. IAM writes 57 of its prompts in two
+halves, and these five are the only ones whose halves fall in different
+partitions; none of them involves the training partition, so no prompt is
+shared between training and test. The test partition is used exactly
 as published. This yields 47\,997 training words (two IAM image files are
 empty and are skipped), 7\,205 validation words from 111 forms and 55
 writers, and \nsamples\ test words from all 336 test forms. Writer, prompt
