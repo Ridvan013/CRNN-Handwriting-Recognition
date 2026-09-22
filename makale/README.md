@@ -174,15 +174,25 @@ CRNN-S / CRNN-M no longer appear (their numbers came from the truncated data).
 ## Files
 
 - `paper.tex` — LaTeX source, **IJPRAI journal format** (`ws-ijprai`, single
-  column, 18 pages)
-- `paper_ieee.tex` — the earlier IEEEtran conference version (two column,
-  8 pages), kept for reference. It compiles on its own. Its title is kept in
-  sync, but its body predates the 15 Sept revision below.
+  column, 28 pages)
+- `paper_ieee.tex` — the earlier IEEEtran conference version (two column),
+  kept for reference. It compiles on its own, but its body is the 15 September
+  state: it still reports 80.74 WA with the 239K word-list lexicon as the
+  proposed system. **Do not submit it without updating it** (see the TODO
+  below).
 - `ws-ijprai.cls`, `ws-ijprai.bst` — World Scientific class and bibliography
   style, from the publisher's `ijprai-2e` package
-- `references.bib` — 21 entries (added: Simard 2003, Wigington 2017, Mondal 2022)
-- `generate_figures.py` — regenerates every figure from `Model_abl_*/`
-- `figures/` — 4 vector PDFs
+- `references.bib` — 24 entries, alphabetical through `ws-ijprai.bst`
+- `generate_figures.py` — regenerates every figure from `Model_abl_*/` and
+  `results/*.json`
+- `figures/` — 5 vector PDFs (Figs. 1-5)
+
+Checked by two scripts in `cloud/` (both must print OK before a commit that
+touches the paper) plus two that produce what they check against:
+`verify_paper_numbers.py`, `check_paper_consistency.py`,
+`verify_split.py` (writer/form/prompt disjointness and record integrity,
+Section 3.1) and `count_oov_hypotheses.py` (the out-of-lexicon counts of
+Section 3.5).
 
 ## Figures
 
@@ -235,7 +245,7 @@ fixed: `RWTH Aachen University` printed as the person "R. A. University"
 (needed double braces) and `Arthur Flôr de Sousa Neto` lost its surname
 particle (needed `{de Sousa Neto}` as the family name).
 
-## Paper structure (27 pages, IJPRAI single column)
+## Paper structure (28 pages, IJPRAI single column)
 
 1. **Introduction** — HTR/CTC/word-level concepts, 4 contributions, scope of the claim
 2. **Related Work** — 4 groups, "what we adopt, where we differ"

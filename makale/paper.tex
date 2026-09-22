@@ -265,9 +265,10 @@ setup to detect augmentation-related improvements.
   \item \textbf{A methodological observation on elastic deformation.}
         The common parameterization --- normalized Gaussian-smoothed
         noise scaled by $\alpha\in[2,5]$ --- yields root-mean-square (RMS)
-displacements of only 0.02--0.04 pixels per axis at the working
-resolution and is effectively a no-op; we report the
-        corrected parameterization we used and its effect.
+        displacements of a few hundredths of a pixel per axis at the working
+        resolution, never more than 0.19\,px anywhere, and is effectively a
+        no-op; we report the corrected parameterization we used and its
+        effect.
   \item \textbf{A verified evaluation protocol and full release.}
         Writer-, prompt- and form-level disjointness of the split are
         checked programmatically; all \nsamples\ test words are used;
@@ -283,14 +284,13 @@ test set, which is 1.3\,pp above the 2018 attention baseline and
 0.3--0.8\,pp below the two strongest published word-level systems, which use
 a language model or scene-text pre-training (Table~\ref{tab:priorwork}). What
 the paper contributes is the anatomy of two components those systems rely on
-as well, measured where each can be isolated: a lexical corrector taken
-apart into the lexicon, the ranking rule and the place it is applied, whose
-effects differ by an order of magnitude; an
-augmentation ablation with a positive control and three seeds, which shows
-the effect under study to be smaller than the variation between two runs of
-the same configuration; and a parameterization in common use that turns out
-to leave the image unchanged. None of the three depends on our particular
-network, and each is reported so that it can be re-derived from the released
+as well, measured where each can be isolated. The lexical corrector is taken
+apart into the lexicon, the ranking rule and the place it is applied, and
+those three effects differ by an order of magnitude. The augmentation
+ablation has a positive control and three seeds, and shows the effect under
+study to be smaller than the variation between two runs of the same
+configuration. Finally, a parameterization in common use turns out to leave
+the image unchanged. None of the three depends on our particular network, and each is reported so that it can be re-derived from the released
 per-word predictions.
 
 Section~\ref{sec:related} divides the related literature into four groups
@@ -438,18 +438,20 @@ their measured effects.}
 \label{sec:dataset}
 We use the word-level IAM partition of the Aachen
 split~\cite{aachen_split}: 747 training forms, 116 validation forms
-and 336 test forms with disjoint writer sets (283, 55 and 161 writers
+and 336 test forms with disjoint writer sets (283, 56 and 161 writers
 respectively). Following common practice, only word crops whose
 segmentation is flagged \texttt{ok} are retained. Five validation
 forms whose prompt text also occurs in the test set were removed from
 the validation partition so that checkpoint selection is independent
-of the test prompts; the test partition is used exactly as published.
-This yields 47\,997 training words (two IAM image files are empty and
-are skipped), 7\,205 validation words from 111 forms, and \nsamples\
-test words from all 336 test forms. Writer, prompt and form
-disjointness between the three partitions, as well as the integrity of
-every record and image, are verified by a script distributed with the
-code. The label alphabet contains 78 symbols (upper- and lower-case
+of the test prompts; each of them is the second half of a prompt whose
+first half is a test form, written by a different writer, so what
+overlaps is the text and not the hand. The test partition is used exactly
+as published. This yields 47\,997 training words (two IAM image files are
+empty and are skipped), 7\,205 validation words from 111 forms and 55
+writers, and \nsamples\ test words from all 336 test forms. Writer, prompt
+and form disjointness between the three partitions, the counts just given,
+and the integrity of every record and image are verified by
+\texttt{cloud/verify\_split.py}, distributed with the code. The label alphabet contains 78 symbols (upper- and lower-case
 Latin letters, digits and punctuation), plus the CTC blank.
 
 \subsection{Model Naming}
@@ -513,15 +515,20 @@ so that it never influences which weights are selected.
 
 \subsection{Augmentation}
 \label{sec:aug}
-The baseline (CRNN-B) uses what we call the conventional pipeline: rotation
-($\pm7^\circ$), translation ($\pm5\%$), scaling ($0.9$--$1.1$), shear
-($\pm5^\circ$), brightness and contrast jitter ($0.85$--$1.15$),
-Gaussian noise ($\sigma=0.03$), gamma correction ($0.80$--$1.20$) and
-random erasing. The proposed transforms, which the ablation variants add
-cumulatively, are:
+The baseline (CRNN-B) uses what we call the conventional pipeline. Each
+transform draws its own parameters and its own apply-or-skip decision per
+sample, with the probability given in brackets: rotation ($\pm7^\circ$,
+$[0.6]$), translation ($\pm5\%$, $[0.6]$), scaling ($0.9$--$1.1$, $[0.3]$),
+shear ($\pm5^\circ$, $[0.3]$), brightness and contrast jitter
+($0.85$--$1.15$, $[0.6]$), Gaussian noise ($\sigma=0.03$ of the $[0,1]$
+intensity range, $[0.4]$), gamma correction ($0.80$--$1.20$, $[0.4]$) and
+random erasing of a patch of up to one sixth of each side ($[0.3]$). The
+proposed transforms, which the ablation variants add cumulatively, keep those
+probabilities and are:
 
 \begin{itemlist}
-  \item \textbf{Wide photometric range.} Brightness and contrast
+  \item \textbf{Wide photometric range.} The same three transforms at the
+        same probabilities over wider ranges: brightness and contrast
         $0.70$--$1.35$, gamma $0.70$--$1.30$, noise $\sigma=0.05$.
   \item \textbf{Elastic deformation} (probability $0.5$). A random
         displacement field is smoothed with a Gaussian kernel whose
@@ -531,12 +538,15 @@ cumulatively, are:
         normalization is essential: the frequently used variant that
         multiplies the \emph{unnormalized} blurred noise by
         $\alpha\in[2,5]$~\cite{simard2003best} produces, at the $64\times256$
-working resolution, per-axis RMS displacements of only 0.02--0.04
-pixels (never more than 0.19\,px), i.e.\ it leaves the image visually
-and numerically unchanged. Our own earlier implementation had this property.
-  \item \textbf{Morphological perturbation} (probability $0.15$). The
-crop is eroded or dilated, with equal probability, by a $2\times2$
-kernel, reproducing the difference between a fine and a broad nib.
+working resolution, a per-axis RMS displacement whose median is 0.015\,px at
+$\alpha=2$ and 0.038\,px at $\alpha=5$, and which never exceeds 0.19\,px
+anywhere in the field, i.e.\ it leaves the image visually and numerically
+unchanged. Our own earlier implementation had this property.
+  \item \textbf{Morphological perturbation} (probability $0.3$, with a
+kernel side drawn uniformly from $\{1,2\}$). With a $2\times2$ kernel the
+crop is eroded or dilated with equal probability, reproducing the difference
+between a fine and a broad nib; a $1\times1$ kernel leaves it unchanged, so
+the rate at which the crop is actually perturbed is $0.15$.
 \end{itemlist}
 
 Fig.~\ref{fig:augmentation} illustrates the transforms. All
@@ -574,7 +584,7 @@ words pass through unchanged, so everything the corrector can gain or lose
 is decided among those 2\,724. A candidate $c$ at edit distance $d$ from the hypothesis is
 scored as
 \begin{equation}
-s(c) \;=\; \log P(c \mid h_1, h_2) \;-\; \alpha\, d ,
+s(c) \;=\; \log P(c \mid h_1, h_2) \;-\; \alpha\, d,
 \label{eq:score}
 \end{equation}
 where $P$ is a word-level language model, $h_1 h_2$ are the system's own
@@ -783,9 +793,9 @@ in its largest configuration, 271\,303 types ---
 and that the whole-line decoder returns the same optimum as an
 exhaustive search over all candidate combinations on 400 random line
 layouts. Code, split
-definitions, the split-verification script, the language-model and
-leakage-check scripts, per-word predictions and evaluation scripts are
-available at
+definitions, the split-verification script of Section~\ref{sec:dataset}, the
+language-model and leakage-check scripts, per-word predictions and evaluation
+scripts are available at
 \url{https://github.com/Ridvan013/CRNN-Handwriting-Recognition}
 (branch \texttt{feature/aachen-v3-extended-trigram}); the trained
 weights exceed the repository file-size limit and are distributed
@@ -1391,12 +1401,12 @@ Among the systems of Table~\ref{tab:priorwork}, the recognizer of
 Sueiras et al.~\cite{sueiras2018offline} is the one whose protocol
 matches ours most closely: isolated
 IAM words, the Aachen writer-disjoint partition drawn from the same
-\texttt{ok}-filtered word lists --- the only prior system for which we
-could verify this from the reported partition sizes
-(Section~\ref{sec:res-prior}); we additionally discard two unreadable
-images and five validation forms whose prompts recur in the test
-set --- and lexicon-free word and character error rates on the full
-test partition. Architecturally the two differ in every stage: they extract features from a sliding window
+\texttt{ok}-filtered word lists, and lexicon-free word and character error
+rates on the full test partition. It is also the only prior system for which
+we could verify the partition from the sizes reported for it
+(Section~\ref{sec:res-prior}); on our side we additionally discard two
+unreadable images and five validation forms whose prompts recur in the test
+set. Architecturally the two differ in every stage: they extract features from a sliding window
 of image patches with a LeNet-5-style convolutional network and
 transcribe them with a recurrent encoder--decoder using attention,
 whereas \oursnolm\ is a single convolutional-recurrent network trained

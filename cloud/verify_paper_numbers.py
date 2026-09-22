@@ -343,6 +343,50 @@ chk("4.4 hours lo", after("one configuration takes", 1), min(tot), tol=0.05)
 chk("4.4 hours hi", after("one configuration takes", 2), max(tot), tol=0.05)
 chk("4.4 hours total", after("and the six together", 1), sum(tot), tol=0.05)
 
+# ---------------------------------- Section 3.1: the split, from its files
+print("== the partition (Section 3.1)")
+SPL = os.path.join(R, "aachen_splits")
+
+
+def _forms(path):
+    out = set()
+    for ln in open(path, encoding="utf-8"):
+        if ln.strip() and not ln.startswith("#"):
+            out.add("-".join(ln.split()[0].split("-")[:2]))
+    return out
+
+
+def _records(path):
+    return sum(1 for ln in open(path, encoding="utf-8")
+               if ln.strip() and not ln.startswith("#"))
+
+
+fw = {}
+for ln in open(os.path.join(SPL, "form_writer.txt"), encoding="utf-8"):
+    ln = ln.strip()
+    if ln and not ln.startswith("#") and len(ln.split()) >= 2:
+        fw[ln.split()[0]] = ln.split()[1]
+pub = {p_: set(open(os.path.join(SPL, "splits", p_ + ".uttlist"),
+                   encoding="utf-8").read().split())
+       for p_ in ("train", "validation", "test")}
+kept = {p_: _forms(os.path.join(SPL, p_ + "_words.txt"))
+        for p_ in ("train", "validation", "test")}
+recs = {p_: _records(os.path.join(SPL, p_ + "_words.txt"))
+        for p_ in ("train", "validation", "test")}
+wr = lambda fs: len({fw[f] for f in fs if f in fw})          # noqa: E731
+
+A = "cite{aachen_split}:"
+for i, (name, truth) in enumerate([
+        ("forms train", len(pub["train"])), ("forms val", len(pub["validation"])),
+        ("forms test", len(pub["test"])), ("writers train", wr(pub["train"])),
+        ("writers val", wr(pub["validation"])), ("writers test", wr(pub["test"]))], 1):
+    chk(f"3.1 published {name}", after(A, i), float(truth), tol=0.5)
+for i, (name, truth) in enumerate([
+        ("train words", recs["train"] - 2), ("val words", recs["validation"]),
+        ("val forms", len(kept["validation"])),
+        ("val writers", wr(kept["validation"]))], 1):
+    chk(f"3.1 kept {name}", after("This yields", i), float(truth), tol=0.5)
+
 # ---------------------------------- Section 5.5: the m/n directed counts
 print("== directed substitution counts (Section 5.5)")
 sys.path.insert(0, os.path.join(R, "cloud"))
