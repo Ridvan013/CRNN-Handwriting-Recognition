@@ -16,14 +16,17 @@ Exits non-zero and lists every mismatch, so it can gate a commit.
 
 Usage:  python cloud/verify_paper_numbers.py
 """
+import csv
 import json
 import os
 import re
 import sys
+from math import comb
 from pathlib import Path
 
 R = str(Path(__file__).resolve().parent.parent)
 os.chdir(R)
+BS = chr(92)
 tex = open(os.path.join("makale", "paper.tex"), encoding="utf-8").read()
 FIN = json.load(open("results/ablation_final.json", encoding="utf-8"))
 SEED = json.load(open("results/ablation_final_seeds.json", encoding="utf-8"))
@@ -64,6 +67,24 @@ def num(cell):
     return float(m.group()) if m else None
 
 
+def pval(cell):
+    r"""A p value written as 0.049 or as $1\!\times\!10^{-22}$."""
+    c = cell.replace(BS, "").replace("!", "").replace("$", "").replace(" ", "")
+    m = re.search("([0-9.]+)times10[\\^]+{(-?[0-9]+)}", c)
+    if m:
+        return float(m.group(1)) * 10 ** int(m.group(2))
+    return num(cell)
+
+
+def chk_p(name, paper, truth):
+    """p values are compared on a relative scale: the paper rounds them."""
+    if paper is None:
+        bad.append(f"{name}: not found in the paper")
+        return
+    if truth == 0 or not 0.66 <= paper / truth <= 1.5:
+        bad.append(f"{name}: paper {paper:g} vs source {truth:g}")
+
+
 def pair(cell):
     """'83.80 (7.96)' -> (83.80, 7.96)"""
     m = re.findall(r"\d+\.\d+", cell.replace("\\textbf{", "").replace("}", ""))
@@ -92,8 +113,8 @@ for cells in rows("tab:main"):
         chk(f"T2 {m} dB", num(cells[4]), wa[m] - wa["narrow"])
     if "ref." not in cells[5] and "---" not in cells[5]:
         chk(f"T2 {m} dP", num(cells[5]), wa[m] - wa["photo"])
-    if "ref." not in cells[6] and "times" not in cells[6]:
-        chk(f"T2 {m} p", num(cells[6]), FIN["mcnemar_vs_narrow"][m]["p_value"], tol=0.001)
+    if "ref." not in cells[6]:
+        chk_p(f"T2 {m} p", pval(cells[6]), FIN["mcnemar_vs_narrow"][m]["p_value"])
     h = json.load(open(f"Model_abl_{m}/training_history.json", encoding="utf-8"))
     w = [x * 100 for x in h["val_wa"]]
     b = max(range(len(w)), key=lambda i: w[i])
@@ -121,6 +142,33 @@ for cells in rows("tab:seeds"):
     chk(f"T3 s{seed} CER-B", float(cers[0]), sw[b]["cer_pct"])
     chk(f"T3 s{seed} CER-LX", float(cers[1]), sw[l]["cer_pct"])
 print(f"   {seen} seeds")
+
+print("== Table 3 p column (within-seed McNemar, recomputed)")
+PRED = "results/preds_final_seeds/preds_%s.csv"
+
+
+def correct_by_id(path):
+    with open(path, encoding="utf-8", newline="") as f:
+        return {r["word_id"]: int(r["correct"]) for r in csv.DictReader(f)}
+
+
+def mcnemar(a, b):
+    ids = sorted(a)
+    x = sum(1 for i in ids if a[i] == 1 and b[i] == 0)
+    y = sum(1 for i in ids if a[i] == 0 and b[i] == 1)
+    n, k = x + y, min(x, y)
+    return min(1.0, 2 * sum(comb(n, i) for i in range(k + 1)) / 2 ** n)
+
+
+for cells in rows("tab:seeds"):
+    seed = cells[0].strip()
+    if seed not in PAIRS:
+        continue
+    b, l = PAIRS[seed]
+    A = correct_by_id(PRED % b)
+    B = correct_by_id(PRED % l)
+    chk_p(f"T3 s{seed} p", pval(cells[4]), mcnemar(A, B))
+print("   3 seeds")
 
 # ---------------------------------------------------------------- Table 4
 print("== Table 4 (lexicon x corrector)")
@@ -222,6 +270,40 @@ PROSE = [
 ]
 for phrase, nth, truth in PROSE:
     chk("prose " + repr(phrase[:32]), after(phrase, nth), float(truth), tol=0.5)
+
+# ------------------------------------------- Section 3.5 corpus and leakage
+print("== external corpus and leakage (Section 3.5)")
+BL = json.load(open("results/brown_leakage.json", encoding="utf-8"))
+po = BL["per_order"]
+chk("Brown sentences", after("cite{francis1979brown}", 1),
+    float(BL["brown_sentences"]), tol=0.5)
+chk("Brown tokens (M)", after("cite{francis1979brown}", 2), BL["brown_tokens"] / 1e6, tol=0.005)
+chk("leak 3-gram", after("samples of English are:", 1), po["3"]["pct_in_brown"], tol=0.05)
+chk("leak 4-gram", after("on the test lines and", 1), po["4"]["pct_in_brown"], tol=0.05)
+chk("leak 5-gram", after("Longer ones are not: of the 5-grams", 1),
+    po["5"]["pct_in_brown"], tol=0.005)
+chk("leak 6-gram", after("of the 6-grams", 1), po["6"]["pct_in_brown"], tol=0.005)
+chk("leak IAM 3-gram", after("IAM training lines gives", 1),
+    po["3"]["pct_in_iam_train"], tol=0.05)
+chk("leak IAM 5-gram", after("IAM training lines gives", 2),
+    po["5"]["pct_in_iam_train"], tol=0.005)
+if po["8"]["pct_in_brown"] != 0 or BL["longest_shared_ngram"] != 7:
+    bad.append("leakage: the 8-gram/longest claim no longer holds")
+
+# ------------------------------------------- Section 3.5 / 6.2 OOV counts
+print("== out-of-lexicon counts (Sections 3.5 and 6.2)")
+OO = json.load(open("results/oov_hypotheses.json", encoding="utf-8"))["lexicons"]
+co = OO["corpus vocabulary (57K)"]
+chk("prose OOV hypotheses", after("On the test set", 1),
+    float(co["hypotheses_out_of_lexicon"]), tol=0.5)
+chk("prose OOV share", after("On the test set", 2),
+    co["hypotheses_out_of_lexicon_pct"], tol=0.05)
+chk("prose OOV reachable", after("On the test set", 3),
+    float(co["of_those_with_a_candidate"]), tol=0.5)
+chk("prose 6.2 OOV share", after("the corrector only ever touches", 1),
+    co["hypotheses_out_of_lexicon_pct"], tol=0.05)
+chk("prose word-list changed", after("The corrector of the word-list lexicon changed", 1),
+    float(OO["extended (239K)"]["of_those_with_a_candidate"]), tol=0.5)
 
 print()
 if bad:

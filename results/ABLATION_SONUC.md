@@ -435,7 +435,7 @@ Bulgular:
 
 Tablo 2 ve 3 nihai düzelticiyle yeniden puanlandı (`cloud/ablation_final.py`):
 çapa 81,17; CRNN-B 83,41; photo 83,61; elastic 83,89; morph 83,66;
-CRNN-LX 83,80. Augmentation sonucu değişmedi (+0,39 pp, p=0,050; üç seedde
+CRNN-LX 83,80. Augmentation sonucu değişmedi (+0,39 pp, p=0,049; üç seedde
 +0,39 / −0,45 / +0,66, ortalama +0,20 ± 0,58, eşleştirmeli p=0,61).
 
 Literatür konumu değişti: Kang 2018'in (82,55) **1,25 puan üstünde**,

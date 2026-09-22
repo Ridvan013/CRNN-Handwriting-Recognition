@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 Structural and numerical consistency checks on makale/paper.tex.
 
 Part 1 (structure): every \ref has a \label, every bib entry is cited,
@@ -37,12 +37,15 @@ print("\nbib entries:", len(bibkeys), "| cited:", len(keys))
 print("UNCITED ENTRIES:", sorted(bibkeys - keys) or "none")
 print("MISSING ENTRIES:", sorted(keys - bibkeys) or "none")
 
-# duplicated consecutive words in the prose (typo hunt)
+# duplicated consecutive words in the prose (typo hunt).  Only a real
+# "the the" counts: the two words must be adjacent in the source with
+# nothing but whitespace between them, so that "sequence to sequence"
+# and a table row of "yes & yes" are not reported.
 body = re.sub(r"%.*", "", s)
 body = re.sub(r"\\[a-zA-Z]+\*?(\[[^]]*\])?(\{[^{}]*\})?", " ", body)
-words = re.findall(r"\b[a-zA-Z]{3,}\b", body)
-dups = [(a, i) for i, (a, b) in enumerate(zip(words, words[1:])) if a.lower() == b.lower()]
-print("\nDOUBLED WORDS:", [a for a, _ in dups] or "none")
+body = chr(10).join(ln for ln in body.split(chr(10)) if "&" not in ln)
+dups = re.findall(r"\b([a-zA-Z]{2,})\s+\1\b", body, flags=re.IGNORECASE)
+print(chr(10) + "DOUBLED WORDS:", dups or "none")
 
 # section order and numbering sanity
 print("\nsections:")

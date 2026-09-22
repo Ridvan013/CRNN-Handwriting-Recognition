@@ -43,7 +43,7 @@ Findings:
    (84.13 -> 84.07).
 4. Table 2 and Table 3 were re-scored with the final corrector; the
    augmentation conclusion is unchanged (CRNN-LX - CRNN-B = +0.39 pp,
-   p = 0.050; three seeds: +0.39 / -0.45 / +0.66, mean +0.20 +- 0.58).
+   p = 0.049; three seeds: +0.39 / -0.45 / +0.66, mean +0.20 +- 0.58).
 
 Sources: `results/ablation_final.json`, `results/ablation_final_seeds.json`,
 `results/ablation_lexicon_source.json`, `results/ablation_wbs.json`,

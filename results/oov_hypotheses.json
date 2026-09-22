@@ -1,0 +1,27 @@
+{
+ "n_samples": 20310,
+ "source": "results\\preds_final\\preds_test_variants.csv",
+ "lexicons": {
+  "training (7K)": {
+   "types": 7173,
+   "test_coverage_pct": 84.81,
+   "hypotheses_out_of_lexicon": 4569,
+   "hypotheses_out_of_lexicon_pct": 22.5,
+   "of_those_with_a_candidate": 3381
+  },
+  "extended (239K)": {
+   "types": 239126,
+   "test_coverage_pct": 93.94,
+   "hypotheses_out_of_lexicon": 3260,
+   "hypotheses_out_of_lexicon_pct": 16.05,
+   "of_those_with_a_candidate": 2939
+  },
+  "corpus vocabulary (57K)": {
+   "types": 57382,
+   "test_coverage_pct": 96.36,
+   "hypotheses_out_of_lexicon": 3084,
+   "hypotheses_out_of_lexicon_pct": 15.18,
+   "of_those_with_a_candidate": 2724
+  }
+ }
+}
