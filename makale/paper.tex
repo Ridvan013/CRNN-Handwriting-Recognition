@@ -557,9 +557,12 @@ augmentation is applied on the graphics processing unit (GPU) to whole
 batches at a working
 resolution of $64\times256$ pixels (the median IAM word height is
 68\,px), with independent random parameters per sample, before the
-final resize to $32\times128$; the same code path is used by all six
-configurations. The zero-augmentation anchor bypasses that code path
-entirely, so its crops reach the network with preprocessing only.
+final resize to $32\times128$. All six configurations take this same
+path: the anchor differs from the other five only in that every transform is
+switched off, so its crops are resized, inverted and normalized exactly as
+theirs are and nothing else is done to them. Its deficit in
+Table~\ref{tab:main} therefore cannot be an artefact of a different
+resampling chain.
 
 \begin{figure}[th]
 \centerline{\includegraphics[width=\textwidth]{figures/fig1_augmentation_grid.pdf}}
@@ -1452,12 +1455,15 @@ the conclusion that an effect of this size is not resolvable here.
 The \anchordelta\,pp effect of the conventional pipeline is an order of
 magnitude larger than that resolution limit, so the positive control
 does not depend on the seed in the way the null result does.
-Three corrector effects were measured on all six optical models, and all
-three are stable. With the word-list lexicon, forced replacement against
-the training vocabulary costs $2.4$--$2.7$\,pp and the frequency prior adds
-$1.1$--$1.3$\,pp on each of the six models, and the left-to-right trigram
-adds $0.85$--$0.96$\,pp over that prior on each of them, with $\alpha=7$
-selected on validation every time. The comparison \emph{between} lexicons in
+Three corrector effects were measured on all six optical models, and they
+are not equally stable. Forced replacement against the training vocabulary
+costs the five augmented models $2.4$--$2.7$\,pp of word accuracy, but the
+zero-augmentation anchor only $1.1$\,pp; and the frequency prior on the
+word-list lexicon adds $1.1$--$1.3$\,pp to the five but $2.1$\,pp to the
+anchor. Both terms are thus larger the weaker the optical model is, which is
+what a lexicon should do: it has more to repair. The left-to-right trigram is
+the stable one --- it adds $0.85$--$0.96$\,pp over that prior on every one of
+the six models, with $\alpha=7$ selected on validation each time. The comparison \emph{between} lexicons in
 Table~\ref{tab:lexicon}, on the other hand, was run on one optical model,
 and the six re-scored models of Table~\ref{tab:main} only confirm that the
 final corrector behaves consistently, not that the 2.14\,pp lexicon effect

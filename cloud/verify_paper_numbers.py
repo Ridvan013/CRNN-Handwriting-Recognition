@@ -343,6 +343,37 @@ chk("4.4 hours lo", after("one configuration takes", 1), min(tot), tol=0.05)
 chk("4.4 hours hi", after("one configuration takes", 2), max(tot), tol=0.05)
 chk("4.4 hours total", after("and the six together", 1), sum(tot), tol=0.05)
 
+# ------------------------------- Section 6.4: the per-model corrector ranges
+print("== per-model corrector effects (Section 6.4)")
+A5 = json.load(open("results/ablation_lexicon5_all.json", encoding="utf-8"))
+VI2 = json.load(open("results/ablation_viterbi.json", encoding="utf-8"))
+MODES = ("none", "narrow", "photo", "elastic", "morph", "full")
+per = {}
+for m_ in MODES:
+    c_ = {x["name"]: x["wa_pct"] for x in A5["models"][m_]["configurations"]}
+    per[m_] = {
+        "forced": c_["IAM lexicon, edit only"] - c_["none (greedy CTC)"],
+        "prior": c_["extended lexicon + n-gram"] - c_["extended lexicon, edit only"],
+        "trigram": (VI2["models"][m_]["test"]["KN3-left"]["wa_pct"]
+                    - c_["extended lexicon + n-gram"]),
+        "alpha": VI2["models"][m_]["alpha_left"],
+    }
+aug = [m_ for m_ in MODES if m_ != "none"]
+P6 = "costs the five augmented models"
+chk("6.4 forced lo (five)", after(P6, 1), min(-per[m_]["forced"] for m_ in aug), tol=0.05)
+chk("6.4 forced hi (five)", after(P6, 2), max(-per[m_]["forced"] for m_ in aug), tol=0.05)
+chk("6.4 forced anchor", after("zero-augmentation anchor only", 1),
+    -per["none"]["forced"], tol=0.05)
+P7 = "word-list lexicon adds"
+chk("6.4 prior lo (five)", after(P7, 1), min(per[m_]["prior"] for m_ in aug), tol=0.05)
+chk("6.4 prior hi (five)", after(P7, 2), max(per[m_]["prior"] for m_ in aug), tol=0.05)
+chk("6.4 prior anchor", after("to the five but", 1), per["none"]["prior"], tol=0.05)
+P8 = "it adds"
+chk("6.4 trigram lo (six)", after(P8, 1), min(per[m_]["trigram"] for m_ in MODES), tol=0.005)
+chk("6.4 trigram hi (six)", after(P8, 2), max(per[m_]["trigram"] for m_ in MODES), tol=0.005)
+if {per[m_]["alpha"] for m_ in MODES} != {7.0}:
+    bad.append("6.4: alpha_left is not 7 for every model")
+
 # ---------------------------------- Section 3.1: the split, from its files
 print("== the partition (Section 3.1)")
 SPL = os.path.join(R, "aachen_splits")
