@@ -38,7 +38,7 @@ Findings:
    decoding; letting an out-of-lexicon hypothesis survive turns the same
    lexicon into +2.5 pp.
 3. **In-decoding vs post-hoc is nearly a wash.** At the matched corpus
-   lexicon WBS is 0.33 pp above us in WA (p = 0.014, above our 0.01
+   lexicon WBS is 0.32 pp above us in WA (p = 0.014, above our 0.01
    threshold) and 0.27 pp worse in CER. WBS's own bigram LM adds nothing
    (84.13 -> 84.07).
 4. Table 2 and Table 3 were re-scored with the final corrector; the
@@ -191,8 +191,8 @@ CRNN-S / CRNN-M no longer appear (their numbers came from the truncated data).
 | `fig0_pipeline.pdf` | 1 | End-to-end system diagram; the two ablated stages are starred | drawn |
 | `fig1_augmentation_grid.pdf` | 2 | 8 transforms on one IAM crop ("meeting"), elastic at 2 px RMS | real IAM crop + cv2 |
 | `fig2_training_curves.pdf` | 3 | Validation WA + training loss, **6** configurations | `Model_abl_*/training_history.json` |
-| `fig4_lexicon_decomposition.pdf` | 4 | **Headline finding**: ΔWA vs lexicon size, with and without the unigram frequency prior | `results/ablation_lexicon5_all.json` |
-| `fig3_confusion_topk.pdf` | 5 | Top-10 character substitutions of CRNN-LX | `results/preds_det/preds_full.csv` |
+| `fig4_lexicon_decomposition.pdf` | 4 | **Headline finding**: ΔWA against lexicon-free decoding, one line per lexicon, one point per corrector | `results/ablation_lexicon_source.json` |
+| `fig3_confusion_topk.pdf` | 5 | Top-10 character substitutions of CRNN-LX | `results/preds_final/preds_full.csv` |
 
 Three defects were fixed in this pass: the pipeline box still carried the
 **truncated** split (31.3K/1.6K/5.3K instead of 48.0K/7.2K/20.3K) and marked
@@ -235,27 +235,52 @@ fixed: `RWTH Aachen University` printed as the person "R. A. University"
 (needed double braces) and `Arthur Flôr de Sousa Neto` lost its surname
 particle (needed `{de Sousa Neto}` as the family name).
 
-## Paper structure (8 pages)
+## Paper structure (27 pages, IJPRAI single column)
 
-1. **Introduction** — HTR/CTC/word-level concepts, 4 contributions
+1. **Introduction** — HTR/CTC/word-level concepts, 4 contributions, scope of the claim
 2. **Related Work** — 4 groups, "what we adopt, where we differ"
-3. **Proposed System** — pipeline, data (47,997 / 7,205 / 20,310), naming, model, augmentation (incl. elastic no-op finding), lexicon post-correction (coverage 84.8% / 94.0%)
-4. **Experimental Setup** — WA/CER/Wilson/McNemar (eq. 1–4), reproducibility (local RTX 4070, single seed)
-5. **Results** — augmentation ablation (Table II), lexicon ablation (Table III), prior work with a lexicon column (Table IV), error analysis
-6. **Discussion** — why augmentation doesn't help, coverage vs. the frequency prior, same-protocol comparison with Sueiras et al. 2018 (+2.6 pp lexicon-free, +4.5 pp with lexicon), HWRCNet note, threats to validity
+3. **Proposed System** — pipeline, data (47,997 / 7,205 / 20,310), naming, model,
+   augmentation (incl. the elastic no-op finding), lexical post-correction:
+   three lexicons (7,173 / 239,126 / 57,382 types; coverage 84.8 / 93.9 / 96.4 %),
+   two language models, two line decoders, external-corpus overlap
+4. **Experimental Setup** — WA/CER/Wilson/McNemar (eq. 2–5), reproducibility
+   (local RTX 4070 seed 42; seeds 123/456 on a T4, second author)
+5. **Results** — augmentation ablation (Table 2), seed repeats (Table 3),
+   lexicon x corrector (Table 4), word beam search (Table 5), prior work with a
+   lexicon column (Table 6), error analysis
+6. **Discussion** — why the transforms do not help, which lexicon and where to
+   apply it, same-protocol comparison with Sueiras et al. 2018 (+2.6 pp
+   lexicon-free, +6.7 pp no-context, +7.6 pp with line context), HWRCNet note,
+   threats to validity
 7. **Conclusion**
 
 ## Every number is verifiable
 
+Two scripts gate the paper; both must print OK before a commit that touches
+`paper.tex`:
+
+- `python cloud/verify_paper_numbers.py` — every cell of Tables 2-5, every
+  `\newcommand` macro, the counts quoted in the prose, the leakage
+  percentages, the out-of-lexicon counts and the training times, each against
+  its source file.
+- `python cloud/check_paper_consistency.py` — labels, references, citations,
+  doubled words, and a sweep that traces every per-cent / pp figure in the
+  body to a source value or to a difference of two of them.
+
 | Claim | Source |
 |---|---|
-| Table II (5 configs WA/CER/CI) | `results/ablation_lexicon5_all.json`, row "extended lexicon + n-gram" |
-| Table II McNemar p | `results/ablation_lexicon5_all.json`, key `mcnemar_vs_narrow` (exact binomial on `results/preds_det/preds_<mode>.csv`) |
+| Table 2 (six configs WA/CER/CI/deltas) | `results/ablation_final.json` |
+| Table 2 McNemar p | `results/ablation_final.json`, key `mcnemar_vs_narrow` (exact binomial on `results/preds_final/preds_<mode>.csv`) |
 | best val WA (epoch) | `Model_abl_<mode>/training_history.json` |
-| anchor row (−2.49 pp, p = 2×10⁻²⁷) | `Model_abl_none/`, scored on the same deterministic path |
-| Table III (post-correction ablation) | `results/ablation_lexicon5_all.json`, model `full` |
-| coverage 84.8% / 94.0% | computed from `aachen_splits/{train,test}_words.txt` + NLTK |
-| error analysis counts, Fig. 4 | `results/preds_det/preds_full.csv` (Levenshtein alignment) |
+| anchor row (-2.24 pp, p = 1x10^-22) | `Model_abl_none/`, scored on the same deterministic path |
+| Table 3 (seed repeats) | `results/ablation_final_seeds.json`; its p column is the within-seed McNemar test, recomputed from `results/preds_final_seeds/` by the verifier |
+| Table 4 (3 lexicons x 4 correctors) | `results/ablation_lexicon_source.json`, model `full` |
+| Table 5 (word beam search) | `results/ablation_wbs.json` (reference implementation, beam 25) |
+| coverage 84.8 / 93.9 / 96.4 % | `results/ablation_lexicon_source.json`; recomputed from `aachen_splits/*` + NLTK `words` + `brown` by `cloud/count_oov_hypotheses.py` |
+| out-of-lexicon hypotheses (3,084 = 15.2 %, 2,724 reachable) | `results/oov_hypotheses.json` |
+| error analysis counts, Fig. 3 | `results/paper_stats_final.json` (from `results/preds_final/preds_full.csv`) |
+| Brown overlap with the test lines | `results/brown_leakage.json` |
+| model vocabulary of the trigram (57,382 proposed / 271,303 with the word list) | `cloud/kn_trigram_selftest.py`, printed as `V=` |
 | external systems | read from the cited papers; Sueiras 2018 (WER 23.8 / CER 8.8, lexicon-free) cross-checked in Dutta 2018 Tab. III, Kang 2021 Tab. 7, Kass & Vats 2022 Tab. 5, Mondal 2022 Tab. 1; the "Dutta 77.14" row is HWRCNet's own re-training (Rajesh 2022 Tab. 2), Dutta's own figure is 12.61 % WER |
 
 Full report with all tables: `../results/ABLATION_SONUC.md`.
@@ -286,14 +311,15 @@ improvement of validation loss **or** WA; the legacy elastic amplitude is
 
 ## Author TODO before submission
 
-- [x] `\author{}` block filled: Nur Banu Oğur (corresponding, nbogur@sakarya.edu.tr), Rıdvan Dursun, Berhat Yeşilyurt; Dept. of Software Engineering, Faculty of Computer and Information Sciences, Sakarya University
+- [x] `\author{}` block filled, in this order: Rıdvan Dursun, Berhat Yeşilyurt, Nur Banu Oğur (corresponding, nbogur@sakarya.edu.tr); Dept. of Software Engineering, Faculty of Computer and Information Sciences, Sakarya University
 - [ ] Confirm Berhat's institutional e-mail (derived from the `ad.soyad@ogr.sakarya.edu.tr` pattern, not verified)
 - [ ] Re-verify every bib entry against the publisher page
 - [ ] One English proofreading pass
 - [ ] Decide venue; switch `\documentclass` if needed
-- [x] **Seed repeats** (advisor, 5a): CRNN-B and CRNN-LX with seeds 123 and 456, trained on Kaggle (T4) and scored here with the final corrector — **Table 3** of the paper. The difference changes sign across seeds (+0.32 / −0.49 / +0.78 pp; mean +0.20 ± 0.64, paired p = 0.64) and one configuration spans 1.00 pp, so the augmentation comparison is reported as unresolved. Source: `results/ablation_viterbi_seeds.json`
+- [x] **Seed repeats** (advisor, 5a): CRNN-B and CRNN-LX with seeds 123 and 456, trained on Kaggle (T4) and re-scored here with the final corrector — **Table 3** of the paper. The difference changes sign across seeds (+0.39 / −0.45 / +0.66 pp; mean +0.20 ± 0.58, paired t(2) = 0.60, p = 0.61) and CRNN-LX alone spans 0.77 pp (83.44–84.21), so the augmentation comparison is reported as unresolved. Source: `results/ablation_final_seeds.json`; the per-seed McNemar p values (0.049 / 0.026 / 1×10⁻³) are recomputed from `results/preds_final_seeds/` by the verifier
 - [x] Elastic amplitude in the seed runs confirmed from Berhat's Kaggle logs: both print `Elastic : alpha 1-3  RMS px (fixed)`, i.e. the corrected amplitude, not the legacy no-op. §4 records the check.
-- [ ] Optional: WBS / TTA / ensembling re-evaluated on the full data (removed from the paper; old numbers were from truncated data)
+- [x] **Word beam search** re-evaluated on the full data with the reference implementation and all three lexicons — **Table 5** of the paper (`results/ablation_wbs.json`). TTA and ensembling remain out of the paper; their old numbers came from truncated data and were not re-measured.
+- [ ] Decide what happens to `paper_ieee.tex`: it is the 15 September IEEEtran version and still carries the pre-corpus-lexicon numbers (80.74 WA, 239K lexicon as the proposed system). Either update it or drop it, so that it cannot be submitted by mistake; the header comment of `paper.tex` points at it.
 
 ## Repo
 

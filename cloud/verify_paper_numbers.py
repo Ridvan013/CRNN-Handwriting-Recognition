@@ -214,6 +214,9 @@ for cells in rows("tab:wbs"):
     t = WB["configs"][key]["test"]
     chk(f"T5 {key} WA", num(cells[3]), t["wa_pct"])
     chk(f"T5 {key} CER", num(cells[4]), t["cer_pct"])
+    de = WB["configs"][key].get("dictionary_entries")
+    if de:
+        chk(f"T5 {key} types", num(cells[2]), float(de), tol=0.5)
 print(f"   {seen} rows")
 
 # ---------------------------------------------------------------- macros
@@ -304,6 +307,41 @@ chk("prose 6.2 OOV share", after("the corrector only ever touches", 1),
     co["hypotheses_out_of_lexicon_pct"], tol=0.05)
 chk("prose word-list changed", after("The corrector of the word-list lexicon changed", 1),
     float(OO["extended (239K)"]["of_those_with_a_candidate"]), tol=0.5)
+
+# ------------------------------------- Section 6.2 sums and 6.4 variants
+print("== derived figures in Sections 4.4, 6.2 and 6.4")
+TR, WL, CO = "training (7K)", "extended (239K)", "corpus vocabulary (57K)"
+step = {}
+for lx in (WL, CO):
+    c = L[lx]
+    step[lx] = ((c["unigram prior"]["wa_pct"] - c["edit distance only"]["wa_pct"])
+                + (c["KN3 left-to-right"]["wa_pct"] - c["unigram prior"]["wa_pct"]))
+chk("6.2 rank+context on corpus", after("contribute together (", 1), step[CO], tol=0.005)
+chk("6.2 rank+context on word list", after("contribute together (", 2), step[WL], tol=0.005)
+chk("6.2 edit-only gap", after("for edit distance alone it is", 1),
+    L[CO]["edit distance only"]["wa_pct"] - L[WL]["edit distance only"]["wa_pct"],
+    tol=0.05)
+VI = json.load(open("results/ablation_viterbi.json", encoding="utf-8"))
+vf = VI["models"]["full"]["variants"]
+chk("6.4 real-word variant", after("by a different route (", 1),
+    vf["VIT+rw"]["test"]["wa_pct"], tol=0.005)
+chk("6.4 selected whole-line", after("by a different route (", 2),
+    vf["VIT+oov"]["test"]["wa_pct"], tol=0.005)
+
+import statistics
+med, mx, tot = [], [], []
+for m in ("none", "narrow", "photo", "elastic", "morph", "full"):
+    et = json.load(open(f"Model_abl_{m}/training_history.json",
+                        encoding="utf-8"))["epoch_time_s"]
+    med.append(statistics.median(et))
+    mx.append(max(et))
+    tot.append(sum(et) / 3600)
+chk("4.4 median epoch lo", after("with seed 42, at a median of", 1), min(med), tol=0.5)
+chk("4.4 median epoch hi", after("with seed 42, at a median of", 2), max(med), tol=0.5)
+chk("4.4 slowest epoch", after("single epochs up to", 1), max(mx), tol=0.5)
+chk("4.4 hours lo", after("one configuration takes", 1), min(tot), tol=0.05)
+chk("4.4 hours hi", after("one configuration takes", 2), max(tot), tol=0.05)
+chk("4.4 hours total", after("and the six together", 1), sum(tot), tol=0.05)
 
 print()
 if bad:
