@@ -182,7 +182,7 @@ CRNN-S / CRNN-M no longer appear (their numbers came from the truncated data).
   below).
 - `ws-ijprai.cls`, `ws-ijprai.bst` — World Scientific class and bibliography
   style, from the publisher's `ijprai-2e` package
-- `references.bib` — 24 entries, alphabetical through `ws-ijprai.bst`
+- `references.bib` — 25 entries, alphabetical through `ws-ijprai.bst`
 - `generate_figures.py` — regenerates every figure from `Model_abl_*/` and
   `results/*.json`
 - `figures/` — 5 vector PDFs (Figs. 1-5)
