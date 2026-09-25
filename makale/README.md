@@ -328,7 +328,7 @@ anywhere in the field.
 
 ## Author TODO before submission
 
-- [x] `\author{}` block filled, in this order: Rıdvan Dursun, Berhat Yeşilyurt, Nur Banu Oğur (corresponding, nbogur@sakarya.edu.tr); Dept. of Software Engineering, Faculty of Computer and Information Sciences, Sakarya University
+- [x] `\author{}` block filled, in this order: Rıdvan Dursun, Berhat Yeşilyurt, Nur Banu Oğur Etçioğlu (corresponding, nbogur@sakarya.edu.tr); Dept. of Software Engineering, Faculty of Computer and Information Sciences, Sakarya University
 - [ ] Confirm Berhat's institutional e-mail (derived from the `ad.soyad@ogr.sakarya.edu.tr` pattern, not verified)
 - [ ] Re-verify every bib entry against the publisher page
 - [ ] One English proofreading pass
