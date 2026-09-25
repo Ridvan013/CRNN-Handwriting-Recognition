@@ -295,6 +295,7 @@ Two scripts gate the paper; both must print OK before a commit that touches
 | model vocabulary of the trigram (57,382 proposed / 271,303 with the word list) | `cloud/kn_trigram_selftest.py`, printed as `V=` |
 | whole-line decoder split into joint decoding and keep-OOV (Sec. 5.2) | `results/ablation_keep_oov.json` (`cloud/ablation_keep_oov.py`; re-scores the keep-OOV column at its stored alpha as a reproduction check) |
 | writer-level bootstrap, Sec. 6.4 (+-0.51 word / +-1.07 form / +-1.82 writer) | `results/writer_bootstrap.json` (`cloud/writer_bootstrap.py`) |
+| the same bootstrap on the PAIRED CRNN-B/CRNN-LX difference (+-0.38 word / +-0.40 writer) | `results/writer_bootstrap_paired.json` (`--compare`); the writer term cancels in a paired difference, which is why the tables are unaffected |
 | external systems | read from the cited papers; Sueiras 2018 (WER 23.8 / CER 8.8, lexicon-free) cross-checked in Dutta 2018 Tab. III, Kang 2021 Tab. 7, Kass & Vats 2022 Tab. 5, Mondal 2022 Tab. 1; the "Dutta 77.14" row is HWRCNet's own re-training (Rajesh 2022 Tab. 2), Dutta's own figure is 12.61 % WER |
 
 Full report with all tables: `../results/ABLATION_SONUC.md`.

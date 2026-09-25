@@ -89,6 +89,7 @@ for f in ("ablation_final.json", "ablation_final_seeds.json",
           "ablation_lexicon5_all.json", "ablation_viterbi.json",
           "brown_leakage.json", "mcnemar_left_pair.json",
           "ablation_keep_oov.json", "writer_bootstrap.json",
+          "writer_bootstrap_paired.json", "writer_bootstrap_greedy.json",
           "oov_hypotheses.json"):
     harvest(json.load(open(os.path.join("results", f), encoding="utf-8")))
 for d in ("none", "narrow", "photo", "elastic", "morph", "full"):

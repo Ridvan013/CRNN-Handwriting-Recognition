@@ -692,7 +692,9 @@ $\alpha$ is selected from $\{1,2,3,4,5,7,10,15,20,30\}$, a wider grid
 than the $\{3,5,7,10\}$ of the left-to-right decoder because the line
 objective shifts the useful range. Every selection --- the lexicon,
 $\alpha$, the options and the decoder itself --- is made on the validation
-writers and applied once to the test set. Which decoder wins depends on the
+writers, among the variants compared in Section~\ref{sec:res-lex}, and
+applied once to the test set; one whole-line variant that we scored only
+after that selection is reported there too. Which decoder wins depends on the
 lexicon (Section~\ref{sec:res-lex}), and the whole-line decoder's two
 options are not equally important; Section~\ref{sec:res-lex} scores them
 separately.
@@ -1437,7 +1439,8 @@ transcribe them with a recurrent encoder--decoder using attention,
 whereas \oursnolm\ is a single convolutional-recurrent network trained
 with CTC. Under lexicon-free decoding \oursnolm\ reaches \rawwa\
 against their 76.20\% (23.8\% word error rate), a margin of 2.6\,pp
-that is almost five times the half-width of our confidence interval,
+that is almost five times the half-width of our word-level confidence
+interval (Section~\ref{sec:threats-note}),
 at a slightly lower character error rate (\rawcer\ against 8.80\%).
 Post-correction with the corpus lexicon widens the word-level margin
 to 6.7\,pp without context and
@@ -1474,6 +1477,7 @@ the conclusion that an effect of this size is not resolvable here.
 The \anchordelta\,pp effect of the conventional pipeline is an order of
 magnitude larger than that resolution limit, so the positive control
 does not depend on the seed in the way the null result does.
+
 Three corrector effects were measured on all six optical models, and they
 are not equally stable. Forced replacement against the training vocabulary
 costs the five augmented models $2.4$--$2.7$\,pp of word accuracy, but the
@@ -1488,7 +1492,9 @@ and the six re-scored models of Table~\ref{tab:main} only confirm that the
 final corrector behaves consistently, not that the 2.14\,pp lexicon effect
 has the same size everywhere. The effects are also measured with one
 candidate generator and one edit bound; a different bound would change their
-size, though the ordering of the columns is unlikely to change. The
+size, though the ordering of the columns is unlikely to change.
+
+The
 whole-line decoder has two options and a wider penalty grid, and the
 validation partition does not separate its variants from the left-to-right
 decoder: on the corpus lexicon it ranks the whole-line decoder with forced
@@ -1499,16 +1505,25 @@ rejected (real-word substitution) reaches almost the same test accuracy as
 the one it selected by a different route (81.94\% against 81.95\%) ---
 evidence that the selection is not finely tuned to the test set, but again
 that the validation partition cannot separate such variants.
-The confidence intervals we report treat the test words as independent
-draws. They are not: they come from 161 writers, and per-writer accuracy
-ranges from 33\% to 98\% (SD 9.5\,pp), so errors arrive in blocks. A
-bootstrap that resamples writers instead of words widens the interval of
-\ours\ from $\pm0.51$ to $\pm1.82$\,pp, and one that resamples forms gives
-$\pm1.07$\,pp; a bootstrap over words reproduces the Wilson interval exactly,
-which locates the difference in the clustering rather than in the arithmetic.
-The comparisons in this paper are paired on the same writers, so the writer
-effect largely cancels within them, but generalization to other writers is
-less certain than a single row of Table~\ref{tab:main} suggests.
+
+\label{sec:threats-note}The confidence intervals we report treat the test
+words as independent draws. They are not: they come from 161 writers, and
+per-writer accuracy ranges from 33\% to 98\% (SD 9.5\,pp), so errors arrive
+in blocks. A bootstrap that resamples writers instead of words widens the
+interval of \ours\ from $\pm0.51$ to $\pm1.82$\,pp, and one that resamples
+forms gives $\pm1.07$\,pp; a bootstrap over words reproduces the Wilson
+interval exactly, which locates the difference in the clustering rather than
+in the arithmetic. It does not carry over to the comparisons, because those
+are paired: the same bootstrap applied to the CRNN-B--\ours\ difference gives
+$\pm0.38$\,pp over words and $\pm0.40$\,pp over writers, because both systems
+find the same hands difficult and the writer term cancels in the difference.
+What the clustering does affect is generalization to writers outside this
+partition, which is less certain than a single row of
+Table~\ref{tab:main} suggests. The comparison with published systems in
+Section~\ref{sec:disc-sueiras} lies in between: it is measured on the same
+writers, so the same cancellation should apply, but we cannot confirm it
+without their per-word outputs.
+
 Validation accuracy, which the training loop measures with the unigram
 corrector, exceeds the test accuracy of that same corrector by 4.0 to
 4.7 points, in every configuration; the validation writers are used
@@ -1516,7 +1531,9 @@ for checkpoint selection and are only 55 in number, so this gap is
 expected and does not indicate a fault. The external systems in Table~\ref{tab:priorwork}
 were trained and evaluated by their authors with their own
 preprocessing and, in the lower block, on a different partition; we
-therefore treat only our own runs as a controlled comparison. The corpus
+therefore treat only our own runs as a controlled comparison.
+
+The corpus
 lexicon is the vocabulary of the IAM training lines and of the Brown corpus;
 it contains no IAM test transcription, but it is a closed lexicon built with
 one eye on the domain, and \ours\ should be read as a lexicon-assisted
@@ -1524,6 +1541,7 @@ result. A lexicon assembled from a corpus closer to the target material
 would raise the figure further, and one assembled from a corpus further away
 would lower it; the coverage we report (96.4\% of the test tokens) is the
 number that makes such results comparable.
+
 Two further caveats concern the trigram. Its corpus is external to
 IAM; we measured the verbatim overlap with the test lines
 (Section~\ref{sec:trigram}) and found idioms only, but a corpus with
@@ -1532,9 +1550,7 @@ replacement corpus should be checked the same way. And its context is
 the recognizer's output for the neighbouring crops, which exists
 because IAM word images are cut from lines; on a collection of
 genuinely isolated words the applicable figure is the no-context row
-of Table~\ref{tab:priorwork} (\uniwa), not \ourwa. The edit penalty,
-the decoder and its options were selected on the validation writers
-and applied once to the test set.
+of Table~\ref{tab:priorwork} (\uniwa), not \ourwa.
 
 % ---- 7. Conclusion ------------------------------------------------------
 \section{Conclusion}

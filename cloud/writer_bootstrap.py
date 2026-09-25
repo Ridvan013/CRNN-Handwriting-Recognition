@@ -35,6 +35,12 @@ ROOT = Path(__file__).resolve().parent.parent
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--preds", default="results/preds_final/preds_full.csv")
+    p.add_argument("--column", default="",
+                   help="prediction column to score against ground_truth; "
+                        "default: use the 'correct' column of the file")
+    p.add_argument("--compare", default="",
+                   help="second predictions file; bootstrap the PAIRED "
+                        "difference (this minus --preds) instead of one accuracy")
     p.add_argument("--reps", type=int, default=10000)
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--out", default="results/writer_bootstrap.json")
@@ -65,10 +71,21 @@ def main() -> int:
     by_writer, by_form, flat = defaultdict(list), defaultdict(list), []
     for r in rows:
         form = "-".join(r["word_id"].split("-")[:2])
-        c = int(r["correct"])
+        c = (int(r["correct"]) if not a.column
+             else int(r[a.column] == r["ground_truth"]))
         flat.append(c)
         by_form[form].append(c)
         by_writer[fw[form]].append(c)
+    if a.compare:
+        with open(ROOT / a.compare, encoding="utf-8", newline="") as f:
+            other = {r["word_id"]: int(r["correct"]) for r in csv.DictReader(f)}
+        by_writer, by_form, flat = defaultdict(list), defaultdict(list), []
+        for r in rows:
+            form = "-".join(r["word_id"].split("-")[:2])
+            d = other[r["word_id"]] - int(r["correct"])   # paired, per word
+            flat.append(d)
+            by_form[form].append(d)
+            by_writer[fw[form]].append(d)
     flat = np.asarray(flat)
     n = len(flat)
 
@@ -85,13 +102,18 @@ def main() -> int:
         return round(float(lo), 4), round(float(hi), 4), round(float(hi - lo) / 2, 4)
 
     res = {
-        "preds": a.preds, "n_samples": n, "reps": a.reps, "seed": a.seed,
+        "preds": a.preds, "column": a.column or "correct", "n_samples": n, "reps": a.reps, "seed": a.seed,
         "wa_pct": round(100 * float(flat.mean()), 4),
         "writers": len(by_writer), "forms": len(by_form),
     }
-    wlo, whi = wilson(int(flat.sum()), n)
-    res["wilson"] = {"lo": round(wlo, 4), "hi": round(whi, 4),
-                     "half_width": round((whi - wlo) / 2, 4)}
+    if a.compare:
+        # a Wilson interval is for a proportion; the paired difference is not
+        # one, so only the bootstraps below are meaningful here
+        res["wilson"] = None
+    else:
+        wlo, whi = wilson(int(flat.sum()), n)
+        res["wilson"] = {"lo": round(wlo, 4), "hi": round(whi, 4),
+                         "half_width": round((whi - wlo) / 2, 4)}
     word = flat[rng.integers(0, n, (a.reps, n))].mean(axis=1)
     for name, s in (("word", word), ("form", boot(by_form)), ("writer", boot(by_writer))):
         lo, hi, hw = ci(s)
@@ -104,14 +126,15 @@ def main() -> int:
         "max": round(float(per_writer.max()), 2),
         "sd": round(float(per_writer.std(ddof=1)), 2),
     }
-    res["design_effect"] = round(
-        res["bootstrap_writer"]["half_width"] / res["wilson"]["half_width"], 2)
+    ref = (res["wilson"] or res["bootstrap_word"])["half_width"]
+    res["design_effect"] = round(res["bootstrap_writer"]["half_width"] / ref, 2)
 
     print(f"WA {res['wa_pct']:.2f}%   N={n}   {res['writers']} writers, "
           f"{res['forms']} forms")
-    print(f"  Wilson                     "
-          f"[{res['wilson']['lo']:.2f}, {res['wilson']['hi']:.2f}]  "
-          f"+-{res['wilson']['half_width']:.2f} pp")
+    if res["wilson"]:
+        print(f"  Wilson                     "
+              f"[{res['wilson']['lo']:.2f}, {res['wilson']['hi']:.2f}]  "
+              f"+-{res['wilson']['half_width']:.2f} pp")
     for name in ("word", "form", "writer"):
         e = res[f"bootstrap_{name}"]
         print(f"  bootstrap over {name:<8s}    [{e['lo']:.2f}, {e['hi']:.2f}]  "

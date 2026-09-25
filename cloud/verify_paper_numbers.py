@@ -403,14 +403,19 @@ WB = json.load(open("results/writer_bootstrap.json", encoding="utf-8"))
 chk("6.4 per-writer min", after("ranges from", 1), WB["per_writer_wa_pct"]["min"], tol=0.5)
 chk("6.4 per-writer max", after("ranges from", 2), WB["per_writer_wa_pct"]["max"], tol=0.5)
 chk("6.4 per-writer SD", after("ranges from", 3), WB["per_writer_wa_pct"]["sd"], tol=0.05)
-chk("6.4 wilson half-width", after("widens the interval of", 1),
+chk("6.4 wilson half-width", after("instead of words widens", 1),
     WB["wilson"]["half_width"], tol=0.005)
-chk("6.4 writer half-width", after("widens the interval of", 2),
+chk("6.4 writer half-width", after("instead of words widens", 2),
     WB["bootstrap_writer"]["half_width"], tol=0.02)
-chk("6.4 form half-width", after("widens the interval of", 3),
+chk("6.4 form half-width", after("instead of words widens", 3),
     WB["bootstrap_form"]["half_width"], tol=0.02)
 if abs(WB["bootstrap_word"]["half_width"] - WB["wilson"]["half_width"]) > 0.02:
     bad.append("6.4: the word-level bootstrap no longer reproduces Wilson")
+PB = json.load(open("results/writer_bootstrap_paired.json", encoding="utf-8"))
+chk("6.4 paired, word", after("difference gives", 1),
+    PB["bootstrap_word"]["half_width"], tol=0.02)
+chk("6.4 paired, writer", after("difference gives", 2),
+    PB["bootstrap_writer"]["half_width"], tol=0.02)
 
 # ---------------------------------- Section 3.1: the split, from its files
 print("== the partition (Section 3.1)")
