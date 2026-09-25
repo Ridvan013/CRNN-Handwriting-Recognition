@@ -1,0 +1,36 @@
+{
+  "preds": "results/preds_final/preds_full.csv",
+  "n_samples": 20310,
+  "reps": 10000,
+  "seed": 1,
+  "wa_pct": 83.8011,
+  "writers": 161,
+  "forms": 336,
+  "wilson": {
+    "lo": 83.288,
+    "hi": 84.3014,
+    "half_width": 0.5067
+  },
+  "bootstrap_word": {
+    "lo": 83.2939,
+    "hi": 84.3131,
+    "half_width": 0.5096
+  },
+  "bootstrap_form": {
+    "lo": 82.7092,
+    "hi": 84.8552,
+    "half_width": 1.073
+  },
+  "bootstrap_writer": {
+    "lo": 81.8951,
+    "hi": 85.5315,
+    "half_width": 1.8182
+  },
+  "per_writer_wa_pct": {
+    "min": 33.33,
+    "median": 85.9,
+    "max": 98.39,
+    "sd": 9.52
+  },
+  "design_effect": 3.59
+}

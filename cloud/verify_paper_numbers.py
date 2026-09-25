@@ -198,6 +198,7 @@ WKEY = {("training lexicon", "7"): "WBS Words, 7K",
         ("word-list lexicon", "239"): "WBS Words, 239K",
         ("word-list lexicon $+$ case", "473"): "WBS Words, 239K, case variants",
         ("corpus lexicon", "57"): "WBS Words, corpus vocab",
+        ("corpus lexicon $+$ case", "100"): "WBS Words, corpus vocab, case variants",
         ("corpus text (bigram LM)", "57"): "WBS NGrams, IAM+Brown"}
 ours = LS["lexicons"]["corpus vocabulary (57K)"]["correctors"]["KN3 left-to-right"]["test"]
 seen = 0
@@ -373,6 +374,43 @@ chk("6.4 trigram lo (six)", after(P8, 1), min(per[m_]["trigram"] for m_ in MODES
 chk("6.4 trigram hi (six)", after(P8, 2), max(per[m_]["trigram"] for m_ in MODES), tol=0.005)
 if {per[m_]["alpha"] for m_ in MODES} != {7.0}:
     bad.append("6.4: alpha_left is not 7 for every model")
+
+# ------------------------- Section 5.2: the whole-line decoder, split in two
+print("== whole-line decoder decomposition (Section 5.2)")
+KO = json.load(open("results/ablation_keep_oov.json", encoding="utf-8"))["lexicons"]
+tr, co = KO["training (7K)"], KO["corpus vocabulary (57K)"]
+chk("5.2 joint decoding, training", after("whatever the lexicon:", 1),
+    tr["from_line_decoding_pp"], tol=0.005)
+chk("5.2 joint decoding, corpus", after("whatever the lexicon:", 2),
+    co["from_line_decoding_pp"], tol=0.005)
+chk("5.2 keep-OOV, training", after("is what depends on it", 1),
+    tr["from_keep_oov_pp"], tol=0.005)
+chk("5.2 keep-OOV, corpus", after("is what depends on it", 3),
+    abs(co["from_keep_oov_pp"]), tol=0.005)
+chk("5.2 forced whole-line WA", after("without keep-OOV", 1),
+    co["whole_line_forced"]["test"]["wa_pct"], tol=0.005)
+chk("5.2 forced whole-line CER", after("without keep-OOV", 2),
+    co["whole_line_forced"]["test"]["cer_pct"], tol=0.005)
+vgrid = co["whole_line_forced"]["val_grid"]
+vleft = max(LS["lexicons"]["corpus vocabulary (57K)"]["correctors"]
+            ["KN3 left-to-right"]["val_grid"].values())
+chk("5.2 validation margin", after("without keep-OOV", 3),
+    max(vgrid.values()) - vleft, tol=0.005)
+
+# ------------------------- Section 6.4: the writer-level bootstrap
+print("== writer-level bootstrap (Section 6.4)")
+WB = json.load(open("results/writer_bootstrap.json", encoding="utf-8"))
+chk("6.4 per-writer min", after("ranges from", 1), WB["per_writer_wa_pct"]["min"], tol=0.5)
+chk("6.4 per-writer max", after("ranges from", 2), WB["per_writer_wa_pct"]["max"], tol=0.5)
+chk("6.4 per-writer SD", after("ranges from", 3), WB["per_writer_wa_pct"]["sd"], tol=0.05)
+chk("6.4 wilson half-width", after("widens the interval of", 1),
+    WB["wilson"]["half_width"], tol=0.005)
+chk("6.4 writer half-width", after("widens the interval of", 2),
+    WB["bootstrap_writer"]["half_width"], tol=0.02)
+chk("6.4 form half-width", after("widens the interval of", 3),
+    WB["bootstrap_form"]["half_width"], tol=0.02)
+if abs(WB["bootstrap_word"]["half_width"] - WB["wilson"]["half_width"]) > 0.02:
+    bad.append("6.4: the word-level bootstrap no longer reproduces Wilson")
 
 # ---------------------------------- Section 3.1: the split, from its files
 print("== the partition (Section 3.1)")

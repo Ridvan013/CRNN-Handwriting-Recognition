@@ -693,8 +693,9 @@ than the $\{3,5,7,10\}$ of the left-to-right decoder because the line
 objective shifts the useful range. Every selection --- the lexicon,
 $\alpha$, the options and the decoder itself --- is made on the validation
 writers and applied once to the test set. Which decoder wins depends on the
-lexicon, and the validation partition prefers the left-to-right one once the
-lexicon is the corpus lexicon (Section~\ref{sec:res-lex}).
+lexicon (Section~\ref{sec:res-lex}), and the whole-line decoder's two
+options are not equally important; Section~\ref{sec:res-lex} scores them
+separately.
 
 \paragraph{External corpus.}
 The IAM prompts were taken from the LOB corpus; Brown is a different
@@ -1025,18 +1026,30 @@ $+0.93$.
 The ranking terms are almost the same in both; the lexicon is where the two
 columns part company.
 
-Which decoder is best depends on the lexicon, and that interaction is worth
-stating because it would be easy to report only one half of it. With the
-training lexicon the whole-line decoder with keep-OOV is
-3.77\,pp
-ahead of the left-to-right decoder, since its freedom to keep an unlisted
-hypothesis is exactly what that lexicon needs; with the corpus lexicon it is
-1.03\,pp
-behind it, because when 96.4\% of the tokens are in the lexicon, the same
-freedom mostly preserves errors. The validation partition prefers the correct
-one in both cases, and \ours\ is the combination it selects: the corpus
-lexicon with the left-to-right trigram, \ourwa\ word accuracy and \ourcer\
-character error rate.
+Which decoder is best depends on the lexicon, and the whole-line column of
+Table~\ref{tab:lexicon} changes two things at once: the line is decoded
+jointly \emph{and} an out-of-lexicon hypothesis may be kept. Scored
+separately, the two are very unequal. Joint decoding is worth about the same
+whatever the lexicon: $+0.12$\,pp on the training lexicon and $+0.19$\,pp on
+the corpus lexicon. The freedom not to replace is what depends on it, and it
+changes sign: $+3.65$\,pp on the training lexicon, where 15.2\% of the
+reference tokens are missing and a correct word would otherwise be
+overwritten, but $-1.22$\,pp on the corpus lexicon, where 96.4\% are present
+and the same freedom mostly preserves errors. The two net effects are the
+$+3.77$ and $-1.03$\,pp of Table~\ref{tab:lexicon}, and the mechanism behind
+them is the freedom, not the joint decoding.
+
+\ours\ is the corpus lexicon with the left-to-right trigram: \ourwa\ word
+accuracy and \ourcer\ character error rate. One variant we did not include in
+the selection is worth reporting. The whole-line decoder with forced
+replacement --- joint decoding without keep-OOV --- reaches 83.99\% and
+7.90\% on the test partition, and is 0.21\,pp above the left-to-right decoder
+on the validation partition. Both margins are inside the confidence interval
+of the partition they are measured on (0.51\,pp on test, 0.77\,pp on
+validation), so we report the simpler decoder rather than the nominally
+better one, and we do not claim that these two decoders can be separated at
+this sample size. The difference between them is a tenth of what the lexicon
+is worth.
 
 Per word, that corrector changes 2\,724 of the
 \nsamples\ hypotheses (13.4\%), repairs 1\,216
@@ -1122,7 +1135,12 @@ dictionary also holds the capitalized forms), and with the corpus lexicon
 2.4\,pp to WBS, whereas its language model is worth nothing: adding
 the word bigram model leaves word accuracy at
 84.07\% and raises the character
-error rate.
+error rate. The case variants that help the other two dictionaries do not
+help this one --- they lower it to 83.90\% --- because a vocabulary read off
+running text already holds each word in the case in which it is written, and
+the extra forms only add confusable entries. That is the same property, seen
+from the decoder's side, that makes the corpus lexicon worth 2.14\,pp to our
+post-corrector.
 
 Against our post-corrector the comparison is close. At the matched corpus
 lexicon WBS is 0.32\,pp above \ours\ in
@@ -1159,6 +1177,7 @@ WBS, Words  & training lexicon $+$ case   & 13\,281  & 76.48 & 14.28 \\
 WBS, Words  & word-list lexicon           & 239\,126 & 81.26 & 9.69 \\
 WBS, Words  & word-list lexicon $+$ case  & 473\,717 & 81.70 & 9.24 \\
 WBS, Words  & corpus lexicon              & 57\,382  & \textbf{84.13} & 8.23 \\
+WBS, Words  & corpus lexicon $+$ case     & 100\,761 & 83.90 & 8.31 \\
 WBS, NGrams & corpus text (bigram LM)     & 57\,382  & 84.07 & 8.64 \\
 \colrule
 \ours\ (post-correction) & corpus lexicon & 57\,382 & 83.80 & \textbf{7.96} \\
@@ -1470,13 +1489,26 @@ final corrector behaves consistently, not that the 2.14\,pp lexicon effect
 has the same size everywhere. The effects are also measured with one
 candidate generator and one edit bound; a different bound would change their
 size, though the ordering of the columns is unlikely to change. The
-whole-line decoder has two options and a wider penalty grid, and on the
-corpus lexicon validation rejects it altogether in favour of the
-left-to-right decoder. On the word-list lexicon, where validation did select
-it, the option it rejected (real-word substitution) reaches almost the same
-test accuracy by a different route (81.94\% against 81.95\%) --- evidence
-that the selection is not finely tuned to the test set, but also that the
-validation partition cannot separate such variants.
+whole-line decoder has two options and a wider penalty grid, and the
+validation partition does not separate its variants from the left-to-right
+decoder: on the corpus lexicon it ranks the whole-line decoder with forced
+replacement 0.21\,pp above our choice and the keep-OOV variant 0.75\,pp below
+it, both inside its own 0.77\,pp interval
+(Section~\ref{sec:res-lex}). On the word-list lexicon the option validation
+rejected (real-word substitution) reaches almost the same test accuracy as
+the one it selected by a different route (81.94\% against 81.95\%) ---
+evidence that the selection is not finely tuned to the test set, but again
+that the validation partition cannot separate such variants.
+The confidence intervals we report treat the test words as independent
+draws. They are not: they come from 161 writers, and per-writer accuracy
+ranges from 33\% to 98\% (SD 9.5\,pp), so errors arrive in blocks. A
+bootstrap that resamples writers instead of words widens the interval of
+\ours\ from $\pm0.51$ to $\pm1.82$\,pp, and one that resamples forms gives
+$\pm1.07$\,pp; a bootstrap over words reproduces the Wilson interval exactly,
+which locates the difference in the clustering rather than in the arithmetic.
+The comparisons in this paper are paired on the same writers, so the writer
+effect largely cancels within them, but generalization to other writers is
+less certain than a single row of Table~\ref{tab:main} suggests.
 Validation accuracy, which the training loop measures with the unigram
 corrector, exceeds the test accuracy of that same corrector by 4.0 to
 4.7 points, in every configuration; the validation writers are used

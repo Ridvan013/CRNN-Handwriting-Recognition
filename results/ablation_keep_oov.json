@@ -1,0 +1,147 @@
+{
+  "model": "Model_abl_full",
+  "n_samples": 20310,
+  "topk": 10,
+  "greedy": {
+    "correct": 16011,
+    "n": 20310,
+    "wa_pct": 78.8331,
+    "cer_pct": 8.6001,
+    "wilson_95ci_pct": [
+      78.2659,
+      79.3894
+    ]
+  },
+  "lexicons": {
+    "training (7K)": {
+      "types": 7173,
+      "left_to_right": {
+        "correct": 15752,
+        "n": 20310,
+        "wa_pct": 77.5579,
+        "cer_pct": 10.69,
+        "wilson_95ci_pct": [
+          76.9789,
+          78.1264
+        ]
+      },
+      "keep_oov_reported": {
+        "correct": 16517,
+        "n": 20310,
+        "wa_pct": 81.3245,
+        "cer_pct": 8.3375,
+        "wilson_95ci_pct": [
+          80.7826,
+          81.8545
+        ]
+      },
+      "whole_line_forced": {
+        "alpha": 7.0,
+        "val_grid": {
+          "1.0": 81.5128,
+          "2.0": 81.5822,
+          "3.0": 81.6378,
+          "4.0": 81.6933,
+          "5.0": 81.6933,
+          "7.0": 81.721,
+          "10.0": 81.721,
+          "15.0": 81.721,
+          "20.0": 81.721,
+          "30.0": 81.721
+        },
+        "test": {
+          "correct": 15776,
+          "n": 20310,
+          "wa_pct": 77.676,
+          "cer_pct": 10.6253,
+          "wilson_95ci_pct": [
+            77.0981,
+            78.2435
+          ]
+        }
+      },
+      "whole_line_keep_oov": {
+        "alpha": 4.0,
+        "test": {
+          "correct": 16517,
+          "n": 20310,
+          "wa_pct": 81.3245,
+          "cer_pct": 8.3375,
+          "wilson_95ci_pct": [
+            80.7826,
+            81.8545
+          ]
+        }
+      },
+      "reproduces_paper": true,
+      "jump_total_pp": 3.7666,
+      "from_line_decoding_pp": 0.1181,
+      "from_keep_oov_pp": 3.6485
+    },
+    "corpus vocabulary (57K)": {
+      "types": 57382,
+      "left_to_right": {
+        "correct": 17020,
+        "n": 20310,
+        "wa_pct": 83.8011,
+        "cer_pct": 7.9637,
+        "wilson_95ci_pct": [
+          83.288,
+          84.3014
+        ]
+      },
+      "keep_oov_reported": {
+        "correct": 16811,
+        "n": 20310,
+        "wa_pct": 82.772,
+        "cer_pct": 8.3265,
+        "wilson_95ci_pct": [
+          82.2465,
+          83.2852
+        ]
+      },
+      "whole_line_forced": {
+        "alpha": 10.0,
+        "val_grid": {
+          "1.0": 86.5371,
+          "2.0": 86.9119,
+          "3.0": 87.0784,
+          "4.0": 87.2866,
+          "5.0": 87.3838,
+          "7.0": 87.4809,
+          "10.0": 87.4948,
+          "15.0": 87.467,
+          "20.0": 87.467,
+          "30.0": 87.467
+        },
+        "test": {
+          "correct": 17058,
+          "n": 20310,
+          "wa_pct": 83.9882,
+          "cer_pct": 7.899,
+          "wilson_95ci_pct": [
+            83.4774,
+            84.4861
+          ]
+        }
+      },
+      "whole_line_keep_oov": {
+        "alpha": 2.0,
+        "test": {
+          "correct": 16811,
+          "n": 20310,
+          "wa_pct": 82.772,
+          "cer_pct": 8.3265,
+          "wilson_95ci_pct": [
+            82.2465,
+            83.2852
+          ]
+        }
+      },
+      "reproduces_paper": true,
+      "jump_total_pp": -1.0291,
+      "from_line_decoding_pp": 0.1871,
+      "from_keep_oov_pp": -1.2162
+    }
+  }
+}

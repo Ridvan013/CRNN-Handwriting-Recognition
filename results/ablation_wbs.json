@@ -101,6 +101,22 @@
       },
       "seconds": 218.0,
       "words_per_second": 93.2
+    },
+    "WBS Words, corpus vocab, case variants": {
+      "mode": "Words",
+      "dictionary_entries": 100761,
+      "test": {
+        "correct": 17041,
+        "n": 20310,
+        "wa_pct": 83.9045,
+        "cer_pct": 8.3131,
+        "wilson_95ci_pct": [
+          83.3927,
+          84.4035
+        ]
+      },
+      "seconds": 260.1,
+      "words_per_second": 78.1
     }
   },
   "reference": {
@@ -155,6 +171,11 @@
       "only_ours_correct": 395,
       "only_wbs_correct": 836,
       "p_value": 7.638925131905286e-37
+    },
+    "WBS Words, corpus vocab, case variants": {
+      "only_ours_correct": 383,
+      "only_wbs_correct": 779,
+      "p_value": 1.226542208457927e-31
     }
   }
 }

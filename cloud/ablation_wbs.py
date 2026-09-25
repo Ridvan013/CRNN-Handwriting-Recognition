@@ -154,6 +154,10 @@ def main():
         # dictionary = the vocabulary of the LM corpus, no LM: separates the
         # coverage of that vocabulary from what the bigram LM adds
         ("WBS Words, corpus vocab", "Words", dictionary_corpus(corpus_vocab, False)),
+        # the corpus vocabulary already carries the case people write, but the
+        # other two dictionaries get a case-variant row, so it gets one too
+        ("WBS Words, corpus vocab, case variants", "Words",
+         dictionary_corpus(corpus_vocab, True)),
         ("WBS Words, 7K", "Words", dictionary_corpus(lex_iam.vocabulary, False)),
         ("WBS Words, 7K, case variants", "Words", dictionary_corpus(lex_iam.vocabulary, True)),
         ("WBS Words, 239K", "Words", dictionary_corpus(lex_ext.vocabulary, False)),
@@ -212,9 +216,24 @@ def main():
     if not a.limit:
         ddir = REPO_ROOT / a.dump_preds
         ddir.mkdir(parents=True, exist_ok=True)
-        with open(ddir / "preds_test.csv", "w", newline="", encoding="utf-8") as f:
+        csv_path = ddir / "preds_test.csv"
+        names = list(preds)
+        # --merge must merge the per-word dump too: a run filtered with --only
+        # would otherwise drop the columns of every configuration it skipped.
+        if a.merge and csv_path.exists():
+            with open(csv_path, encoding="utf-8", newline="") as f:
+                prev_rows = list(csv.DictReader(f))
+            if len(prev_rows) == len(refs) and all(
+                    r["ground_truth"] == g for r, g in zip(prev_rows, refs)):
+                kept = [c for c in prev_rows[0]
+                        if c not in ("idx", "ground_truth") and c not in preds]
+                for c in kept:
+                    preds[c] = [r[c] for r in prev_rows]
+                names = kept + names
+            else:
+                print("  ! existing preds_test.csv does not line up; not merged")
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
-            names = list(preds)
             w.writerow(["idx", "ground_truth"] + names)
             for i, g in enumerate(refs):
                 w.writerow([i, g] + [preds[n][i] for n in names])

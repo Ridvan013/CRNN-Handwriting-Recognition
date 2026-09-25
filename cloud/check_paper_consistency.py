@@ -87,7 +87,9 @@ for f in ("ablation_final.json", "ablation_final_seeds.json",
           "ablation_lexicon_source.json", "ablation_wbs.json",
           "paper_stats_final.json", "ablation_trigram.json",
           "ablation_lexicon5_all.json", "ablation_viterbi.json",
-          "brown_leakage.json", "mcnemar_left_pair.json"):
+          "brown_leakage.json", "mcnemar_left_pair.json",
+          "ablation_keep_oov.json", "writer_bootstrap.json",
+          "oov_hypotheses.json"):
     harvest(json.load(open(os.path.join("results", f), encoding="utf-8")))
 for d in ("none", "narrow", "photo", "elastic", "morph", "full"):
     h = json.load(open(f"Model_abl_{d}/training_history.json", encoding="utf-8"))
@@ -102,6 +104,8 @@ for a, b in itertools.combinations(big, 2):
     diffs.add(round(abs(a - b), 2))
 
 KNOWN = {  # numbers that come from the cited literature or the protocol
+    98.0, 33.0,   # per-writer WA range of Sec. 6.4, rounded to whole per cent
+                  # in the prose; checked exactly by verify_paper_numbers.py
     76.2, 82.55, 84.09, 84.6, 8.8, 6.88, 5.79, 6.5, 70.79, 77.14, 80.08, 9.53,
     11.08, 9.89, 12.61, 29.21, 89.05, 23.8, 14.4, 95.0, 1.96, 0.55, 0.05, 0.01,
     100.0, 20310.0, 47997.0, 47999.0, 7205.0, 336.0, 116.0, 747.0, 111.0, 657.0,
