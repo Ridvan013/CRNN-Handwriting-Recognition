@@ -50,6 +50,7 @@
 % results/ablation_keep_oov.json (the whole-line split of Section 5.2),
 % results/oov_hypotheses.json (the out-of-lexicon counts of Section 3.5),
 % results/writer_bootstrap*.json (the clustering bootstraps of Section 6.4),
+% results/wbs_only_breakdown.json (the WBS-only words by cause, Section 5.3),
 % per-word predictions in results/preds_final/ and results/preds_final_seeds/.
 % cloud/verify_paper_numbers.py checks every table cell and macro against
 % these files; cloud/check_paper_consistency.py checks the structure.
@@ -132,7 +133,7 @@ Information Sciences,\\ Sakarya University, 54050 Sakarya, T\"urkiye\\
 \end{history}
 
 \begin{abstract}
-Handwriting varies strongly between writers, which makes word-level
+Handwriting varies between writers, which makes word-level
 recognition hard. We study it on the IAM database under the Aachen
 writer-disjoint protocol, on all \nsamples\ test words. Our system, \ours,
 is a convolutional-recurrent network trained from scratch, followed by a
@@ -142,11 +143,11 @@ text line as context. Two questions are examined. The first concerns the
 post-corrector, usually reported as a single language-model step.
 Decomposing it shows that the lexicon dominates the ranking rule: a lexicon
 read off the language-model corpus (57\,K types) beats a 239\,K-word English
-list by 2.1 points although it is four times smaller, because it holds the
+list by 2.1 points although four times smaller, because it holds the
 proper nouns, inflections and capitalizations people write. Ranking adds
-about a point and line context almost as much, moving accuracy from \rawwa\ to
-\ourwa\ while lowering the character error rate; imposing the same lexicon
-inside the decoder changes little. The second question is whether
+about a point and line context almost as much; the complete corrector moves
+accuracy from \rawwa\ to \ourwa\ while lowering the character error rate,
+and imposing the same lexicon inside the decoder changes little. The second question is whether
 writing-aware augmentation helps. Six configurations differing only in
 augmentation show no detectable gain from elastic, morphological and wide
 photometric transforms, whereas removing the conventional pipeline costs
@@ -212,8 +213,8 @@ which imitates lighter or darker ink and scans. Throughout the paper we
 call these three the \emph{proposed transforms} and everything else the
 \emph{conventional pipeline}. The label is ours rather than a standard:
 there is no agreed set of routine augmentations for handwriting, and some
-prior systems already treat elastic distortion as
-one~\cite{dutta2018improving}. On the lexical side, the post-corrector
+prior systems already train with image distortions as a matter of
+course~\cite{dutta2018improving, wigington2017data}. On the lexical side, the post-corrector
 replaces a recognized word by a lexicon entry within a small edit
 distance and ranks the candidates with a word-level language model; in
 the proposed system that model is a Kneser--Ney trigram conditioned on
@@ -246,7 +247,7 @@ configurations compared. Our contributions are:
         with a worse character error rate. We also find that what makes a
         small lexicon harmful is not its size but the obligation to replace:
         the 7\,K training vocabulary costs
-        1.79\,pp when
+        1.79\,pp with the frequency prior when
         every unlisted hypothesis must be replaced and \emph{gains}
         2.49\,pp
         when the decoder may keep it. The complete corrector moves
@@ -268,8 +269,9 @@ configurations compared. Our contributions are:
 saturation effect rather than with an inability of the experimental
 setup to detect augmentation-related improvements.
   \item \textbf{A methodological observation on elastic deformation.}
-        The common parameterization --- unnormalized Gaussian-smoothed
-        noise scaled by $\alpha\in[2,5]$ --- yields root-mean-square (RMS)
+        Applying the amplitude $\alpha$ to Gaussian-smoothed noise without
+        rescaling the field --- as our own earlier implementation did, with
+        $\alpha\in[2,5]$ --- yields root-mean-square (RMS)
         displacements of a few hundredths of a pixel per axis at the working
         resolution, never more than 0.19\,px anywhere, and is effectively a
         no-op; we report the corrected parameterization we used and its
@@ -287,17 +289,17 @@ words, with no synthetic pre-training, no transfer from scene text and no
 ensembling. With the lexical corrector it reaches \ourwa\ on the Aachen
 test set, which is 1.3\,pp above the 2018 attention model of Kang et
 al.~\cite{kang2018convolve} and
-0.3--0.8\,pp below the two strongest published word-level systems, which use
+0.8--1.1\,pp below the two strongest published word-level systems, which use
 a language model or scene-text pre-training (Table~\ref{tab:priorwork}). What
-the paper contributes is the anatomy of two components those systems rely on
-as well, measured where each can be isolated. The lexical corrector is taken
+the paper contributes is the anatomy of two components that word-level
+recognizers commonly rely on, measured where each can be isolated. The lexical corrector is taken
 apart into the lexicon, the ranking rule and the place it is applied, and
 the largest of those three effects is nearly seven times the smallest. The
 augmentation
 ablation has a positive control and three seeds, and shows the effect under
 study to be smaller than the variation between two runs of the same
-configuration. Finally, a parameterization in common use turns out to leave
-the image unchanged. None of the three depends on our particular network, and each is reported so that it can be re-derived from the released
+configuration. Finally, an elastic parameterization that looks reasonable
+turns out to leave the image unchanged. None of the three depends on our particular network, and each is reported so that it can be re-derived from the released
 per-word predictions.
 
 Section~\ref{sec:related} divides the related literature into four groups
@@ -332,11 +334,12 @@ showed that a one-dimensional bidirectional LSTM (BiLSTM) stacked on a
 convolutional neural network (CNN) feature extractor matches
 multi-dimensional recurrence at a fraction of the cost, defining the
 canonical CRNN baseline that our architecture follows. Bluche and
-Messina~\cite{bluche2017gated} added gated convolutions, and Flor et
+Messina~\cite{bluche2017gated} added gated convolutions, and de Sousa Neto et
 al.~\cite{flor2020htrflor} combined a CNN with a bidirectional gated
 recurrent unit (BGRU) and a language-model pipeline. Wigington et
-al.~\cite{wigington2017data} studied augmentation for CNN-LSTM
-recognizers and reported gains from combined transforms on IAM lines.
+al.~\cite{wigington2017data} augmented word and line images with random
+perturbations on a regular grid, together with a profile normalization,
+and reported substantial gains for a CNN--LSTM recognizer.
 We adopt the CRNN backbone unchanged; our contribution lies in
 measuring, rather than assuming, the effect of the augmentation and of
 the lexical prior.
@@ -348,44 +351,45 @@ recognizers with content-based attention for isolated IAM words.
 Kang et al.~\cite{kang2021candidate} later integrated a language model
 into the decoder itself through candidate fusion, and Kass and
 Vats~\cite{kass2022attentionhtr} combined a residual-network (ResNet)
-encoder,
-attention decoding and transfer learning from scene-text corpora,
-reporting the strongest word-level accuracy on the Aachen split that
-we are aware of. These four systems share our task, metric and split
+encoder, attention decoding and transfer learning from scene-text
+corpora. These four systems share our task, metric and split
 and are listed in Section~\ref{sec:results}. Transformer
 architectures such as TrOCR~\cite{li2023trocr} have since lowered
 line-level error rates further, but require pre-training on hundreds
 of millions of synthetic lines. Multimodal large language models have
 also been benchmarked on IAM~\cite{crosilla2025llmhtr}; those systems
-operate on full pages and rely on proprietary pre-training corpora, so
-they are not comparable to a from-scratch word recognizer.
+transcribe full pages zero-shot on the strength of web-scale
+pre-training, so they are not comparable to a from-scratch word
+recognizer.
 
 \paragraph{Other word-level recognizers on IAM.}
 Dutta et al.~\cite{dutta2018improving} improved a CNN--recurrent
 neural network (RNN) hybrid with synthetic pre-training, slant
 normalization and test-time augmentation and report a 12.61\%
-unconstrained word error rate on IAM words evaluated without
-punctuation or letter case, a setting not on the same footing as a
-case-sensitive recognizer trained from scratch. Rajesh et
-al.~\cite{rajesh2022hwrcnet} re-trained that CNN--RNN together with
-their own HWRCNet, a CNN--BiLSTM operating in the JPEG discrete cosine
-transform (DCT) domain, on a random 95:5 partition of IAM and obtained
-77.14\% and 80.08\% strict word accuracy on uncompressed images; we
-note that their headline figure of 89.05\% is \emph{word accuracy with
-flexibility} of two edit operations rather than strict accuracy.
+unconstrained word error rate on IAM words; because of the test-time
+augmentation, Kang et al.~\cite{kang2021candidate} list that figure as not
+directly comparable, and it is not on the same footing as a recognizer
+trained from scratch that reads each crop once. Rajesh et
+al.~\cite{rajesh2022hwrcnet} proposed HWRCNet, a CNN--BiLSTM operating in
+the JPEG discrete cosine transform (DCT) domain, divided IAM into training
+and test sets in a 95:5 ratio, and obtained 80.08\% strict word accuracy on
+uncompressed images; for that CNN--RNN they list 77.14\% without stating how
+it was obtained. Their headline figure of 89.05\% is \emph{word accuracy
+with flexibility} --- a prediction within two edit operations counts as
+correct --- on DCT-compressed images, not strict accuracy.
 Taking a different route altogether, Mondal et
 al.~\cite{mondal2022yolo} recognize IAM words lexicon-free by detecting
 individual characters with a YOLOv3 object detector, trained on only
 1\,200 word images, and report a 29.21\% word error rate on 30\,000
-randomly selected test words. All three systems use partitions of IAM
-other than ours, a point we return to below.
+randomly selected test words. None of the three is measured under our
+protocol, a point we return to below.
 
 \paragraph{Lexical decoders.}
 Most systems that exploit a vocabulary do so while decoding. Word beam
 search (WBS)~\cite{scheidl2018wbs} injects a dictionary constraint
 directly into CTC beam search, so that only lexicon words can be
 produced; candidate fusion~\cite{kang2021candidate} feeds a language
-model's proposals into an attention decoder; and Flor et
+model's proposals into an attention decoder; and de Sousa Neto et
 al.~\cite{flor2020htrflor} couple the optical model to a
 language-model pipeline. In all of these the lexical knowledge is part
 of decoding and cannot be varied without re-decoding or retraining. We
@@ -407,7 +411,7 @@ al.~\cite{kang2018convolve, kang2021candidate} and Kass and
 Vats~\cite{kass2022attentionhtr} are evaluated on the Aachen
 writer-disjoint partition that we use; the CRNN-family results of
 Rajesh et al.~\cite{rajesh2022hwrcnet} and the detector of Mondal et
-al.~\cite{mondal2022yolo} use their own random partitions of IAM.
+al.~\cite{mondal2022yolo} use partitions of IAM of their own.
 Comparisons across protocols are indicative only; the controlled
 comparisons of this paper are those between our own configurations.
 
@@ -549,13 +553,17 @@ probabilities and are:
         width is $8\%$ of the larger image side, rescaled to unit RMS,
         and multiplied by an amplitude drawn uniformly from $[1,3]$
         pixels; the crop is warped accordingly. The unit-RMS
-        normalization is essential: the frequently used variant that
-        multiplies the \emph{unnormalized} blurred noise by
-        $\alpha\in[2,5]$~\cite{simard2003best} produces, at the $64\times256$
-working resolution, a per-axis RMS displacement whose median is 0.015\,px at
-$\alpha=2$ and 0.038\,px at $\alpha=5$, and which never exceeds 0.19\,px
-anywhere in the field, i.e.\ it leaves the image visually and numerically
-unchanged. Our own earlier implementation had this property.
+        normalization is essential. Elastic distortion as introduced by
+        Simard et al.~\cite{simard2003best} scales a smoothed random field
+        by a factor $\alpha$; applied to the blurred noise \emph{without}
+        rescaling it, the same factor produces a displacement that shrinks
+        as the smoothing widens. Our own earlier implementation did exactly
+        that: with the smoothing width above and $\alpha\in[2,5]$ it
+        produces, at the $64\times256$ working resolution, a per-axis RMS
+        displacement whose median is 0.015\,px at $\alpha=2$ and 0.038\,px
+        at $\alpha=5$, and which never exceeds 0.19\,px anywhere in the
+        field, i.e.\ it leaves the image visually and numerically
+        unchanged.
   \item \textbf{Morphological perturbation} (probability $0.3$, with a
 kernel side drawn uniformly from $\{1,2\}$). With a $2\times2$ kernel the
 crop is eroded or dilated with equal probability, reproducing the difference
@@ -628,7 +636,7 @@ matter more than anything else in the corrector:
 Measured on the test transcriptions, these cover 84.8\%, 93.9\% and 96.4\%
 of the test tokens. The corpus lexicon is four times smaller than the word
 list and yet covers more, because it is built from running text: it contains
-proper nouns (\emph{Evans}, \emph{Malcolm}, \emph{BBC}), inflected and
+proper nouns (\emph{Evans}, \emph{Gavin}, \emph{BBC}), inflected and
 possessive forms, and each of them in the case in which people write it,
 whereas the word list is largely lower-case uninflected entries and spends
 most of its 239\,K types on words that no one in IAM wrote. What is left
@@ -792,7 +800,7 @@ NVIDIA T4 through a hosted notebook service), from the same code
 revision, the same split files --- verified byte-identical apart from
 line endings --- and the same hyperparameters, including the corrected
 elastic amplitude of Section~\ref{sec:aug}, which we checked in the
-run logs of those trainings; only the seed and the hardware differ. The four intermediate configurations were trained
+run logs of those trainings; only the seed and the hardware differ. The other four configurations were trained
 once, and differences smaller than the confidence interval are not
 interpreted. Every number
 reported below comes from evaluation passes in single precision with
@@ -1160,15 +1168,21 @@ word accuracy (84.13 against \ourwa) and
 rate, with 316 words recognized only by \ours\ and
 382 only by WBS; the exact McNemar test gives
 $p=0.014$, above the threshold of
-Section~\ref{sec:experiments}. The two fail differently, though. WBS reaches
-words that lie outside the edit bound of a post-corrector ---
-\emph{Seplemben}~$\rightarrow$~\emph{September},
-\emph{playmright}~$\rightarrow$~\emph{playwright},
-\emph{accoumtant}~$\rightarrow$~\emph{accountant} --- because it never
-commits to the greedy string. Our corrector leaves a hypothesis alone unless a
-lexicon entry lies within two edits, which is why its character error rate
-stays lower. Neither can produce a word the lexicon does not contain, and that
-is what sets the ceiling for both.
+Section~\ref{sec:experiments}. The two fail differently, though. Of the 382
+words that only WBS gets right, 227 were candidates of our corrector that it
+ranked below another lexicon entry (greedy \emph{wich} corrected to
+\emph{with} instead of \emph{which}, \emph{mather} to \emph{rather} instead
+of \emph{mother}): WBS scores the whole output distribution and can separate
+near neighbours that a single greedy string cannot. In 64 more the greedy
+string lies beyond the edit bound (\emph{therooghty} for \emph{thoroughly},
+\emph{neeemary} for \emph{necessary}), in 27 it is itself a lexicon word and
+is left alone, and in 64 the reference is not a token of our lexicon but WBS
+can still assemble it, because it reads its dictionary as runs of letters and
+lets the other characters through unconstrained (\emph{mid-way},
+\emph{forth-}). Our corrector leaves a hypothesis alone unless a lexicon entry
+lies within two edits, which is why its character error rate stays lower.
+Apart from such assemblies, neither can produce a word the lexicon does not
+contain, and that is what sets the ceiling for both.
 
 \begin{table}[th]
 \tbl{Word beam search on the \emph{same} optical model's output
@@ -1222,26 +1236,26 @@ against 76.20\%) at a slightly lower CER (\rawcer\ against 8.80\%);
 with the corpus lexicon the margin is
 7.6\,pp (6.7\,pp
 without line context). \ours\ is
-0.29\,pp below the candidate-fusion model of Kang et
-al.~\cite{kang2021candidate} and 0.80\,pp below
+1.09\,pp below the candidate-fusion model of Kang et
+al.~\cite{kang2021candidate}, which adds a language model to the decoder,
+0.80\,pp below
 AttentionHTR~\cite{kass2022attentionhtr}, which additionally transfers
 knowledge from 14.4\,M scene-text images, and 1.25\,pp
 \emph{above} the attention model of Kang et al.~\cite{kang2018convolve};
 the same optical model decoded with word beam search
-(Section~\ref{sec:res-wbs}) reaches 84.13\%, level with
-Kang et al.~\cite{kang2021candidate}. At character level the gap remains
-(5.79--6.88\% against our 7.96--\rawcer), consistent with the
+(Section~\ref{sec:res-wbs}) reaches 84.13\%, between the last two. At
+character level the gap remains
+(5.74--6.88\% against our 7.96--\rawcer), consistent with the
 autoregressive decoders of those systems modeling inter-character
 dependencies that a CTC output with whole-word post-correction cannot.
 The lower block reports three systems measured on other partitions of
 IAM; \ours\ is above all three and \oursnolm\ above two, but the
-partitions differ in writer overlap and size and we draw no conclusion
-from margins of this size. The row taken from Dutta et
-al.~\cite{dutta2018improving} is HWRCNet's re-training of their network;
-their own figure for it, a 12.61\% word error rate, is measured without
-punctuation or letter case and after synthetic pre-training and test-time
-augmentation, so it is not on the same scale as the case-sensitive
-accuracies listed here. Our rows in this table are there to situate
+partitions differ in composition and size and we draw no conclusion
+from margins of this size. The row for the CNN--RNN of Dutta et
+al.~\cite{dutta2018improving} is the figure HWRCNet lists for it, without
+stating how it was obtained; Dutta et al.'s own figure, a 12.61\% word
+error rate, is measured with test-time augmentation after synthetic
+pre-training and is therefore not listed. Our rows in this table are there to situate
 the system, not to compete with it: the comparisons this paper controls
 are those of Tables~\ref{tab:main}--\ref{tab:wbs}, in which one ingredient
 changes at a time --- the augmentation in Tables~\ref{tab:main}
@@ -1265,22 +1279,30 @@ System & Year & Lexicon & WA (\%) & CER (\%) \\
 \multicolumn{5}{l}{\emph{Aachen writer-disjoint partition ($\approx$20.3\,K test words)}} \\
 Sueiras et al.~\cite{sueiras2018offline}      & 2018 & none & (76.20) & 8.80 \\
 Kang et al.~\cite{kang2018convolve}           & 2018 & none & (82.55) & 6.88 \\
-Kang et al.~\cite{kang2021candidate}          & 2021 & LM   & (84.09) & \textbf{5.79} \\
-Kass and Vats~\cite{kass2022attentionhtr}     & 2022 & none & (\textbf{84.60}) & 6.50 \\
+Kang et al.~\cite{kang2021candidate}\tabmark{a} & 2021 & LM   & (\textbf{84.89}) & \textbf{5.74} \\
+Kass and Vats~\cite{kass2022attentionhtr}     & 2022 & none & (84.60) & 6.50 \\
 \oursnolm\ (ours)                             & 2026 & none & 78.83 & 8.60 \\
 \ours, no context (ours)                      & 2026 & 57\,K corpus $+$ unigram prior & 82.91 & 8.43 \\
 \textbf{\ours} (ours)                         & 2026 & 57\,K corpus $+$ trigram, line context & 83.80 & 7.96 \\
 \oursnolm\ $+$ WBS~\cite{scheidl2018wbs} (ours)     & 2026 & 57\,K corpus, in decoding & 84.13 & 8.23 \\
 \colrule
 \multicolumn{5}{l}{\emph{Other partitions of IAM}} \\
-Mondal et al.~\cite{mondal2022yolo}\tabmark{a}                                    & 2022 & none & (70.79) & 9.53 \\
-CNN--RNN of~\cite{dutta2018improving}, re-trained in~\cite{rajesh2022hwrcnet}\tabmark{b} & 2022 & n/s & (77.14) & 11.08 \\
-Rajesh et al.~\cite{rajesh2022hwrcnet}\tabmark{b}                                 & 2022 & n/s & 80.08 & 9.89 \\
+Mondal et al.~\cite{mondal2022yolo}\tabmark{b}                                    & 2022 & none & (70.79) & 9.53 \\
+CNN--RNN of~\cite{dutta2018improving}, as listed in~\cite{rajesh2022hwrcnet}\tabmark{c} & 2022 & n/s & (77.14) & 11.08 \\
+Rajesh et al.~\cite{rajesh2022hwrcnet}\tabmark{d}                                 & 2022 & n/s & 80.08 & 9.89 \\
 \botrule
 \end{tabular}}
 \begin{tabfootnote}
-\tabmark{a} 30\,K randomly selected test words; 1\,200 training images.\\
-\tabmark{b} Random 95:5 split, writer-dependent, $\approx$5.8\,K test words.
+\tabmark{a} Test-set figures of the candidate-fusion model (Table~8 of the
+preprint, arXiv:1912.10308); the 15.91\% WER sometimes quoted for this work
+is a validation-set ablation. The preprint does not name its IAM
+partition; like~\cite{kass2022attentionhtr} we list it with the Aachen
+results.\\
+\tabmark{b} 30\,K randomly selected test words, writer-independent; 1\,200
+training images.\\
+\tabmark{c} Listed without the partition or training procedure.\\
+\tabmark{d} 95:5 training/test division of IAM; WA as printed in their
+Table~3 (their Table~2 gives a WER of 19.20\%).
 \end{tabfootnote}
 \end{table}
 
@@ -1353,15 +1375,14 @@ disagreements between those configurations are large yet balanced.
 Together these indicate that with 48\,K training words from 283
 writers, the writer-to-writer variation already present in the data
 exceeds what elastic and morphological perturbation of 64-pixel-high
-crops can add on top of affine and photometric jitter. Reports of
-sizeable gains from such augmentation, including our own preliminary
-experiments, came from smaller training sets or from comparisons in
-which augmentation was not the only difference. The result does not
-imply that augmentation is useless for HTR in general --- Wigington et
-al.~\cite{wigington2017data} report gains on lines with a different
-transform family, and our own anchor shows the first increment is
-worth 2.2\,pp --- but it does show that further transforms must be
-measured under controlled conditions before being claimed.
+crops can add on top of affine and photometric jitter. The result does
+not imply that augmentation is useless for HTR in general --- Wigington et
+al.~\cite{wigington2017data} report substantial gains from grid-based
+distortion, a close relative of elastic deformation, in their own setting,
+and our own anchor shows the first increment is worth 2.2\,pp --- but it
+does show that further transforms must be measured under controlled
+conditions, against a baseline that already augments, before being
+claimed.
 
 \subsection{Which Lexicon, and Where to Apply It}
 \label{sec:disc-lex}
@@ -1389,13 +1410,12 @@ the first number to report about a lexicon-assisted result, ahead of its size.
 
 Whether replacement is forced matters next. Our corrector replaces any
 hypothesis outside the lexicon, and with the 7\,K training lexicon that is
-harmful: 77.04\% against
+harmful: 77.04\% with the unigram prior against
 78.83\% for no correction at all, because a correct word that
 the list does not contain is replaced by a wrong one. The whole-line decoder
 may decline to replace, and with the same lexicon it gains
-2.49\,pp instead.
-The earlier reading of these numbers --- that a small lexicon is harmful ---
-was too quick: what is harmful is the obligation to use it.
+2.49\,pp instead. A small lexicon is therefore not harmful in itself; what is
+harmful is the obligation to use it.
 
 The ranking rule does what a ranking rule can. Within a lexicon, replacing
 edit distance by the unigram prior is worth about a point, and replacing the
@@ -1443,19 +1463,19 @@ we could verify the partition from the sizes reported for it
 (Section~\ref{sec:res-prior}); on our side we additionally discard two
 unreadable images and five validation forms whose prompts recur in the test
 set. Architecturally the two differ in every stage: they extract features from a sliding window
-of image patches with a LeNet-5-style convolutional network and
+of image patches with a convolutional network and
 transcribe them with a recurrent encoder--decoder using attention,
 whereas \oursnolm\ is a single convolutional-recurrent network trained
 with CTC. Under lexicon-free decoding \oursnolm\ reaches \rawwa\
 against their 76.20\% (23.8\% word error rate), a margin of 2.6\,pp
-that is almost five times the half-width of our word-level confidence
-interval (Section~\ref{sec:threats-note}),
+that is almost five times the 0.56\,pp half-width of the Wilson interval of
+\oursnolm\ (for the effect of writer clustering on such margins see
+Section~\ref{sec:threats-note}),
 at a slightly lower character error rate (\rawcer\ against 8.80\%).
 Post-correction with the corpus lexicon widens the word-level margin
 to 6.7\,pp without context and
-7.6\,pp with it. Sueiras et al. also report lexicon-constrained variants of
-their recognizer; those depend on the lexicon employed and are not
-compared here. We read the comparison as evidence that a plain CRNN
+7.6\,pp with it. Sueiras et al. also report results constrained by the test
+lexicon; those depend on the lexicon employed and are not compared here. We read the comparison as evidence that a plain CRNN
 trained from scratch on the 48\,K Aachen training words is competitive
 with an early attention model under the same protocol, not as evidence
 about augmentation: the proposed transforms contribute nothing
@@ -1466,9 +1486,9 @@ HWRCNet~\cite{rajesh2022hwrcnet}, the closest system in construction
 (a CNN, a bidirectional LSTM and a CTC layer), reports 80.08\% strict
 word accuracy, 3.72\,pp below \ours\ (2.83\,pp below its no-context
 variant) and 1.25\,pp above \oursnolm. It
-is measured on a random 95:5 partition whose test set is
-writer-dependent and about 3.5 times smaller than ours, so neither
-difference is interpretable.
+is measured on a 95:5 training/test division of IAM rather than on the
+Aachen partition, and the paper does not say whether that division keeps
+writers apart, so neither difference is interpretable.
 
 \subsection{Threats to Validity}
 
@@ -1477,7 +1497,7 @@ training run can resolve: with three seeds the CRNN-B--\ours\
 difference changes sign and averages $+0.20\pm0.58$\,pp
 (Table~\ref{tab:seeds}), so we report the transforms as unresolved
 rather than as small gains. Only the two endpoint configurations were
-repeated; the four intermediate ones were trained once, and their
+repeated; the other four were trained once, and their
 individual $p$-values in Table~\ref{tab:main} therefore carry no more
 weight than the seed-42 row of Table~\ref{tab:seeds} does. The
 repeats also ran on different hardware, so the spread we quote
@@ -1573,8 +1593,8 @@ corpus. Under the same partition and lexicon-free decoding the optical
 model is 2.6\,pp more accurate than the sequence-to-sequence
 recognizer of Sueiras et al.~\cite{sueiras2018offline}; the complete
 system is 1.3\,pp above the 2018 attention recognizer of Kang et
-al.~\cite{kang2018convolve} and 0.3--0.8\,pp below the two strongest
-published systems on this partition; treating the words as isolated, without
+al.~\cite{kang2018convolve} and 0.8--1.1\,pp below the two strongest
+published systems listed for this partition; treating the words as isolated, without
 the line context, costs 0.9\,pp of that. Under controlled conditions, elastic
 deformation, morphological perturbation and a
 widened photometric range produce no statistically detectable change
@@ -1582,8 +1602,9 @@ in these figures --- over three seeds their apparent effect changes
 sign and averages $+0.20\pm0.58$\,pp --- while removing the
 conventional augmentation pipeline beneath them costs
 \anchordelta\,pp, a pattern consistent with the benefit of
-augmentation saturating before the transforms we proposed; a widely used elastic parameterization, moreover, does not
-deform the image at all. The post-correction stage, by contrast, moves
+augmentation saturating before the transforms we proposed; an elastic
+parameterization that applies its amplitude to an unrescaled field, as our
+earlier implementation did, moreover does not deform the image at all. The post-correction stage, by contrast, moves
 accuracy by five points up and nearly two and a half down, and its parts
 are not equally important: the lexicon is worth
 2.1\,pp when it is
@@ -1613,7 +1634,7 @@ augmentation becomes useful in the low-data regime, replace the
 whole-word corrector with a character-level open-vocabulary model to reach
 the 3.6\% of test tokens that the corpus lexicon does not contain, and ask
 how a lexicon should be assembled when the target domain is known, since
-that term dominated everything else we measured.
+that term dominated everything else in the post-correction stage.
 
 
 \section*{Acknowledgments}

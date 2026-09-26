@@ -57,6 +57,7 @@ python cloud/kn_trigram_selftest.py       # the trigram sums to one; back-off an
 python cloud/viterbi_selftest.py          # the whole-line decoder equals exhaustive search
 python cloud/count_oov_hypotheses.py      # the out-of-lexicon counts of Section 3.5
 python cloud/writer_bootstrap.py          # the writer-level bootstrap of Section 6.4
+python cloud/wbs_only_breakdown.py        # why WBS gets right what CRNN-LX misses (Section 5.3)
 ```
 
 `verify_paper_numbers.py` compares the paper against the result files and

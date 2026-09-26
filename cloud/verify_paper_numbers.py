@@ -271,6 +271,10 @@ PROSE = [
     ("pair,", 1, pw["full|narrow"]["only_narrow"]),
     ("pair,", 2, pw["full|narrow"]["only_full"]),
     ("only by the baseline against", 1, pw["narrow|none"]["only_none"]),
+    ("word-list lexicon changed", 1, cf["reference_changed"]),
+    ("word-list lexicon changed", 2, cf["reference_fixed"]),
+    ("word-list lexicon changed", 3, cf["reference_broken"]),
+    ("16.2\\%. Only", 1, ea["case_only"]),
 ]
 for phrase, nth, truth in PROSE:
     chk("prose " + repr(phrase[:32]), after(phrase, nth), float(truth), tol=0.5)
@@ -489,6 +493,104 @@ chk("5.5 tenth entry", 44.0, float(tenth), tol=0.5)
 for a, b, tot in (("a", "o", 215), ("r", "s", 139), ("l", "t", 95),
                   ("n", "r", 83), ("m", "n", 80), ("a", "e", 77)):
     chk(f"5.5 {a}<->{b}", float(tot), float(subs[(a, b)] + subs[(b, a)]), tol=0.5)
+
+# ----------------- Section 5.1: the CRNN-B / CRNN-LX pair under four correctors
+print("== the endpoint pair under four correctors (Section 5.1)")
+LP = json.load(open("results/mcnemar_left_pair.json", encoding="utf-8"))["mcnemar_full_vs_narrow"]
+U5 = A5["mcnemar_vs_narrow"]["full"]
+VL = VI2["mcnemar_vs_narrow"]["full"]
+P51 = "the\nunigram prior on the word-list lexicon gives"
+chk("5.1 unigram delta", after(P51, 1), round(U5["delta_wa_pp"], 2))
+chk_p("5.1 unigram p", after(P51, 2), U5["p_value"])
+chk("5.1 trigram delta", after("the trigram on that lexicon", 1), round(LP["delta_wa_pp"], 2))
+chk_p("5.1 trigram p", after("the trigram on that lexicon", 2), LP["p_value"])
+chk("5.1 whole-line delta", after("its whole-line\nvariant", 1), round(VL["delta_wa_pp"], 2))
+chk_p("5.1 whole-line p", after("its whole-line\nvariant", 2), VL["p_value"])
+if not all(d["delta_wa_pp"] > 0 and d["p_value"] >= 0.01 for d in (U5, LP, VL)):
+    bad.append("5.1: 'the sign never changes and the threshold is never crossed' fails")
+
+# ---------- Section 5.3: why WBS gets right what CRNN-LX gets wrong
+print("== the WBS-only words by cause (Section 5.3)")
+WO = json.load(open("results/wbs_only_breakdown.json", encoding="utf-8"))
+WC = WO["only_wbs_by_cause"]
+P53 = "The two fail differently, though. Of the"
+chk("5.3 only-WBS total", after(P53, 1), WO["only_wbs_correct"], tol=0.5)
+chk("5.3 ranked lower", after(P53, 2), WC["ranked_lower"], tol=0.5)
+chk("5.3 beyond bound", after("near neighbours that a single greedy string cannot. In", 1),
+    WC["beyond_bound"], tol=0.5)
+chk("5.3 in lexicon", after("\\emph{neeemary} for \\emph{necessary}), in", 1),
+    WC["in_lexicon"], tol=0.5)
+chk("5.3 assembled", after("is left alone, and in", 1), WC["reference_not_in_lexicon"], tol=0.5)
+EX = {k: {(h, r) for h, r, _ in v} for k, v in WO["examples"].items()}
+for key, pairs in (("ranked_lower", [("wich", "which"), ("mather", "mother")]),
+                   ("beyond_bound", [("therooghty", "thoroughly"), ("neeemary", "necessary")]),
+                   ("reference_not_in_lexicon", [("mid-way", "mid-way"), ("forth-", "forth-")])):
+    for p_ in pairs:
+        if p_ not in EX[key]:
+            bad.append(f"5.3 example {p_} is not in category {key}")
+
+# ------------------------------------ Table 6 and the prose built on it
+print("== published systems (Table 6, Sections 1, 5.4, 6.3, 7)")
+# (WER, CER) on the IAM test set, as printed in the primary source:
+LIT = {
+    "sueiras2018offline": (23.80, 8.80),   # Sueiras et al. 2018; also Kang 2021 Tab. 7
+    "kang2018convolve": (17.45, 6.88),     # Kang et al. 2018; also Kass & Vats Tab. 5
+    # Kang et al. 2021, candidate fusion LM, TEST set: Table 8 of arXiv:1912.10308.
+    # Not the 5.79 / 15.91 pair of Kass & Vats Tab. 5: 15.91 is Kang's Table 5,
+    # a VALIDATION-set ablation.
+    "kang2021candidate": (15.11, 5.74),
+    "kass2022attentionhtr": (15.40, 6.50),  # AttentionHTR, case-sensitive, Tab. 5
+    "mondal2022yolo": (29.21, 9.53),        # Mondal et al. 2022
+    "as listed in": (22.86, 11.08),         # CNN-RNN row of Rajesh et al. Tab. 2
+    # HWRCNet: WA 80.08 and CER 9.89 from its Tab. 3 (normal images). Its
+    # Tab. 2 prints WER 19.20, which would be WA 80.80; the paper uses the
+    # WA printed directly and says so in footnote d.
+    "rajesh2022hwrcnet}\\tabmark{d}": (100 - 80.08, 9.89),
+}
+T6 = rows("tab:priorwork")
+for key, (wer, cer) in LIT.items():
+    hit = [r for r in T6 if key in r[0]]
+    if len(hit) != 1:
+        bad.append(f"Table 6: {len(hit)} rows match {key!r}")
+        continue
+    chk(f"Table 6 {key} WA", num(hit[0][3]), 100 - wer)
+    chk(f"Table 6 {key} CER", num(hit[0][4]), cer)
+flat = re.sub(r"\s+", " ", tex)
+
+
+def before(pattern):
+    """The number written immediately before `pattern` (a regex)."""
+    m = re.search(r"(\d+(?:\.\d+)?)(?:\\,pp)?\s*" + pattern, flat)
+    return float(m.group(1)) if m else None
+
+
+LX, G, NC, WBSWA = 83.80, 78.83, 82.91, 84.13
+A = {k: 100 - v[0] for k, v in LIT.items()}
+chk("5.4 below candidate fusion", before(r"below the candidate-fusion"),
+    round(A["kang2021candidate"] - LX, 2))
+chk("5.4 below AttentionHTR", before(r"below AttentionHTR"),
+    round(A["kass2022attentionhtr"] - LX, 2))
+chk("5.4 above Kang 2018", before(r"\\emph\{above\} the attention model"),
+    round(LX - A["kang2018convolve"], 2))
+chk("5.4 Sueiras lexicon-free margin", before(r"more accurate \(\\rawwa"),
+    round(G - A["sueiras2018offline"], 1), tol=0.05)
+chk("5.4 CER range lo", after("At\ncharacter level the gap remains", 1),
+    min(v[1] for k, v in LIT.items() if k.startswith(("kang", "kass"))))
+chk("5.4 CER range hi", after("At\ncharacter level the gap remains", 2),
+    max(v[1] for k, v in LIT.items() if k.startswith(("kang", "kass"))))
+top2 = sorted((A["kang2021candidate"], A["kass2022attentionhtr"]))
+for where, phrase in (("1 scope", "al.~\\cite{kang2018convolve} and\n"),
+                      ("7 conclusion", "al.~\\cite{kang2018convolve} and ")):
+    chk(f"{where}: below strongest lo", after(phrase, 1), round(top2[0] - LX, 1), tol=0.05)
+    chk(f"{where}: below strongest hi", after(phrase, 2), round(top2[1] - LX, 1), tol=0.05)
+chk("6.3 HWRCNet below LX", before(r"below \\ours\\ \(2\.83"),
+    round(LX - A["rajesh2022hwrcnet}\\tabmark{d}"], 2))
+chk("6.3 HWRCNet below no-context", before(r"below its no-context"),
+    round(NC - A["rajesh2022hwrcnet}\\tabmark{d}"], 2))
+chk("6.3 HWRCNet above CRNN-G", before(r"above \\oursnolm\. It"),
+    round(A["rajesh2022hwrcnet}\\tabmark{d}"] - G, 2))
+if not (A["kass2022attentionhtr"] > WBSWA > A["kang2018convolve"]):
+    bad.append("5.4: WBS is no longer between AttentionHTR and Kang 2018")
 
 print()
 if bad:

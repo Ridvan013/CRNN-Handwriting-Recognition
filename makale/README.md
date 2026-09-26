@@ -3,8 +3,8 @@
 **Headline:** **CRNN-LX** reaches **83.80% word accuracy** (Wilson 95% CI
 [83.29%, 84.30%], **CER 7.96%**) on the **complete** IAM Aachen
 writer-disjoint test set (N = 20,310 words, 336 forms, 161 unseen writers).
-That is 1.3 pp above Kang et al. 2018 (82.55), 0.29 pp below Kang et al. 2021
-(84.09) and 0.80 pp below AttentionHTR (84.60) — with a plain CRNN trained
+That is 1.3 pp above Kang et al. 2018 (82.55), 1.09 pp below Kang et al. 2021
+(84.89, candidate fusion LM) and 0.80 pp below AttentionHTR (84.60) — with a plain CRNN trained
 from scratch, no synthetic pre-training, no transfer and no ensembling.
 
 The corrector: the **corpus lexicon** (57,382 types = the vocabulary of the
@@ -296,8 +296,9 @@ Two scripts gate the paper; both must print OK before a commit that touches
 | model vocabulary of the trigram (57,382 proposed / 271,303 with the word list) | `cloud/kn_trigram_selftest.py`, printed as `V=` |
 | whole-line decoder split into joint decoding and keep-OOV (Sec. 5.2) | `results/ablation_keep_oov.json` (`cloud/ablation_keep_oov.py`; re-scores the keep-OOV column at its stored alpha as a reproduction check) |
 | writer-level bootstrap, Sec. 6.4 (+-0.51 word / +-1.07 form / +-1.82 writer) | `results/writer_bootstrap.json` (`cloud/writer_bootstrap.py`) |
+| the 382 words only WBS gets right, by cause (Sec. 5.3: 227 ranked lower / 64 beyond the edit bound / 27 greedy string in the lexicon / 64 assembled by WBS from letter runs and free punctuation) | `results/wbs_only_breakdown.json` (`cloud/wbs_only_breakdown.py`) |
 | the same bootstrap on the PAIRED CRNN-B/CRNN-LX difference (+-0.38 word / +-0.40 writer) | `results/writer_bootstrap_paired.json` (`--compare`); the writer term cancels in a paired difference, which is why the tables are unaffected |
-| external systems | read from the cited papers; Sueiras 2018 (WER 23.8 / CER 8.8, lexicon-free) cross-checked in Dutta 2018 Tab. III, Kang 2021 Tab. 7, Kass & Vats 2022 Tab. 5, Mondal 2022 Tab. 1; the "Dutta 77.14" row is HWRCNet's own re-training (Rajesh 2022 Tab. 2), Dutta's own figure is 12.61 % WER |
+| external systems | read from the cited papers; Sueiras 2018 (WER 23.8 / CER 8.8, lexicon-free) cross-checked in Dutta 2018 Tab. III, Kang 2021 Tab. 7, Kass & Vats 2022 Tab. 5, Mondal 2022 Tab. 1. Kang 2021 = candidate fusion LM on the test set, CER 5.74 / WER 15.11 (Table 8 of arXiv:1912.10308); the 5.79 / 15.91 pair quoted in Kass & Vats Tab. 5 mixes a test CER with a validation-set WER (Kang's Tab. 5). The "Dutta 77.14" row is the figure HWRCNet lists for that network (Rajesh 2022 Tab. 2) without saying how it was obtained; Dutta's own figure is 12.61 % WER with test-time augmentation. All literature values are checked in `cloud/verify_paper_numbers.py` (`LIT`) |
 
 Full report with all tables: `../results/ABLATION_SONUC.md` (a dated working log, written in Turkish; `cloud/ABLATION_REHBER.md` is the matching Turkish how-to for the ablation scripts). Everything a reader needs in English is in the paper and in the scripts themselves.
 

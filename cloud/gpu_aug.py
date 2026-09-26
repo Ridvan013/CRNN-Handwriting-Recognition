@@ -93,14 +93,16 @@ ELASTIC_LEGACY_AMPLITUDE = True
 def configure_elastic(alpha_lo: float, alpha_hi: float, legacy_amplitude: bool) -> None:
     """Set how strong the elastic deformation is.
 
-    legacy_amplitude=True  : alpha multiplies the *normalised* Gaussian-blurred
-        noise exactly as ``_elastic_deform`` did.  Because a normalised blur of
-        unit noise has an RMS of only ~0.01-0.02, alpha in [2,5] yields
-        displacements of about 0.05-0.1 px RMS -- i.e. the original transform
-        is almost a no-op.  Kept for faithful reproduction.
+    legacy_amplitude=True  : alpha multiplies the Gaussian-blurred noise
+        without rescaling it, exactly as ``_elastic_deform`` did.  Blurring
+        with a kernel this wide averages the noise almost to zero, so at
+        64x256 and alpha in [2,5] the per-axis RMS displacement has a median
+        of 0.015 px (alpha=2) to 0.038 px (alpha=5) and never exceeds
+        0.19 px: the original transform is a no-op (paper, Section 3.4).
+        Kept for faithful reproduction.
     legacy_amplitude=False : the blurred field is rescaled to unit RMS per
-        sample, so alpha is the RMS displacement *in pixels*.  alpha in [1,3]
-        is comparable to Simard et al. (2003) at this text height.
+        sample, so alpha is the RMS displacement *in pixels*; the paper uses
+        alpha in [1,3].
     """
     global ELASTIC_ALPHA, ELASTIC_LEGACY_AMPLITUDE
     ELASTIC_ALPHA = (float(alpha_lo), float(alpha_hi))
