@@ -597,7 +597,7 @@ chk("5.4 below AttentionHTR", before(r"below AttentionHTR"),
     round(A["kass2022attentionhtr"] - LX, 2))
 chk("5.4 above Kang 2018", before(r"\\emph\{above\} the attention model"),
     round(LX - A["kang2018convolve"], 2))
-chk("5.4 Sueiras lexicon-free margin", before(r"more accurate \(\\rawwa"),
+chk("5.4 Sueiras lexicon-free margin", before(r"more accurate than the recognizer of Sueiras"),
     round(G - A["sueiras2018offline"], 1), tol=0.05)
 chk("5.4 CER range lo", after("At\ncharacter level the gap remains", 1),
     min(v[1] for k, v in LIT.items() if k.startswith(("kang", "kass"))))
@@ -605,7 +605,7 @@ chk("5.4 CER range hi", after("At\ncharacter level the gap remains", 2),
     max(v[1] for k, v in LIT.items() if k.startswith(("kang", "kass"))))
 top2 = sorted((A["kang2021candidate"], A["kass2022attentionhtr"]))
 for where, phrase in (("1 scope", "al.~\\cite{kang2018convolve} and\n"),
-                      ("7 conclusion", "attention recognizer of Kang et\nal.~\\cite{kang2018convolve} and ")):
+                      ("7 conclusion", "system is 1.3\\,pp above the latter and ")):
     chk(f"{where}: below strongest lo", after(phrase, 1), round(top2[0] - LX, 1), tol=0.05)
     chk(f"{where}: below strongest hi", after(phrase, 2), round(top2[1] - LX, 1), tol=0.05)
 chk("6.3 HWRCNet below LX", before(r"below \\ours\\ \(2\.83"),
@@ -614,6 +614,14 @@ chk("6.3 HWRCNet below no-context", before(r"below its no-context"),
     round(NC - A["Rajesh et al.~\\cite{rajesh2022hwrcnet}"], 2))
 chk("6.3 HWRCNet above CRNN-G", before(r"above \\oursnolm\. It"),
     round(A["Rajesh et al.~\\cite{rajesh2022hwrcnet}"] - G, 2))
+chk("6.3 CRNN-G below Kang 2018", before(r"less accurate without a lexicon"),
+    round(A["kang2018convolve"] - G, 2))
+chk("6.3 CRNN-G below Kang 2018 (closing)", before(r"below the second"),
+    round(A["kang2018convolve"] - G, 2))
+# partition sizes: Kang et al. 2018, Sec. 4.1 of the GCPR paper (ok-filtered
+# RWTH Aachen partition): 47,981 / 20,305 / 7,554 words
+for n_, v_ in enumerate((47981, 20305, 7554), 1):
+    chk(f"5.4 Kang 2018 partition size {n_}", after("state the same partition and filtering and report", n_), v_, tol=0.5)
 if not (A["kass2022attentionhtr"] > WBSWA > A["kang2018convolve"]):
     bad.append("5.4: WBS is no longer between AttentionHTR and Kang 2018")
 
