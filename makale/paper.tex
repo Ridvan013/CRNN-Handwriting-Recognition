@@ -256,9 +256,8 @@ configurations compared. Our contributions are:
         the trigram with line context a further
         0.89\,pp,
         and word beam search --- the same lexicon imposed inside the decoder
-        --- ends 0.32\,pp away
-        ($p=0.014$),
-        with a worse character error rate. We also find that what makes a
+        --- ends 0.32\,pp higher, which is not significant at our threshold
+        ($p=0.014$), with a worse character error rate. We also find that what makes a
         small lexicon harmful is not its size but the obligation to replace:
         the 7\,K training vocabulary costs
         1.79\,pp with the frequency prior when
@@ -504,8 +503,8 @@ lexicon; \ours\ is that same model followed by the corpus-lexicon
 post-corrector of Section~\ref{sec:trigram}, whose candidates are ranked by
 the trigram with the system's own left context, and is the configuration we
 propose. The suffixes denote the
-post-processing rather than the augmentation, which turns out not to
-matter (Section~\ref{sec:res-aug}). The first row is
+post-processing rather than the augmentation, since the proposed transforms
+turn out not to matter (Section~\ref{sec:res-aug}). The first row is
 the zero-augmentation anchor: it has the conventional pipeline switched
 off as well, and exists so that the ablation can distinguish ``the
 proposed transforms add nothing'' from ``this pipeline cannot detect
@@ -562,8 +561,8 @@ shear ($\pm5^\circ$, $[0.3]$), brightness and contrast jitter
 ($0.85$--$1.15$, $[0.6]$), Gaussian noise ($\sigma=0.03$ of the $[0,1]$
 intensity range, $[0.4]$), gamma correction ($0.80$--$1.20$, $[0.4]$) and
 random erasing of a patch of up to one sixth of each side ($[0.3]$). The
-proposed transforms, which the ablation variants add cumulatively, keep those
-probabilities and are:
+proposed transforms, which the ablation variants add cumulatively while the
+conventional ones keep their probabilities, are:
 
 \begin{itemlist}
   \item \textbf{Wide photometric range.} The same three transforms at the
@@ -666,9 +665,11 @@ most of its 239\,K types on words that no one in IAM wrote. What the corpus
 lexicon leaves uncovered is rare lower-case words (39\% of the uncovered test
 tokens, e.g.\ \emph{codex}, \emph{papyrus}), capitalized forms, mostly proper
 nouns (34\%), and strings containing hyphens, digits or apostrophes (27\%). \ours\ uses the corpus
-lexicon; that choice, like every other in this section, was made on the
-validation partition (Section~\ref{sec:res-lex}). No lexicon is built from
-test transcriptions.
+lexicon; that choice, like the decoder, its options and its edit penalty, was
+made on the validation partition (Section~\ref{sec:res-lex}), whereas the
+edit bound, the discount of the trigram and the $\alpha=5$ of the unigram
+prior below are fixed in advance. No lexicon is built from test
+transcriptions.
 
 \paragraph{Language model.}
 Two models are compared. The \emph{unigram frequency prior} ignores the
@@ -868,8 +869,8 @@ The conventional pipeline matters. Removing it costs \anchordelta\,pp
 words are recognized only by the baseline against 848 only by the
 anchor, and the exact McNemar test rejects equality at
 $p=1\times10^{-22}$. Without a lexicon the same comparison is wider
-still, 78.77 against 74.33\% ($-4.44$\,pp), so part of the weaker
-optical model is masked by the post-corrector.
+still, 78.77 against 74.33\% ($-4.44$\,pp), so the post-corrector masks
+part of the anchor's weaker optical model.
 
 The proposed transforms do not provide a statistically detectable
 improvement. The five configurations that keep the conventional pipeline
@@ -1036,8 +1037,8 @@ lexicon by 2.14\,pp
 fewer types, and it does so in every column. The reason is coverage of the
 words people actually wrote: 96.4\% against 93.9\%, because a lexicon read
 off running text contains the proper nouns, the inflected and possessive
-forms and the capitalizations that a dictionary list omits, and spends none
-of its entries on words that never occur. Coverage, in turn, is what the
+forms and the capitalizations that a dictionary list omits, and every one of
+its entries is a word that occurs in running text. Coverage, in turn, is what the
 corrector can reach at all: the 3.6\% of test tokens outside the corpus
 lexicon can only be got right by leaving them alone.
 
@@ -1087,7 +1088,7 @@ and the same freedom mostly preserves errors. The two net effects are the
 $+3.77$ and $-1.03$\,pp of Table~\ref{tab:lexicon}, and the mechanism behind
 them is the freedom, not the joint decoding.
 
-\ours\ is the corpus lexicon with the left-to-right trigram: \ourwa\ word
+\ours\ uses the corpus lexicon with the left-to-right trigram: \ourwa\ word
 accuracy and \ourcer\ character error rate. One variant we did not include in
 the selection is worth reporting. The whole-line decoder with forced
 replacement --- joint decoding without keep-OOV --- reaches 83.99\% and
@@ -1291,7 +1292,7 @@ al.~\cite{dutta2018improving} is the figure HWRCNet lists for it, without
 stating how it was obtained; Dutta et al.'s own figure, a 12.61\% word
 error rate, is measured with test-time augmentation after synthetic
 pre-training and is therefore not listed. Our rows in this table are there to situate
-the system, not to compete with it: the comparisons this paper controls
+the system among published results, not to rank it: the comparisons this paper controls
 are those of Tables~\ref{tab:main}--\ref{tab:wbs}, in which one ingredient
 changes at a time --- the augmentation in Tables~\ref{tab:main}
 and~\ref{tab:seeds}, and the lexicon, the ranking rule or the place it is
@@ -1409,7 +1410,7 @@ fully augmented model reaches a slightly higher training loss --- so
 they do regularize further, but the baseline is no longer overfitting
 in a way that costs accuracy on unseen writers. Third, the per-word
 disagreements between those configurations are large yet balanced.
-Together these indicate that with 48\,K training words from 283
+Together these suggest that with 48\,K training words from 283
 writers, the writer-to-writer variation already present in the data
 exceeds what elastic and morphological perturbation of 64-pixel-high
 crops can add on top of affine and photometric jitter. The result does
@@ -1445,8 +1446,9 @@ does not, and pays for its size with confusable neighbors --- at
 consequence is that the coverage of the lexicon on the target vocabulary is
 the first number to report about a lexicon-assisted result, ahead of its size.
 
-Whether replacement is forced matters next. Our corrector replaces any
-hypothesis outside the lexicon, and with the 7\,K training lexicon that is
+Whether replacement is forced matters next. Our left-to-right corrector
+replaces every hypothesis outside the lexicon that has a candidate within
+the edit bound, and with the 7\,K training lexicon that is
 harmful: 77.04\% with the unigram prior against
 78.83\% for no correction at all, because a correct word that
 the list does not contain is replaced by a wrong one. The whole-line decoder
@@ -1608,8 +1610,8 @@ lexicon is the vocabulary of the IAM training lines and of the Brown corpus;
 it contains no IAM test transcription, but it is a closed lexicon built with
 one eye on the domain, and \ours\ should be read as a lexicon-assisted
 result. A lexicon assembled from a corpus closer to the target material
-would raise the figure further, and one assembled from a corpus further away
-would lower it; the coverage we report (96.4\% of the test tokens) is the
+can be expected to raise the figure, and one assembled from a corpus further
+away to lower it; the coverage we report (96.4\% of the test tokens) is the
 number that makes such results comparable.
 
 Two further caveats concern the trigram. Its corpus is external to
@@ -1635,8 +1637,8 @@ model lies between two sequence-to-sequence recognizers, 2.6\,pp above that
 of Sueiras et al.~\cite{sueiras2018offline} and 3.7\,pp below the 2018
 attention recognizer of Kang et al.~\cite{kang2018convolve}; the complete
 system is 1.3\,pp above the latter and 0.8--1.1\,pp below the two strongest
-published systems listed for this partition; treating the words as isolated, without
-the line context, costs 0.9\,pp of that. Under controlled conditions, elastic
+published systems listed for this partition; without the line context, that
+is for genuinely isolated words, it loses 0.9\,pp. Under controlled conditions, elastic
 deformation, morphological perturbation and a
 widened photometric range produce no statistically detectable change
 in these figures --- over three seeds their apparent effect changes
@@ -1645,8 +1647,9 @@ conventional augmentation pipeline beneath them costs
 \anchordelta\,pp, a pattern consistent with the benefit of
 augmentation saturating before the transforms we proposed; an elastic
 parameterization that applies its amplitude to an unrescaled field, as our
-earlier implementation did, moreover does not deform the image at all. The post-correction stage, by contrast, moves
-accuracy by five points up and nearly two and a half down, and its parts
+earlier implementation did, moreover does not deform the image at all. The
+post-correction stage, by contrast, moves accuracy, depending on its
+configuration, by up to five points up and nearly two and a half down, and its parts
 are not equally important: the lexicon is worth
 2.1\,pp when it is
 read off the language-model corpus instead of a dictionary list, the ranking
