@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# Ablation egitimleri - yerel calistirma
+# Augmentation ablation trainings - local run
 #
-# Kullanim:
-#   bash run_ablation.sh              # ana iki konfigurasyon (narrow, full)
-#   bash run_ablation.sh main         # ayni sey
+# Usage:
+#   bash run_ablation.sh              # the two endpoint configurations (narrow, full)
+#   bash run_ablation.sh main         # the same
 #   bash run_ablation.sh components   # photo, elastic, morph
-#   bash run_ablation.sh all          # besi birden
-#   bash run_ablation.sh full         # tek bir mod
+#   bash run_ablation.sh all          # all six, including the zero-augmentation anchor
+#   bash run_ablation.sh full         # a single mode
 #
-# Her mod ~3-4 saat surer. Loglar logs/ altina yazilir.
-# BUTUN konfigurasyonlar AYNI makinede calistirilmali (ortam tutarliligi).
+# One mode took 0.9-1.5 hours on the RTX 4070 Laptop GPU of the paper.
+# Logs are written under logs/. Train ALL configurations on the SAME machine
+# (environment consistency).
 set -u
 
-# Git Bash'te "python" PATH'te olmayabilir; sirayla dene.
+# In Git Bash "python" may not be on PATH; try the candidates in turn.
 if [ -z "${PY:-}" ]; then
   for c in python python3 py     "/c/Users/$USERNAME/AppData/Local/Programs/Python/Python313/python.exe"     "/c/Users/$USERNAME/AppData/Local/Programs/Python/Python312/python.exe"; do
     command -v "$c" >/dev/null 2>&1 && { PY="$c"; break; }
@@ -25,29 +26,29 @@ BATCH="${BATCH:-128}"
 LR="${LR:-7e-4}"
 PATIENCE="${PATIENCE:-15}"
 GPU_AUG="${GPU_AUG:-1}"
-ELASTIC_LEGACY="${ELASTIC_LEGACY:-1}"     # 1: orijinal genlik (~no-op)  0: alpha = RMS px
-ELASTIC_ALPHA="${ELASTIC_ALPHA:-2 5}"     # ornek: ELASTIC_LEGACY=0 ELASTIC_ALPHA="1 3"
+ELASTIC_LEGACY="${ELASTIC_LEGACY:-0}"     # 0 (paper): alpha = RMS px   1: earlier no-op amplitude
+ELASTIC_ALPHA="${ELASTIC_ALPHA:-1 3}"     # paper setting; the earlier code used "2 5" with ELASTIC_LEGACY=1
 
 case "${1:-main}" in
   main)        MODES="narrow full" ;;
   components)  MODES="photo elastic morph" ;;
-  all)         MODES="narrow full photo elastic morph" ;;
+  all)         MODES="none narrow full photo elastic morph" ;;
   *)           MODES="$1" ;;
 esac
 
-# Python pipe'a yazarken tamponlar; tee ile ilerleme gorunmez olur.
+# Python buffers its output when writing to a pipe; progress would not show through tee.
 export PYTHONUNBUFFERED=1
 export PYTHONIOENCODING=utf-8
 
 mkdir -p logs
 
 echo "=============================================================="
-echo " Split dogrulamasi"
+echo " Split verification"
 echo "=============================================================="
-"$PY" verify_aachen_splits.py || { echo "DOGRULAMA BASARISIZ - egitim baslatilmadi"; exit 1; }
+"$PY" verify_aachen_splits.py || { echo "VERIFICATION FAILED - training not started"; exit 1; }
 
 echo
-echo "Calistirilacak modlar: $MODES"
+echo "Modes to run: $MODES"
 echo "epochs=$EPOCHS batch=$BATCH lr=$LR patience=$PATIENCE"
 echo
 
@@ -58,7 +59,7 @@ for m in $MODES; do
   echo "=============================================================="
   echo " --aug-mode $m   ->  $DIR"
   echo " log: $LOG"
-  echo " baslangic: $(date '+%H:%M:%S')"
+  echo " start: $(date '+%H:%M:%S')"
   echo "=============================================================="
   T0=$(date +%s)
   "$PY" cloud/v3_augmented_train.py \
@@ -68,9 +69,9 @@ for m in $MODES; do
   RC=${PIPESTATUS[0]}
   T1=$(date +%s)
   if [ "$RC" -ne 0 ]; then
-    echo ">>> $m BASARISIZ (cikis $RC), sonraki moda geciliyor"
+    echo ">>> $m FAILED (exit $RC), moving on to the next mode"
   else
-    echo ">>> $m tamamlandi - $(( (T1-T0)/60 )) dakika"
+    echo ">>> $m finished - $(( (T1-T0)/60 )) minutes"
   fi
   echo
 done
@@ -83,11 +84,11 @@ if [ -f "Model_abl_full/best_model_wa.pth" ]; then
       --model Model_abl_full/best_model_wa.pth \
       --out results/ablation_lexicon.json 2>&1 | tee logs/ablation_lexicon.log
 else
-  echo "Model_abl_full/best_model_wa.pth yok - atlandi (once 'full' modunu egit)"
+  echo "Model_abl_full/best_model_wa.pth missing - skipped (train the 'full' mode first)"
 fi
 
 echo
 echo "=============================================================="
-echo " OZET   (toplam $(( ($(date +%s)-START_ALL)/60 )) dakika)"
+echo " SUMMARY   (total $(( ($(date +%s)-START_ALL)/60 )) minutes)"
 echo "=============================================================="
 "$PY" cloud/summarize_ablation.py

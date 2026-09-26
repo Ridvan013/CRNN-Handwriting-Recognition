@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -85,6 +86,20 @@ def main() -> int:
               f"  out of lexicon {e['hypotheses_out_of_lexicon']:>5,}"
               f" ({e['hypotheses_out_of_lexicon_pct']:.2f}%)"
               f"  reachable {e['of_those_with_a_candidate']:>5,}")
+
+    # What the corpus lexicon leaves uncovered (Sections 3.5 and 6.2).
+    lex = lexicons["corpus vocabulary (57K)"]
+    unc = [w for w in refs if w not in lex.vocabulary and w.lower() not in lex.vocabulary_lower]
+    kinds = {"non_letter": [w for w in unc if re.search(r"[^A-Za-z]", w)]}
+    kinds["capitalized"] = [w for w in unc if w not in kinds["non_letter"] and w[:1].isupper()]
+    kinds["lower_case"] = [w for w in unc if w not in kinds["non_letter"] and not w[:1].isupper()]
+    out["corpus_uncovered_tokens"] = {
+        "n": len(unc),
+        "by_kind": {k: len(v) for k, v in kinds.items()},
+        "by_kind_pct": {k: round(100 * len(v) / len(unc), 1) for k, v in kinds.items()},
+        "examples": {k: v[:25] for k, v in kinds.items()},
+    }
+    print("uncovered by the corpus lexicon:", out["corpus_uncovered_tokens"]["by_kind"])
 
     OUT.write_text(json.dumps(out, indent=1), encoding="utf-8")
     print(f"-> {OUT.relative_to(ROOT)}")

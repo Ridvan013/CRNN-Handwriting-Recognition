@@ -509,6 +509,29 @@ chk_p("5.1 whole-line p", after("its whole-line\nvariant", 2), VL["p_value"])
 if not all(d["delta_wa_pp"] > 0 and d["p_value"] >= 0.01 for d in (U5, LP, VL)):
     bad.append("5.1: 'the sign never changes and the threshold is never crossed' fails")
 
+# ---------- Section 3.5: what the corpus lexicon leaves uncovered
+OO = json.load(open("results/oov_hypotheses.json", encoding="utf-8"))["corpus_uncovered_tokens"]
+P35 = "rare lower-case words ("
+chk("3.5 uncovered lower-case %", after(P35, 1), OO["by_kind_pct"]["lower_case"], tol=0.5)
+chk("3.5 uncovered capitalized %", after("mostly proper\nnouns (", 1), OO["by_kind_pct"]["capitalized"], tol=0.5)
+chk("3.5 uncovered non-letter %", after("digits or apostrophes (", 1), OO["by_kind_pct"]["non_letter"], tol=0.5)
+for w_ in ("codex", "papyrus"):
+    if w_ not in OO["examples"]["lower_case"]:
+        bad.append(f"3.5 example {w_} is not an uncovered lower-case token")
+
+# ---------- Section 5.2: cells that trade WA for CER, and cells that lose both
+g_ = LS["greedy"]
+cells = [c["test"] for lx in LS["lexicons"].values() for c in lx["correctors"].values()
+         if "test" in c]
+trade = sum(1 for c in cells if c["wa_pct"] > g_["wa_pct"] and c["cer_pct"] > g_["cer_pct"])
+lose = sum(1 for c in cells if c["wa_pct"] < g_["wa_pct"] and c["cer_pct"] > g_["cer_pct"])
+if len(cells) != 12:
+    bad.append(f"5.2: expected 12 Table 4 cells with a test entry, found {len(cells)}")
+if "in three cells of Table~\\ref{tab:lexicon} a configuration buys" not in tex or trade != 3:
+    bad.append(f"5.2: WA-for-CER trade cells = {trade}, paper says three")
+if "and in three more it loses both" not in tex or lose != 3:
+    bad.append(f"5.2: cells losing both = {lose}, paper says three")
+
 # ---------- Section 5.3: why WBS gets right what CRNN-LX gets wrong
 print("== the WBS-only words by cause (Section 5.3)")
 WO = json.load(open("results/wbs_only_breakdown.json", encoding="utf-8"))
@@ -521,6 +544,8 @@ chk("5.3 beyond bound", after("near neighbours that a single greedy string canno
 chk("5.3 in lexicon", after("\\emph{neeemary} for \\emph{necessary}), in", 1),
     WC["in_lexicon"], tol=0.5)
 chk("5.3 assembled", after("is left alone, and in", 1), WC["reference_not_in_lexicon"], tol=0.5)
+chk("Table 5 caption letter-run words", after("fewer distinct words\n(", 1),
+    WO["wbs_letter_run_words_corpus"], tol=0.5)
 EX = {k: {(h, r) for h, r, _ in v} for k, v in WO["examples"].items()}
 for key, pairs in (("ranked_lower", [("wich", "which"), ("mather", "mother")]),
                    ("beyond_bound", [("therooghty", "thoroughly"), ("neeemary", "necessary")]),
@@ -541,11 +566,11 @@ LIT = {
     "kang2021candidate": (15.11, 5.74),
     "kass2022attentionhtr": (15.40, 6.50),  # AttentionHTR, case-sensitive, Tab. 5
     "mondal2022yolo": (29.21, 9.53),        # Mondal et al. 2022
-    "as listed in": (22.86, 11.08),         # CNN-RNN row of Rajesh et al. Tab. 2
+    "(via~": (22.86, 11.08),         # CNN-RNN row of Rajesh et al. Tab. 2
     # HWRCNet: WA 80.08 and CER 9.89 from its Tab. 3 (normal images). Its
     # Tab. 2 prints WER 19.20, which would be WA 80.80; the paper uses the
     # WA printed directly and says so in footnote d.
-    "rajesh2022hwrcnet}\\tabmark{d}": (100 - 80.08, 9.89),
+    "Rajesh et al.~\\cite{rajesh2022hwrcnet}": (100 - 80.08, 9.89),
 }
 T6 = rows("tab:priorwork")
 for key, (wer, cer) in LIT.items():
@@ -580,15 +605,15 @@ chk("5.4 CER range hi", after("At\ncharacter level the gap remains", 2),
     max(v[1] for k, v in LIT.items() if k.startswith(("kang", "kass"))))
 top2 = sorted((A["kang2021candidate"], A["kass2022attentionhtr"]))
 for where, phrase in (("1 scope", "al.~\\cite{kang2018convolve} and\n"),
-                      ("7 conclusion", "al.~\\cite{kang2018convolve} and ")):
+                      ("7 conclusion", "attention recognizer of Kang et\nal.~\\cite{kang2018convolve} and ")):
     chk(f"{where}: below strongest lo", after(phrase, 1), round(top2[0] - LX, 1), tol=0.05)
     chk(f"{where}: below strongest hi", after(phrase, 2), round(top2[1] - LX, 1), tol=0.05)
 chk("6.3 HWRCNet below LX", before(r"below \\ours\\ \(2\.83"),
-    round(LX - A["rajesh2022hwrcnet}\\tabmark{d}"], 2))
+    round(LX - A["Rajesh et al.~\\cite{rajesh2022hwrcnet}"], 2))
 chk("6.3 HWRCNet below no-context", before(r"below its no-context"),
-    round(NC - A["rajesh2022hwrcnet}\\tabmark{d}"], 2))
+    round(NC - A["Rajesh et al.~\\cite{rajesh2022hwrcnet}"], 2))
 chk("6.3 HWRCNet above CRNN-G", before(r"above \\oursnolm\. It"),
-    round(A["rajesh2022hwrcnet}\\tabmark{d}"] - G, 2))
+    round(A["Rajesh et al.~\\cite{rajesh2022hwrcnet}"] - G, 2))
 if not (A["kass2022attentionhtr"] > WBSWA > A["kang2018convolve"]):
     bad.append("5.4: WBS is no longer between AttentionHTR and Kang 2018")
 

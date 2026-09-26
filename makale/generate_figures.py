@@ -393,7 +393,7 @@ def fig_augmentation_grid():
     variants.append(("Dilate 2×2", cv2.dilate(img, np.ones((2, 2), np.uint8))))
 
     # Brightness / contrast wide
-    bc = np.clip(img.astype(np.float32) * 0.75 + 40, 0, 255).astype(np.uint8)
+    bc = np.clip(img.astype(np.float32) * 0.75, 0, 255).astype(np.uint8)   # as gpu_aug: clamp(img * b)
     variants.append(("Brightness×0.75", bc))
 
     # Gamma
@@ -489,7 +489,7 @@ def fig_lexicon_decomposition():
     ax.set_xticks(list(x))
     ax.set_xticklabels([lab for _, lab in CORR], fontsize=7)
     ax.set_xlim(-0.25, len(CORR) - 0.45)
-    ax.set_ylim(-3.5, 6.0)
+    ax.set_ylim(-3.5, 8.6)   # headroom so the legend sits above the curves
     ax.set_ylabel("$\\Delta$ word accuracy vs.\nlexicon-free (pp)", fontsize=8)
     ax.grid(alpha=.3, axis="y")
     ax.legend(fontsize=7, frameon=False, loc="upper left", title="lexicon",

@@ -75,15 +75,19 @@ def parse_args():
                         "a run can die silently when memory runs out. With "
                         "plenty of RAM, try 2.")
     p.add_argument("--gpu-aug", type=int, default=1, choices=[0, 1],
-                   help="1 (varsayilan): toplu GPU augmentation, veri kumesi GPU'da. "
-                        "0: eski per-image DataLoader yolu.")
+                   help="1 (default): batched GPU augmentation with the data set on "
+                        "the GPU. 0: the older per-image DataLoader path.")
     p.add_argument("--no-cache", action="store_true",
-                   help="On-islenmis goruntu onbellegini (cache/) ne oku ne yaz.")
-    p.add_argument("--elastic-alpha", type=float, nargs=2, default=[2.0, 5.0],
-                   metavar=("LO", "HI"), help="Elastik deformasyon genligi araligi.")
-    p.add_argument("--elastic-legacy-amplitude", type=int, default=1, choices=[0, 1],
-                   help="1: orijinal kod gibi alpha normalize edilmis blur'u carpar "
-                        "(~0.1 px RMS, neredeyse no-op). 0: alpha = RMS yer degistirme (px).")
+                   help="neither read nor write the cache of pre-processed crops (cache/).")
+    # Defaults are the setting of the paper (Section 3.4): alpha in [1,3] is the
+    # RMS displacement in pixels. The legacy setting (1, with alpha 2-5)
+    # reproduces the earlier no-op transform and is kept only for comparison.
+    p.add_argument("--elastic-alpha", type=float, nargs=2, default=[1.0, 3.0],
+                   metavar=("LO", "HI"), help="range of the elastic amplitude.")
+    p.add_argument("--elastic-legacy-amplitude", type=int, default=0, choices=[0, 1],
+                   help="0 (paper): alpha is the RMS displacement in px. 1: alpha "
+                        "multiplies the unrescaled blurred noise as the earlier "
+                        "code did (a few hundredths of a px, i.e. a no-op).")
     p.add_argument("--aug-mode",     type=str,   default="full",
                    choices=["full", "elastic", "morph", "photo", "narrow", "none"],
                    help="Augmentation ablation mode; 'full' = proposed AugCRNN-T, "
@@ -362,7 +366,7 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
 
         try:
             img = process_image_cpu_minimal(img)
-            img = resize_to_aug_res(img)          # 64x256 calisma cozunurlugu
+            img = resize_to_aug_res(img)          # 64x256 working resolution
             lab = encode_to_labels(word)
         except Exception:
             skipped += 1
@@ -528,8 +532,8 @@ def evaluate_wbs(model, test_loader, iam_words_path: str) -> dict:
         return {}
 
     corpus = " ".join(sorted(ok_words))
-    # Blank token model'de index 84 (len(CHAR_LIST)).
-    # word_beam_search son karakteri blank sayar → '|' ekliyoruz.
+    # The model's blank token has index 78 (len(CHAR_LIST)).
+    # word_beam_search treats the last character as the blank, so '|' is appended.
     chars_str = CHAR_LIST + "|"
     word_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
@@ -605,7 +609,7 @@ def compare_with_baseline(result: dict, baseline_csv: str) -> dict:
             for row in rd:
                 baseline_flags.append(_flag(row[key]))
     except Exception as exc:
-        print(f"  McNemar atlandi: baseline okunamadi ({exc})")
+        print(f"  McNemar skipped: the baseline could not be read ({exc})")
         return {}
 
     new_flags = result["correct_flags"]

@@ -1,4 +1,6 @@
 {
+ "corpus_lexicon_entries": 57382,
+ "wbs_letter_run_words_corpus": 48647,
  "only_wbs_correct": 382,
  "only_lx_correct": 316,
  "only_wbs_by_cause": {

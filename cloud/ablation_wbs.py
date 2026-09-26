@@ -169,7 +169,7 @@ def main():
            "word_chars": WORD_CHARS, "configs": {}}
     if a.only:
         configs = [c for c in configs if a.only in c[0]]
-        print(" filtre:", [c[0] for c in configs])
+        print(" filter:", [c[0] for c in configs])
     preds = {}
     greedy = None
     for name, mode, (corpus, size) in configs:

@@ -192,7 +192,8 @@ removes the need for character-level alignment between the image and
 its transcription. Two model families dominate: convolutional-recurrent
 networks (CRNNs) trained with CTC~\cite{shi2017crnn, puigcerver2017,
 bluche2017gated}, and attention-based sequence-to-sequence or
-transformer encoders~\cite{kang2018convolve, michael2019evaluating}.
+transformer recognizers~\cite{kang2018convolve, michael2019evaluating,
+li2023trocr}.
 For a compact CRNN, two ingredients are commonly credited with closing
 part of the gap to heavier models: data augmentation that reflects how
 handwriting actually varies, and a lexical prior applied at or after
@@ -318,8 +319,8 @@ Section~\ref{sec:conclusion} concludes.
 We organize prior work into four groups according to how each relates
 to ours: (i) \emph{recurrent CTC recognizers}, which share our optical
 backbone but are almost always evaluated on text lines; (ii)
-\emph{attention and transformer recognizers}, which target the same
-word-level task as ours with a heavier decoding paradigm; (iii)
+\emph{attention and transformer recognizers}, several of which target
+the same word-level task as ours with a heavier decoding paradigm; (iii)
 \emph{other word-level recognizers on IAM}, whose evaluation protocols
 differ from ours; and (iv) \emph{lexical decoders}, which use a lexicon
 or language model inside the decoding loop, whereas our post-corrector
@@ -352,8 +353,8 @@ Kang et al.~\cite{kang2021candidate} later integrated a language model
 into the decoder itself through candidate fusion, and Kass and
 Vats~\cite{kass2022attentionhtr} combined a residual-network (ResNet)
 encoder, attention decoding and transfer learning from scene-text
-corpora. These four systems share our task, metric and split
-and are listed in Section~\ref{sec:results}. Transformer
+corpora. These four systems share our task and metric and are listed in
+Section~\ref{sec:results}. Transformer
 architectures such as TrOCR~\cite{li2023trocr} have since lowered
 line-level error rates further, but require pre-training on hundreds
 of millions of synthetic lines. Multimodal large language models have
@@ -387,8 +388,8 @@ protocol, a point we return to below.
 \paragraph{Lexical decoders.}
 Most systems that exploit a vocabulary do so while decoding. Word beam
 search (WBS)~\cite{scheidl2018wbs} injects a dictionary constraint
-directly into CTC beam search, so that only lexicon words can be
-produced; candidate fusion~\cite{kang2021candidate} feeds a language
+directly into CTC beam search, so that every run of letters it produces
+is a dictionary word; candidate fusion~\cite{kang2021candidate} feeds a language
 model's proposals into an attention decoder; and de Sousa Neto et
 al.~\cite{flor2020htrflor} couple the optical model to a
 language-model pipeline. In all of these the lexical knowledge is part
@@ -407,9 +408,11 @@ for the preceding word crops.
 \paragraph{Positioning.}
 Of the word-level systems above, only the attention-based recognizers
 of Sueiras et al.~\cite{sueiras2018offline}, Kang et
-al.~\cite{kang2018convolve, kang2021candidate} and Kass and
+al.~\cite{kang2018convolve} and Kass and
 Vats~\cite{kass2022attentionhtr} are evaluated on the Aachen
-writer-disjoint partition that we use; the CRNN-family results of
+writer-disjoint partition that we use; the candidate-fusion model of Kang
+et al.~\cite{kang2021candidate} does not name its partition and is listed
+with them, as Kass and Vats list it. The CRNN-family results of
 Rajesh et al.~\cite{rajesh2022hwrcnet} and the detector of Mondal et
 al.~\cite{mondal2022yolo} use partitions of IAM of their own.
 Comparisons across protocols are indicative only; the controlled
@@ -639,9 +642,10 @@ list and yet covers more, because it is built from running text: it contains
 proper nouns (\emph{Evans}, \emph{Gavin}, \emph{BBC}), inflected and
 possessive forms, and each of them in the case in which people write it,
 whereas the word list is largely lower-case uninflected entries and spends
-most of its 239\,K types on words that no one in IAM wrote. What is left
-uncovered in either case is proper nouns absent from the corpus, rare
-inflections and punctuation-bearing strings. \ours\ uses the corpus
+most of its 239\,K types on words that no one in IAM wrote. What the corpus
+lexicon leaves uncovered is rare lower-case words (39\% of the uncovered test
+tokens, e.g.\ \emph{codex}, \emph{papyrus}), capitalized forms, mostly proper
+nouns (34\%), and strings containing hyphens, digits or apostrophes (27\%). \ours\ uses the corpus
 lexicon; that choice, like every other in this section, was made on the
 validation partition (Section~\ref{sec:res-lex}). No lexicon is built from
 test transcriptions.
@@ -966,8 +970,9 @@ accuracy peaks at 82.57\% at epoch 38 and early stopping ends the run
 at epoch 53. It fits the training set far more tightly and generalizes
 worse: its validation loss ends at 0.46 against 0.32--0.37 for the
 augmented runs. Those five keep improving to epoch 70--87 and converge
-to a plateau of 84.3--84.8\% validation accuracy, and among them the
-curves are indistinguishable after the first fifteen epochs; their
+to a plateau of 84.3--84.8\% validation accuracy, and after the first
+fifteen epochs their curves lie within 0.74\,pp of one another at the median
+epoch (1.71\,pp at most), without a consistent order; their
 training losses differ a little (the fully augmented model fits the
 training set least tightly, as a regularizer should), but the spread
 that reaches validation accuracy is only 0.4\,pp. With 47\,997 training
@@ -981,7 +986,7 @@ variability that the proposed transforms simulate.
 word accuracy with the best epoch marked, (b) training CTC loss. The
 zero-augmentation anchor drops fastest in training loss, stops
 earliest and reaches the lowest validation accuracy; the five augmented
-curves coincide.}
+curves stay close together.}
 \label{fig:curves}
 \alttext{Two line charts over training epochs: validation word accuracy on the left and training CTC loss on the right, one curve per configuration.}
 \end{figure}
@@ -1012,8 +1017,8 @@ of its entries on words that never occur. Coverage, in turn, is what the
 corrector can reach at all: the 3.6\% of test tokens outside the corpus
 lexicon can only be got right by leaving them alone.
 
-The sign of the correction is set by whether replacement is forced, not by
-the size of the lexicon. Against the training lexicon, replacing every
+With a small lexicon, the sign of the correction is set by whether
+replacement is forced. Against the training lexicon, replacing every
 unlisted hypothesis costs accuracy: edit distance alone gives
 76.42\% and the unigram prior
 77.04\%, both below the
@@ -1043,7 +1048,7 @@ steps give $+0.67$,
 $+1.23$ and
 $+0.93$.
 The ranking terms are almost the same in both; the lexicon is where the two
-columns part company.
+lexicons part company.
 
 Which decoder is best depends on the lexicon, and the whole-line column of
 Table~\ref{tab:lexicon} changes two things at once: the line is decoded
@@ -1088,7 +1093,8 @@ keep-OOV of Section~\ref{sec:trigram}. Rows: the three lexicons of
 Section~\ref{sec:trigram} with their coverage of the test tokens.
 Lexicon-free greedy decoding (\oursnolm) gives 78.83
 (8.60). The edit penalty is $\alpha=5$ for the unigram prior and
-selected on validation otherwise; \ours\ is the bold cell.\label{tab:lexicon}}
+selected on validation for the two trigram columns; \ours\ is the bold
+cell.\label{tab:lexicon}}
 {\begin{tabular}{lrrcccc}
 \toprule
 Lexicon & Types & Coverage & edit only & $+$ unigram & $+$ KN3, L$\to$R & $+$ KN3, line \\
@@ -1105,8 +1111,7 @@ corpus     &   57\,382 & 96.4\% & 81.72 (8.95) & 82.91 (8.43) & \textbf{83.80 (7
 \vspace*{8pt}
 \caption{What the post-corrector contributes, against lexicon-free
 decoding, for the \ours\ optical model. Each line is one lexicon; the four
-points are the correctors of Table~\ref{tab:lexicon}. The lexicon separates
-the lines by more than the correctors separate the points along them: the
+points are the correctors of Table~\ref{tab:lexicon}. The
 corpus lexicon (57\,K types, 96.4\% coverage) is above the word list
 (239\,K, 93.9\%) everywhere, and the training lexicon (7\,K, 84.8\%) is
 below lexicon-free decoding until the decoder is allowed to keep an
@@ -1117,19 +1122,20 @@ for each corrector, showing the change in word accuracy relative to
 lexicon-free decoding.}
 \end{figure}
 
-The character error rate follows the same ordering, once replacement is not
-forced. A whole-word corrector can only replace a hypothesis by a complete
+The character error rate does not always move with word accuracy. A
+whole-word corrector can only replace a hypothesis by a complete
 lexicon entry; when the replacement is wrong, a near-miss with one character
 error becomes a different word with several. That is why the training lexicon
 with forced replacement pays 11.19\%
 against \rawcer\ for lexicon-free decoding, and why the word-list lexicon
 with the unigram prior still pays 9.09\%
 while gaining word accuracy. With the trigram the word-list lexicon ends
-level on character error rate (8.58\% against \rawcer), and only the corpus
+level on character error rate (8.58\% against \rawcer), and the corpus
 lexicon improves both by a clear margin: \ourcer\ against \rawcer, with
-4.97\,pp of word accuracy gained. Word accuracy and character error rate therefore have to be reported
-together whenever a whole-word corrector is used; a configuration can buy one
-with the other, and for most of Table~\ref{tab:lexicon} it does.
+4.97\,pp of word accuracy gained. Word accuracy and character error rate
+therefore have to be reported together whenever a whole-word corrector is
+used: in three cells of Table~\ref{tab:lexicon} a configuration buys word
+accuracy with character errors, and in three more it loses both.
 
 \subsection{Lexical Decoding Instead of Post-Hoc Correction}
 \label{sec:res-wbs}
@@ -1191,8 +1197,10 @@ smoothing 0.01), against the post-corrector of
 Table~\ref{tab:lexicon}. WBS emits dictionary entries verbatim, so the
 ``$+$ case'' rows also hold the lower-case and capitalized form of every
 entry, which our membership test accepts anyway. ``NGrams'' additionally uses
-the word bigram model WBS estimates from the corpus text. The last row is
-\ours.\label{tab:wbs}}
+the word bigram model WBS estimates from the corpus text. Types are the
+entries passed to WBS; since WBS keeps only the runs of letters in them
+(Section~\ref{sec:res-wbs}), it works with somewhat fewer distinct words
+(48\,647 for the corpus lexicon). The last row is \ours.\label{tab:wbs}}
 {\begin{tabular}{llrcc}
 \toprule
 Decoder & Dictionary & Types & WA (\%) & CER (\%) \\
@@ -1222,12 +1230,13 @@ with the unigram prior and is the figure for words that are genuinely
 isolated; \ours\ additionally reads the recognizer's own outputs for
 the preceding crops of the line, which none of the listed systems
 does; and the last row imposes the same lexicon inside the decoder
-instead (Section~\ref{sec:res-wbs}). The upper block lists results obtained on the Aachen
-writer-disjoint partition. The closest match in protocol is the
+instead (Section~\ref{sec:res-wbs}). The upper block lists results reported
+for the Aachen writer-disjoint partition (see note~a of the table for one
+exception). The closest match in protocol is the
 sequence-to-sequence recognizer of Sueiras et
 al.~\cite{sueiras2018offline}: the sizes of their partition
-(47\,952, 20\,306 and 7\,558 words, as compiled
-in~\cite{mondal2022yolo}) agree to within a few dozen words with the
+(47\,952, 20\,306 and 7\,558 words, as compiled by Mondal et
+al.~\cite{mondal2022yolo}) agree to within a few dozen words with the
 \texttt{ok}-filtered Aachen training, test and validation lists
 (47\,999, 20\,310 and 7\,559) from which ours are drawn, and they report lexicon-free word and character
 error rates on the full test partition exactly as we do. Under
@@ -1279,7 +1288,7 @@ System & Year & Lexicon & WA (\%) & CER (\%) \\
 \multicolumn{5}{l}{\emph{Aachen writer-disjoint partition ($\approx$20.3\,K test words)}} \\
 Sueiras et al.~\cite{sueiras2018offline}      & 2018 & none & (76.20) & 8.80 \\
 Kang et al.~\cite{kang2018convolve}           & 2018 & none & (82.55) & 6.88 \\
-Kang et al.~\cite{kang2021candidate}\tabmark{a} & 2021 & LM   & (\textbf{84.89}) & \textbf{5.74} \\
+Kang et al.~\cite{kang2021candidate}          & 2021\tabmark{a} & LM   & (\textbf{84.89}) & \textbf{5.74} \\
 Kass and Vats~\cite{kass2022attentionhtr}     & 2022 & none & (84.60) & 6.50 \\
 \oursnolm\ (ours)                             & 2026 & none & 78.83 & 8.60 \\
 \ours, no context (ours)                      & 2026 & 57\,K corpus $+$ unigram prior & 82.91 & 8.43 \\
@@ -1287,20 +1296,21 @@ Kass and Vats~\cite{kass2022attentionhtr}     & 2022 & none & (84.60) & 6.50 \\
 \oursnolm\ $+$ WBS~\cite{scheidl2018wbs} (ours)     & 2026 & 57\,K corpus, in decoding & 84.13 & 8.23 \\
 \colrule
 \multicolumn{5}{l}{\emph{Other partitions of IAM}} \\
-Mondal et al.~\cite{mondal2022yolo}\tabmark{b}                                    & 2022 & none & (70.79) & 9.53 \\
-CNN--RNN of~\cite{dutta2018improving}, as listed in~\cite{rajesh2022hwrcnet}\tabmark{c} & 2022 & n/s & (77.14) & 11.08 \\
-Rajesh et al.~\cite{rajesh2022hwrcnet}\tabmark{d}                                 & 2022 & n/s & 80.08 & 9.89 \\
+Mondal et al.~\cite{mondal2022yolo}                                    & 2022\tabmark{b} & none & (70.79) & 9.53 \\
+CNN--RNN~\cite{dutta2018improving} (via~\cite{rajesh2022hwrcnet})       & 2022\tabmark{c} & n/s & (77.14) & 11.08 \\
+Rajesh et al.~\cite{rajesh2022hwrcnet}                                 & 2022\tabmark{d} & n/s & 80.08 & 9.89 \\
 \botrule
 \end{tabular}}
 \begin{tabfootnote}
 \tabmark{a} Test-set figures of the candidate-fusion model (Table~8 of the
 preprint, arXiv:1912.10308); the 15.91\% WER sometimes quoted for this work
 is a validation-set ablation. The preprint does not name its IAM
-partition; like~\cite{kass2022attentionhtr} we list it with the Aachen
-results.\\
+partition; we list it with the Aachen results, as Kass and
+Vats~\cite{kass2022attentionhtr} do.\\
 \tabmark{b} 30\,K randomly selected test words, writer-independent; 1\,200
 training images.\\
-\tabmark{c} Listed without the partition or training procedure.\\
+\tabmark{c} The CNN--RNN of Dutta et al.\ as listed by Rajesh et al.,
+without the partition or training procedure.\\
 \tabmark{d} 95:5 training/test division of IAM; WA as printed in their
 Table~3 (their Table~2 gives a WER of 19.20\%).
 \end{tabfootnote}
@@ -1366,8 +1376,9 @@ augmented runs, and its validation loss has risen $0.10$ above its own
 minimum, against $0.03$--$0.07$ for them; the augmented runs stop 32 to
 47 epochs later (Fig.~\ref{fig:curves}). The first increment of
 augmentation buys regularization that the network genuinely needs. Second, among the
-augmented configurations the validation curves coincide and the extra
-transforms neither slow convergence nor raise the plateau, while the
+augmented configurations the validation curves stay close, in no consistent
+order, and the extra transforms neither slow convergence nor raise the
+plateau, while the
 fully augmented model reaches a slightly higher training loss --- so
 they do regularize further, but the baseline is no longer overfitting
 in a way that costs accuracy on unseen writers. Third, the per-word
@@ -1446,8 +1457,8 @@ closed lexicon should state the lexicon's coverage of the test
 vocabulary, the rule used to rank candidates, the corpus the ranking
 was learned from and whether any context was used, without which the
 reported accuracy is not interpretable. The remaining 3.6\% of uncovered
-tokens (proper nouns, rare inflections, punctuation-bearing strings)
-bound what any whole-word corrector can achieve; addressing them
+tokens (rare words, proper nouns, and strings with hyphens, digits or
+apostrophes) bound what any whole-word corrector can achieve; addressing them
 requires an open-vocabulary character-level model.
 
 \subsection{Comparison with Previous Word-Level HTR Systems}
@@ -1541,8 +1552,8 @@ per-writer accuracy ranges from 33\% to 98\% (SD 9.5\,pp), so errors arrive
 in blocks. A bootstrap that resamples writers instead of words widens the
 interval of \ours\ from $\pm0.51$ to $\pm1.82$\,pp, and one that resamples
 forms gives $\pm1.07$\,pp; a bootstrap over words reproduces the Wilson
-interval exactly, which locates the difference in the clustering rather than
-in the arithmetic. It does not carry over to the comparisons, because those
+half-width to the second decimal ($\pm0.51$\,pp), which locates the
+difference in the clustering rather than in the arithmetic. It does not carry over to the comparisons, because those
 are paired: the same bootstrap applied to the CRNN-B--\ours\ difference gives
 $\pm0.38$\,pp over words and $\pm0.40$\,pp over writers, because both systems
 find the same hands difficult and the writer term cancels in the difference.

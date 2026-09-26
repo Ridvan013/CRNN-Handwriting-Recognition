@@ -255,7 +255,7 @@ class TrigramLanguageModel:
             by_len = {}
             for v in self.vocabulary:
                 by_len.setdefault(len(v), []).append(v)
-            # Kovalar sozluk set'inden kuruluyor; set sirasi surecten surece
+            # The buckets are built from the vocabulary set, whose order
             # varies between processes and would decide between candidates
             # with EXACTLY equal scores (about 1 word in 20k). Sorting each
             # bucket makes the outcome reproducible.

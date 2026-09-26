@@ -22,6 +22,7 @@ No GPU is needed: it reads the per-word predictions in results/.
 """
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -77,7 +78,12 @@ def main():
         counts[key] += 1
         examples[key].append([hyp, ref, out])
 
-    res = {"only_wbs_correct": sum(counts.values()), "only_lx_correct": only_lx,
+    # WBS keeps only the runs of letters of its dictionary (word_chars are the
+    # letters), so it works with fewer distinct words than the entries passed.
+    letter_runs = {r for w in vocab for r in re.findall(r"[A-Za-z]+", w)}
+    res = {"corpus_lexicon_entries": len(vocab),
+           "wbs_letter_run_words_corpus": len(letter_runs),
+           "only_wbs_correct": sum(counts.values()), "only_lx_correct": only_lx,
            "only_wbs_by_cause": counts,
            "examples": {k: v[:40] for k, v in examples.items()}}
     out = ROOT / "results" / "wbs_only_breakdown.json"
