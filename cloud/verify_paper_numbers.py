@@ -264,7 +264,7 @@ PROSE = [
     ("consist of", 1, ea["substitutions"]),
     ("substitutions,", 1, ea["deletions"]),
     ("deletions and", 1, ea["insertions"]),
-    ("that corrector changes", 1, cf["hypotheses_changed"]),
+    ("corrector of \\ours\\ changes", 1, cf["hypotheses_changed"]),
     ("repairs", 1, cf["fixed"]),
     ("and breaks", 1, cf["broken"]),
     ("these five disagree on", 1, a5["disagree"]),
@@ -539,7 +539,7 @@ WC = WO["only_wbs_by_cause"]
 P53 = "The two fail differently, though. Of the"
 chk("5.3 only-WBS total", after(P53, 1), WO["only_wbs_correct"], tol=0.5)
 chk("5.3 ranked lower", after(P53, 2), WC["ranked_lower"], tol=0.5)
-chk("5.3 beyond bound", after("near neighbours that a single greedy string cannot. In", 1),
+chk("5.3 beyond bound", after("near neighbors that a single greedy string cannot. In", 1),
     WC["beyond_bound"], tol=0.5)
 chk("5.3 in lexicon", after("\\emph{neeemary} for \\emph{necessary}), in", 1),
     WC["in_lexicon"], tol=0.5)
