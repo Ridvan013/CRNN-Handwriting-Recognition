@@ -268,7 +268,7 @@ configurations compared. Our contributions are:
 saturation effect rather than with an inability of the experimental
 setup to detect augmentation-related improvements.
   \item \textbf{A methodological observation on elastic deformation.}
-        The common parameterization --- normalized Gaussian-smoothed
+        The common parameterization --- unnormalized Gaussian-smoothed
         noise scaled by $\alpha\in[2,5]$ --- yields root-mean-square (RMS)
         displacements of a few hundredths of a pixel per axis at the working
         resolution, never more than 0.19\,px anywhere, and is effectively a
@@ -285,13 +285,15 @@ The claims of this paper are about measurement, not about rank. Our optical
 model is a plain CRNN trained from scratch on the 48\,K Aachen training
 words, with no synthetic pre-training, no transfer from scene text and no
 ensembling. With the lexical corrector it reaches \ourwa\ on the Aachen
-test set, which is 1.3\,pp above the 2018 attention baseline and
+test set, which is 1.3\,pp above the 2018 attention model of Kang et
+al.~\cite{kang2018convolve} and
 0.3--0.8\,pp below the two strongest published word-level systems, which use
 a language model or scene-text pre-training (Table~\ref{tab:priorwork}). What
 the paper contributes is the anatomy of two components those systems rely on
 as well, measured where each can be isolated. The lexical corrector is taken
 apart into the lexicon, the ranking rule and the place it is applied, and
-those three effects differ by an order of magnitude. The augmentation
+the largest of those three effects is nearly seven times the smallest. The
+augmentation
 ablation has a positive control and three seeds, and shows the effect under
 study to be smaller than the variation between two runs of the same
 configuration. Finally, a parameterization in common use turns out to leave
@@ -869,8 +871,8 @@ $p=0.61$), and one unchanged configuration spans 0.8\,pp on its own
 The run-to-run spread is therefore two to four times the effect under
 study, which is why we report the augmentation comparison as
 unresolved rather than as a small gain; the conventional pipeline, at
-\anchordelta\,pp, sits an order of magnitude above that noise floor
-and is untouched by the argument. A practical consequence is that a
+\anchordelta\,pp, is nearly three times the 0.8\,pp that an unchanged
+configuration spans across seeds and is untouched by the argument. A practical consequence is that a
 single-seed McNemar test on 20\,K words can report a significant
 augmentation effect of either sign, so the per-configuration
 $p$-values of Table~\ref{tab:main} should be read as descriptive.
@@ -1481,8 +1483,8 @@ weight than the seed-42 row of Table~\ref{tab:seeds} does. The
 repeats also ran on different hardware, so the spread we quote
 includes any hardware-related nondeterminism --- which only reinforces
 the conclusion that an effect of this size is not resolvable here.
-The \anchordelta\,pp effect of the conventional pipeline is an order of
-magnitude larger than that resolution limit, so the positive control
+The \anchordelta\,pp effect of the conventional pipeline is nearly three
+times that resolution limit, so the positive control
 does not depend on the seed in the way the null result does.
 
 Three corrector effects were measured on all six optical models, and they
@@ -1532,7 +1534,7 @@ writers, so the same cancellation should apply, but we cannot confirm it
 without their per-word outputs.
 
 Validation accuracy, which the training loop measures with the unigram
-corrector, exceeds the test accuracy of that same corrector by 4.0 to
+corrector, exceeds the test accuracy of that same corrector by 3.9 to
 4.7 points, in every configuration; the validation writers are used
 for checkpoint selection and are only 55 in number, so this gap is
 expected and does not indicate a fault. The external systems in Table~\ref{tab:priorwork}

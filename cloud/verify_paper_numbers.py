@@ -374,6 +374,16 @@ chk("6.4 trigram lo (six)", after(P8, 1), min(per[m_]["trigram"] for m_ in MODES
 chk("6.4 trigram hi (six)", after(P8, 2), max(per[m_]["trigram"] for m_ in MODES), tol=0.005)
 if {per[m_]["alpha"] for m_ in MODES} != {7.0}:
     bad.append("6.4: alpha_left is not 7 for every model")
+# best validation WA (training loop: word-list lexicon + unigram prior) minus
+# the test WA of that same corrector, per model
+gap = []
+for m_ in MODES:
+    h_ = json.load(open(f"Model_abl_{m_}/training_history.json", encoding="utf-8"))
+    c_ = {x["name"]: x["wa_pct"] for x in A5["models"][m_]["configurations"]}
+    gap.append(100 * max(h_["val_wa"]) - c_["extended lexicon + n-gram"])
+P9 = "exceeds the test accuracy of that same corrector by"
+chk("6.4 val-test gap lo", after(P9, 1), min(gap), tol=0.05)
+chk("6.4 val-test gap hi", after(P9, 2), max(gap), tol=0.05)
 
 # ------------------------- Section 5.2: the whole-line decoder, split in two
 print("== whole-line decoder decomposition (Section 5.2)")
