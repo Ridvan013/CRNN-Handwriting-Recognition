@@ -228,7 +228,7 @@ call these three the \emph{proposed transforms} and everything else the
 \emph{conventional pipeline}. The label is ours rather than a standard:
 there is no agreed set of routine augmentations for handwriting, and some
 prior systems already train with image distortions as a matter of
-course~\cite{dutta2018improving, wigington2017data}. On the lexical side, the post-corrector
+course~\cite{dutta2018improving, wigington2017data, puigcerver2017}. On the lexical side, the post-corrector
 replaces a recognized word by a lexicon entry within a small edit
 distance and ranks the candidates with a word-level language model; in
 the proposed system that model is a Kneser--Ney trigram conditioned on
@@ -571,9 +571,11 @@ probabilities and are:
         and multiplied by an amplitude drawn uniformly from $[1,3]$
         pixels; the crop is warped accordingly. The unit-RMS
         normalization is essential. Elastic distortion as introduced by
-        Simard et al.~\cite{simard2003best} scales a smoothed random field
-        by a factor $\alpha$; applied to the blurred noise \emph{without}
-        rescaling it, the same factor produces a displacement that shrinks
+        Simard et al.~\cite{simard2003best} smooths a random field and
+        scales it by a factor $\alpha$; they normalize the smoothed field
+        first, noting that for a wide kernel its values are otherwise very
+        small. Applied to the blurred noise \emph{without} that
+        normalization, the same factor produces a displacement that shrinks
         as the smoothing widens. Our own earlier implementation did exactly
         that: with the smoothing width above and $\alpha\in[2,5]$ it
         produces, at the $64\times256$ working resolution, a per-axis RMS
