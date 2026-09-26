@@ -58,6 +58,19 @@
 
 \documentclass{ws-ijprai}
 
+% ws-ijprai.cls executes the a4paper option but never declares it, so
+% \paperwidth and \paperheight stay at 0pt and the page size is left to the
+% engine's default, which on some installations (e.g. Overleaf) gives a
+% landscape or letter page. Fix the page to A4 portrait for every engine.
+\setlength{\paperwidth}{210mm}
+\setlength{\paperheight}{297mm}
+\ifdefined\pdfpagewidth
+  \pdfpagewidth=\paperwidth \pdfpageheight=\paperheight
+\fi
+\ifdefined\pagewidth
+  \pagewidth=\paperwidth \pageheight=\paperheight
+\fi
+
 \usepackage{xcolor}
 \usepackage{url,overcite}
 % ws-ijprai.cls already loads graphicx and defines \toprule/\colrule/\botrule;
@@ -451,7 +464,8 @@ their measured effects.}
 \subsection{Data and Protocol}
 \label{sec:dataset}
 We use the word-level IAM partition of the Aachen
-split~\cite{aachen_split}: 747 training forms, 116 validation forms
+split~\cite{aachen_split}, the file published as Open Speech and Language
+Resources SLR56: 747 training forms, 116 validation forms
 and 336 test forms with disjoint writer sets (283, 56 and 161 writers
 respectively). Following common practice, only word crops whose
 segmentation is flagged \texttt{ok} are retained. Five validation
@@ -471,7 +485,7 @@ writers, and \nsamples\ test words from all 336 test forms. Writer, prompt
 and form disjointness between the three partitions, the counts just given,
 and the integrity of every record and image are verified by
 \texttt{verify\_aachen\_splits.py}, distributed with the
-code; it runs 26 checks and prints the outcome of each. The label alphabet
+code; it runs 27 checks and prints the outcome of each. The label alphabet
 contains 78 symbols (upper- and lower-case
 Latin letters, digits and punctuation), plus the CTC blank.
 
@@ -1249,7 +1263,7 @@ without line context). \ours\ is
 al.~\cite{kang2021candidate}, which adds a language model to the decoder,
 0.80\,pp below
 AttentionHTR~\cite{kass2022attentionhtr}, which additionally transfers
-knowledge from 14.4\,M scene-text images, and 1.25\,pp
+knowledge from 14.4\,M synthetic scene-text images, and 1.25\,pp
 \emph{above} the attention model of Kang et al.~\cite{kang2018convolve};
 the same optical model decoded with word beam search
 (Section~\ref{sec:res-wbs}) reaches 84.13\%, between the last two. At

@@ -87,6 +87,22 @@ def main():
         check(f"{a} vs {b}", not ov, f"shared {len(ov)}")
 
     print("\n2. AGREEMENT WITH THE OFFICIAL LISTS")
+    # splits.zip is the file published as OpenSLR resource SLR56
+    # (https://www.openslr.org/resources/56/splits.zip); the uttlists used
+    # below were extracted from it.
+    import hashlib
+    zp = os.path.join(SPLIT_DIR, "splits.zip")
+    digest = hashlib.sha256(open(zp, "rb").read()).hexdigest() if os.path.exists(zp) else ""
+    same = False
+    if digest:
+        import zipfile
+        with zipfile.ZipFile(zp) as z:
+            same = all(z.read(f"splits/{v}").replace(b"\r\n", b"\n") ==
+                       open(os.path.join(SPLIT_DIR, "splits", v), "rb").read().replace(b"\r\n", b"\n")
+                       for v in UTT.values())
+    check("splits.zip is OpenSLR SLR56 and the uttlists are its content",
+          digest == "9bfc048e3b40781279eb8270cbacfd812a44c0d355beb145ea5cf96e1e279190" and same,
+          f"sha256 {digest[:16]}..., uttlists identical: {same}")
     check("test is the COMPLETE official list", forms["test"] == utt["test"],
           f"{len(forms['test'])}/{len(utt['test'])}")
     check("train is the COMPLETE official list", forms["train"] == utt["train"],

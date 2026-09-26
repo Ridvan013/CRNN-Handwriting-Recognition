@@ -463,7 +463,7 @@ recs = {p_: _records(os.path.join(SPL, p_ + "_words.txt"))
         for p_ in ("train", "validation", "test")}
 wr = lambda fs: len({fw[f] for f in fs if f in fw})          # noqa: E731
 
-A = "cite{aachen_split}:"
+A = "Resources SLR56:"
 for i, (name, truth) in enumerate([
         ("forms train", len(pub["train"])), ("forms val", len(pub["validation"])),
         ("forms test", len(pub["test"])), ("writers train", wr(pub["train"])),

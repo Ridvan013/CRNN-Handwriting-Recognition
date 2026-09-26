@@ -36,7 +36,7 @@ augmentation pipeline beneath them costs 2.24 pp.
 | [`aachen_splits/`](aachen_splits/) | the word-level split lists actually used, the form→writer map, and the official RWTH uttlists |
 | [`cloud/`](cloud/) | the model, the training script, the GPU augmentation, the Kneser–Ney trigram and correctors, and every ablation and verification script |
 | [`results/`](results/) | one JSON per experiment plus the per-word predictions behind every table |
-| `verify_aachen_splits.py` | 26 checks on the partition (writer, form and prompt disjointness, record and image integrity) |
+| `verify_aachen_splits.py` | 27 checks on the partition (source file, writer, form and prompt disjointness, record and image integrity) |
 | `trigram_lm.py` | the add-one unigram corrector used as the no-context reference |
 
 Trained weights are not in the repository (they exceed the file-size limit);
@@ -50,7 +50,7 @@ No GPU is needed for any of these: they read the per-word predictions that
 are in the repository.
 
 ```bash
-python verify_aachen_splits.py            # 26 checks on the split itself
+python verify_aachen_splits.py            # 27 checks on the split itself
 python cloud/verify_paper_numbers.py      # every table cell, macro and quoted count
 python cloud/check_paper_consistency.py   # labels, citations, and a sweep over every % figure
 python cloud/kn_trigram_selftest.py       # the trigram sums to one; back-off and determinism
