@@ -299,7 +299,7 @@ Two scripts gate the paper; both must print OK before a commit that touches
 | the same bootstrap on the PAIRED CRNN-B/CRNN-LX difference (+-0.38 word / +-0.40 writer) | `results/writer_bootstrap_paired.json` (`--compare`); the writer term cancels in a paired difference, which is why the tables are unaffected |
 | external systems | read from the cited papers; Sueiras 2018 (WER 23.8 / CER 8.8, lexicon-free) cross-checked in Dutta 2018 Tab. III, Kang 2021 Tab. 7, Kass & Vats 2022 Tab. 5, Mondal 2022 Tab. 1; the "Dutta 77.14" row is HWRCNet's own re-training (Rajesh 2022 Tab. 2), Dutta's own figure is 12.61 % WER |
 
-Full report with all tables: `../results/ABLATION_SONUC.md`.
+Full report with all tables: `../results/ABLATION_SONUC.md` (a dated working log, written in Turkish; `cloud/ABLATION_REHBER.md` is the matching Turkish how-to for the ablation scripts). Everything a reader needs in English is in the paper and in the scripts themselves.
 
 
 ## Advisor's review of 15 September 2026 — all seven points closed

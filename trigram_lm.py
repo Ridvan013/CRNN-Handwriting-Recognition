@@ -256,8 +256,9 @@ class TrigramLanguageModel:
             for v in self.vocabulary:
                 by_len.setdefault(len(v), []).append(v)
             # Kovalar sozluk set'inden kuruluyor; set sirasi surecten surece
-            # degisir ve TAM ESIT skorlu adaylar arasindaki secimi etkilerdi
-            # (20k kelimede ~1 kelime). Sirali kova = tekrarlanabilir sonuc.
+            # varies between processes and would decide between candidates
+            # with EXACTLY equal scores (about 1 word in 20k). Sorting each
+            # bucket makes the outcome reproducible.
             for _k in by_len:
                 by_len[_k].sort()
             self._vocab_by_len = by_len

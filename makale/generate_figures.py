@@ -360,11 +360,11 @@ def _elastic_deform(img: np.ndarray, alpha_px: float, sigma_frac: float = 0.08) 
 def fig_augmentation_grid():
     sample = _find_sample_image()
     if sample is None:
-        print("  ⚠ IAM sample bulunamadı, augmentation grid atlandı.")
+        print("  ! no IAM sample found, the augmentation grid was skipped.")
         return
     img = cv2.imread(str(sample), cv2.IMREAD_GRAYSCALE)
     if img is None:
-        print(f"  ⚠ {sample.name} okunamadı.")
+        print(f"  ! {sample.name} could not be read.")
         return
 
     variants = []
@@ -519,7 +519,7 @@ def main():
     # only after running each augmentation component in isolation and
     # recording the actual validation WA.
 
-    print(f"\nToplam: {len(list(FIG_DIR.glob('*.pdf')))} PDF üretildi -> {FIG_DIR}")
+    print(f"\nTotal: {len(list(FIG_DIR.glob('*.pdf')))} PDFs written -> {FIG_DIR}")
 
 
 if __name__ == "__main__":

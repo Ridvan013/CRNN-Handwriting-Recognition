@@ -2,11 +2,11 @@
 V3 CRNN model — importable module.
 
 Kaynak: greedy_aachen_v3.py (feature/aachen-v3-extended-trigram branch)
-Değişiklikler:
-  - main() ve data loading kaldırıldı
+Changes:
+  - main() and the data loading were removed
   - CRNNTrainer: lr, warmup_epochs, total_epochs, patience parametrize edildi
-  - freeze_cnn() / unfreeze_cnn() metotları eklendi
-  - model_dir ctor parametresi yapıldı
+  - freeze_cnn() / unfreeze_cnn() were added
+  - model_dir became a constructor parameter
 """
 
 import os
@@ -359,14 +359,14 @@ def calculate_metrics(predictions: List[List[int]], targets) -> Tuple[float, flo
 
 class CRNNTrainer:
     """
-    Parametrize edilmiş trainer — Phase 2 (pretrain) ve Phase 3 (finetune) için.
+    Parameterised trainer, shared by phase 2 (pretrain) and phase 3 (finetune).
 
-    lr           : peak learning rate (cosine schedule'ın zirvesi)
-    warmup_epochs: linear warmup uzunluğu
-    total_epochs : toplam epoch (scheduler hesabı için)
+    lr           : peak learning rate (the top of the cosine schedule)
+    warmup_epochs: length of the linear warm-up
+    total_epochs : total number of epochs (the scheduler needs it)
     patience     : early stopping patience
-    model_dir    : checkpoint'lerin kaydedileceği dizin
-    trigram_lm   : validation sırasında correction için (None = kapalı)
+    model_dir    : directory the checkpoints are written to
+    trigram_lm   : corrector applied during validation (None = off)
     """
 
     def __init__(self, model: CRNNModel,
@@ -418,7 +418,7 @@ class CRNNTrainer:
         self._patience_counter = 0
         self._cached_T = None
 
-    # ── CNN freeze / unfreeze (Phase 3 için) ──────────────────────────────────
+    # ── CNN freeze / unfreeze (used by phase 3) ───────────────────────────────
 
     def freeze_cnn(self):
         for p in self.model.cnn.parameters():
@@ -535,7 +535,7 @@ class CRNNTrainer:
     def train(self, train_loader: DataLoader, val_loader: DataLoader,
               epochs: int = 60, cnn_freeze_epochs: int = 0) -> dict:
         """
-        cnn_freeze_epochs: CNN freeze kaç epoch sürecek (0 = freeze yok).
+        cnn_freeze_epochs: how many epochs the CNN stays frozen (0 = never).
         Phase 3'te 5 verilir.
         """
         print(f"\n{'='*60}")
@@ -581,9 +581,9 @@ class CRNNTrainer:
                 torch.save(self.model.state_dict(),
                            os.path.join(self.model_dir, "best_model_wa.pth"))
 
-            # V3.1 FIX: patience'i val_loss VEYA val_wa iyileşince resetle
-            # (Discovery B1: eskiden sadece val_loss'a bakıyordu, val_wa hâlâ
-            # yükselirken model erken durdurulabiliyordu.)
+            # V3.1 FIX: reset patience when val_loss OR val_wa improves
+            # (Discovery B1: it used to watch val_loss only, so a run could
+            # be stopped early while val_wa was still climbing.)
             if is_best_loss or is_best_wa:
                 self._patience_counter = 0
             else:

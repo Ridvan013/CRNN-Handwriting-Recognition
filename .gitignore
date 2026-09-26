@@ -85,3 +85,28 @@ cache/
 # Berhat-in seed tekrarlari (Kaggle: brht25/seed1-output, brht25/seed2-output)
 Model_seed_*/*.pth
 _seed_stage/
+
+# ---- Bu makaleyle ilgisi olmayan, depodan cikarilan agir icerik ----------
+# (dosyalar diskte kalir; git gecmisinde de kalir, yalnizca takip edilmiyor)
+# Eski model agirliklari -- makalenin agirliklari zaten takip edilmiyor
+Model/
+Model_aachen/
+Model_aachen_v2/
+Model_custom_split_baseline/
+# Iceri alinmis ucuncu sahis kod ve agirliklari
+CRAFT-pytorch-master/
+EMNIST_Transfer_Learning/
+HTR_Models/
+# Demo web uygulamasinin calisma zamani durumu ve yuklenen dosyalari
+static/
+ocr_system.db
+# Eski taslaklar ve ic notlar
+akademik_makale.docx
+akademik_makale_backup.docx
+2209-a_sonuc_raporu_formati-NBO.docx
+H2_PLAN.md
+KURALLAR.md
+MAKALE_KARSILASTIRMA.md
+PROJE_DURUMU.md
+ARKADAS_ICIN_H2.md
+test_result_analisis.md

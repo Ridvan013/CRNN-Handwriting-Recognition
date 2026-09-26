@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """
-Aachen word-level split dogrulama scripti.
+Verify the Aachen word-level partition used in the paper.
 
-Makalede iddia edilen her yapisal ozelligi bagimsiz olarak kontrol eder:
-form ayrikligi, YAZAR ayrikligi, resmi uttlist ile birebir eslesme,
-metin (prompt) ayrikligi, ayni istemi paylasan formlarin bolmelere
-dagilimi, yayinlanan/kullanilan yazar sayilari, goruntu butunlugu.
+Checks, independently of the training code, every structural property the
+paper claims in Section 3.1: form disjointness, WRITER disjointness, exact
+agreement with the official uttlists, prompt disjointness, how the forms that
+share a prompt are distributed over the partitions, the published and the used
+writer counts, and the integrity of every record and image.
 
-Calistirma:
-    python verify_aachen_splits.py
-Cikis kodu 0 = hepsi gecti, 1 = en az bir kontrol basarisiz.
+Run:
+    python verify_aachen_splits.py [--img-root PATH]
+
+The image directory can also be given through the IAM_ROOT environment
+variable; on Kaggle the crops live under /kaggle/input.
+
+Exit code 0 = every check passed, 1 = at least one check failed.
 """
 import collections
 import os
@@ -18,8 +23,6 @@ import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SPLIT_DIR = os.path.join(ROOT, "aachen_splits")
-# Goruntu dizini: --img-root ile veya IAM_ROOT ortam degiskeniyle ezilebilir
-# (Kaggle'da goruntuler /kaggle/input altinda durur).
 IMG_ROOT = os.path.join(ROOT, "HTR_Using_CRNN", "IAM", "processed",
                         "archive", "iam_words", "words")
 for _i, _a in enumerate(sys.argv):
@@ -39,12 +42,12 @@ results = []
 
 def check(name, ok, detail=""):
     results.append(ok)
-    print(f"  [{'GECTI' if ok else 'KALDI'}] {name}" + (f"  {detail}" if detail else ""))
+    print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f"  {detail}" if detail else ""))
 
 
 def skip(name, detail=""):
-    """Ortamda yapilamayan kontrol; basarisizlik sayilmaz."""
-    print(f"  [ATLA ] {name}" + (f"  {detail}" if detail else ""))
+    """A check the environment cannot perform; not counted as a failure."""
+    print(f"  [SKIP] {name}" + (f"  {detail}" if detail else ""))
 
 
 def form_of(word_id):
@@ -74,28 +77,29 @@ def main():
         with open(os.path.join(SPLIT_DIR, "splits", v)) as fh:
             utt[k] = {l.strip() for l in fh if l.strip()}
 
-    print("\nBOLUM BUYUKLUKLERI")
+    print("\nPARTITION SIZES")
     for k in ("train", "val", "test"):
-        print(f"  {k:<6} {len(forms[k]):>4} form  {len(recs[k]):>7,} kelime")
+        print(f"  {k:<6} {len(forms[k]):>4} forms  {len(recs[k]):>7,} words")
 
-    print("\n1. FORM AYRIKLIGI")
+    print("\n1. FORM DISJOINTNESS")
     for a, b in (("train", "val"), ("train", "test"), ("val", "test")):
         ov = forms[a] & forms[b]
-        check(f"{a} vs {b}", not ov, f"ortak {len(ov)}")
+        check(f"{a} vs {b}", not ov, f"shared {len(ov)}")
 
-    print("\n2. RESMI LISTEYLE ESLESME")
-    check("test resmi listenin TAMAMI", forms["test"] == utt["test"],
+    print("\n2. AGREEMENT WITH THE OFFICIAL LISTS")
+    check("test is the COMPLETE official list", forms["test"] == utt["test"],
           f"{len(forms['test'])}/{len(utt['test'])}")
-    check("train resmi listenin TAMAMI", forms["train"] == utt["train"],
+    check("train is the COMPLETE official list", forms["train"] == utt["train"],
           f"{len(forms['train'])}/{len(utt['train'])}")
-    check("val resmi listenin ALT KUMESI", forms["val"] <= utt["val"],
+    check("val is a SUBSET of the official list", forms["val"] <= utt["val"],
           f"{len(forms['val'])}/{len(utt['val'])} "
-          f"({len(utt['val'] - forms['val'])} form metin ortusmesi nedeniyle cikarildi)")
+          f"({len(utt['val'] - forms['val'])} forms dropped for prompt overlap)")
 
-    print("\n3. YAZAR AYRIKLIGI")
+    print("\n3. WRITER DISJOINTNESS")
     fw_path = os.path.join(SPLIT_DIR, "form_writer.txt")
     if not os.path.exists(fw_path):
-        check("form_writer.txt mevcut", False, "dosya yok, yazar kontrolu ATLANDI")
+        check("form_writer.txt present", False,
+              "file missing, writer check NOT PERFORMED")
     else:
         f2w = {}
         with open(fw_path, encoding="utf-8") as fh:
@@ -105,22 +109,22 @@ def main():
                     a, b = line.split()
                     f2w[a] = b
         unknown = [f for v in forms.values() for f in v if f not in f2w]
-        check("tum formlarin yazari biliniyor", not unknown, f"eksik {len(unknown)}")
+        check("every form has a known writer", not unknown, f"missing {len(unknown)}")
         writers = {k: {f2w[f] for f in v if f in f2w} for k, v in forms.items()}
         for k in ("train", "val", "test"):
-            print(f"         {k:<6} {len(writers[k]):>4} yazar")
+            print(f"         {k:<6} {len(writers[k]):>4} writers")
         for a, b in (("train", "val"), ("train", "test"), ("val", "test")):
             ov = writers[a] & writers[b]
             check(f"{a} vs {b}", not ov,
-                  f"ortak {len(ov)}" + (f" -> {sorted(ov)[:5]}" if ov else ""))
+                  f"shared {len(ov)}" + (f" -> {sorted(ov)[:5]}" if ov else ""))
 
-    print("\n4. METIN (PROMPT) AYRIKLIGI")
+    print("\n4. PROMPT DISJOINTNESS")
     bases = {k: {text_base(f) for f in v} for k, v in forms.items()}
     for a, b in (("train", "val"), ("train", "test"), ("val", "test")):
         ov = bases[a] & bases[b]
-        check(f"{a} vs {b}", not ov, f"ortak {len(ov)}")
+        check(f"{a} vs {b}", not ov, f"shared {len(ov)}")
 
-    print("\n4b. AYNI ISTEMI PAYLASAN FORMLAR ve YAZAR SAYILARI")
+    print("\n4b. FORMS THAT SHARE A PROMPT, AND THE WRITER COUNTS")
     # IAM writes some of its prompt texts out in more than one form: the form
     # id keeps the prompt number and adds a letter (a/b, u/x, a..m).  Forms
     # that share the numeric stem therefore share the prompt.  Section 3.1
@@ -136,54 +140,48 @@ def main():
             stems[m.group(1)].append(f)
     groups = {k: sorted(v) for k, v in stems.items() if len(v) > 1}
     sizes = sorted(len(v) for v in groups.values())
-    check("ayni istemi paylasan form grubu sayisi 57", len(groups) == 57,
-          f"bulunan {len(groups)}, grup buyuklugu {sizes[0]}-{sizes[-1]}")
+    check("57 prompts are written out by more than one form", len(groups) == 57,
+          f"found {len(groups)}, group size {sizes[0]}-{sizes[-1]}")
     straddle = {k: v for k, v in groups.items()
                 if len({owner[x] for x in v}) > 1}
-    check("bolme asan grup sayisi 5", len(straddle) == 5,
-          f"bulunan {len(straddle)}: {', '.join(sorted(straddle))}")
+    check("exactly 5 of those groups straddle partitions", len(straddle) == 5,
+          f"found {len(straddle)}: {', '.join(sorted(straddle))}")
     with_train = [k for k, v in straddle.items()
                   if "train" in {owner[x] for x in v}]
-    check("hicbiri egitim bolmesini icermiyor", not with_train,
-          f"egitimle ortusen {len(with_train)}" +
+    check("none of them involves the training partition", not with_train,
+          f"overlapping with train {len(with_train)}" +
           (f" -> {with_train}" if with_train else ""))
     kept_one_test = [k for k, v in straddle.items()
                      if [x for x in v if x in forms[owner[x]]] ==
                         [x for x in v if x in utt["test"]]]
-    check("bu gruplarda yalnizca test formu tutuluyor",
+    check("in those groups only the test form is kept",
           len(kept_one_test) == len(straddle),
           f"{len(kept_one_test)}/{len(straddle)}")
-    fw_path2 = os.path.join(SPLIT_DIR, "form_writer.txt")
-    if os.path.exists(fw_path2):
-        f2w2 = {}
-        with open(fw_path2, encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    a, b = line.split()
-                    f2w2[a] = b
-        pub = len({f2w2[f] for f in utt["val"] if f in f2w2})
-        kept = len({f2w2[f] for f in forms["val"] if f in f2w2})
-        check("yayinlanan dogrulama listesi 56 yazar", pub == 56, f"bulunan {pub}")
-        check("bes form cikinca 55 yazar kaliyor", kept == 55, f"bulunan {kept}")
+    if os.path.exists(fw_path):
+        pub = len({f2w[f] for f in utt["val"] if f in f2w})
+        kept = len({f2w[f] for f in forms["val"] if f in f2w})
+        check("the published validation list has 56 writers", pub == 56,
+              f"found {pub}")
+        check("55 writers remain once the five forms are dropped", kept == 55,
+              f"found {kept}")
     else:
-        skip("yayinlanan yazar sayilari", "form_writer.txt yok")
+        skip("published writer counts", "form_writer.txt missing")
 
-    print("\n5. KAYIT BUTUNLUGU")
+    print("\n5. RECORD INTEGRITY")
     bad_status = sum(1 for v in recs.values() for r in v if r[1] != "ok")
-    check("hepsi status=ok", bad_status == 0, f"ihlal {bad_status}")
+    check("every record is flagged ok", bad_status == 0, f"violations {bad_status}")
     ids = [r[0] for v in recs.values() for r in v]
-    check("tekrar eden word_id yok", len(ids) == len(set(ids)),
-          f"tekrar {len(ids) - len(set(ids))}")
+    check("no duplicated word_id", len(ids) == len(set(ids)),
+          f"duplicates {len(ids) - len(set(ids))}")
     junk = sum(1 for v in recs.values() for r in v if not re.match(r"^[a-z]\d+-", r[0]))
-    check("IAM disi kayit yok", junk == 0, f"bulunan {junk}")
+    check("no record from outside IAM", junk == 0, f"found {junk}")
     wrong = sum(1 for k, v in recs.items() for r in v if form_of(r[0]) not in utt[k])
-    check("her kayit dogru bolumde", wrong == 0, f"hatali {wrong}")
+    check("every record sits in the right partition", wrong == 0, f"misplaced {wrong}")
 
-    print("\n6. GORUNTU BUTUNLUGU")
+    print("\n6. IMAGE INTEGRITY")
     if not os.path.isdir(IMG_ROOT):
-        skip("her kaydin goruntusu var",
-             f"goruntu dizini yok ({IMG_ROOT}); --img-root ile belirtilebilir")
+        skip("every record has an image",
+             f"image directory missing ({IMG_ROOT}); pass --img-root")
     else:
         missing, empty = 0, []
         for v in recs.values():
@@ -194,22 +192,22 @@ def main():
                     missing += 1
                 elif os.path.getsize(p) == 0:
                     empty.append(w)
-        check("her kaydin goruntusu var", missing == 0, f"eksik {missing}")
-        # IAM dagitiminda iki dosya 0 bayt gelir: a01-117-05-02 ve
-        # r06-022-03-05. Bunlar egitim sirasinda atlanir (skipped:2). Baska
-        # bozuk dosya cikarsa veri kopyasi eksik indirilmis demektir.
+        check("every record has an image", missing == 0, f"missing {missing}")
+        # Two files arrive empty in the IAM distribution: a01-117-05-02 and
+        # r06-022-03-05.  Training skips them (skipped:2).  Any further empty
+        # file means the local copy of the data was downloaded incompletely.
         KNOWN_EMPTY = {"a01-117-05-02", "r06-022-03-05"}
         unexpected = sorted(set(empty) - KNOWN_EMPTY)
-        check("bozuk (0 bayt) goruntu yalniz bilinen 2 dosya",
+        check("the only empty (0-byte) images are the 2 known ones",
               not unexpected,
-              f"toplam {len(empty)} bos" +
-              (f", BEKLENMEYEN: {', '.join(unexpected[:5])}" if unexpected
-               else " (ikisi de bilinen, egitimde atlanir)"))
+              f"{len(empty)} empty in total" +
+              (f", UNEXPECTED: {', '.join(unexpected[:5])}" if unexpected
+               else " (both known, skipped during training)"))
 
     ok = all(results)
     print(f"\n{'=' * 60}")
-    print(f"  {sum(results)}/{len(results)} kontrol gecti - "
-          f"{'HEPSI TEMIZ' if ok else 'SORUN VAR'}")
+    print(f"  {sum(results)}/{len(results)} checks passed - "
+          f"{'ALL CLEAN' if ok else 'PROBLEM FOUND'}")
     print("=" * 60)
     return 0 if ok else 1
 

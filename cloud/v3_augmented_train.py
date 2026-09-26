@@ -2,18 +2,18 @@
 """
 V3 Augmented — IAM Aachen Training from Scratch
 
-V3 mimarisini sıfırdan IAM üzerinde eğitir, güçlendirilmiş augmentation ile:
-  + Elastic deformation  (doğal kalem titremesi simülasyonu)
-  + Morphological ops    (kalem kalınlığı varyasyonu)
-  + Daha geniş brightness/contrast aralığı
-  + Tüm orijinal V3 augmentasyonları korunur
+Trains the V3 architecture from scratch on IAM with a stronger augmentation set:
+  + elastic deformation  (imitates the natural tremor of a pen)
+  + morphological ops    (varies the stroke thickness)
+  + a wider brightness / contrast range
+  + every original V3 transform is kept
 
-Hyperparameters (V3 baseline greedy_aachen_v3.py ile aynı):
+Hyperparameters (the same as the V3 baseline in greedy_aachen_v3.py):
   optimizer  : AdamW(lr=7e-4, weight_decay=1e-5)
   scheduler  : cosine warmup 5 epoch + cosine decay
   epochs     : 100 (early stopping patience=15)
   batch_size : 128
-  CNN freeze : yok (sıfırdan eğitim)
+  CNN freeze : none (training from scratch)
   AMP        : enabled
 
 Output:
@@ -29,9 +29,10 @@ import random
 from pathlib import Path
 from typing import List
 
-# Turkce Windows konsolu (cp1254) UTF-8 disi; egitim bitiminde basilan "->"
-# gibi karakterler UnicodeEncodeError ile sureci oldururdu (test degerlendirmesi
-# hic calismadan). Sadece cikti kodlamasini degistirir, hesaplamaya etkisi yok.
+# A Turkish Windows console (cp1254) is not UTF-8, and characters such as
+# the "->" printed at the end of training used to kill the process with a
+# UnicodeEncodeError before the test evaluation ever ran. This only changes
+# the output encoding; it has no effect on the computation.
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
@@ -69,9 +70,10 @@ def parse_args():
     p.add_argument("--iam-words",    type=str,   default="")
     p.add_argument("--iam-root",     type=str,   default="")
     p.add_argument("--num-workers", type=int, default=0,
-                   help="DataLoader isci sayisi. VARSAYILAN 0 (guvenli): her "
-                        "isci veri kopyasi tasidigi icin Windows'ta bellek "
-                        "yetmezse kosu sessizce olur. Bol RAM varsa 2 deneyin.")
+                   help="number of DataLoader workers. DEFAULT 0 (safe): each "
+                        "worker carries its own copy of the data, so on Windows "
+                        "a run can die silently when memory runs out. With "
+                        "plenty of RAM, try 2.")
     p.add_argument("--gpu-aug", type=int, default=1, choices=[0, 1],
                    help="1 (varsayilan): toplu GPU augmentation, veri kumesi GPU'da. "
                         "0: eski per-image DataLoader yolu.")
@@ -255,11 +257,11 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
     ])
 
     if not img_root:
-        raise FileNotFoundError("words/ image dizini bulunamadı.")
+        raise FileNotFoundError("the words/ image directory was not found.")
 
     aachen_dir = repo_root / "aachen_splits" / "splits"
     if not aachen_dir.exists():
-        raise FileNotFoundError(f"Aachen split dizini bulunamadı: {aachen_dir}")
+        raise FileNotFoundError(f"Aachen split directory not found: {aachen_dir}")
 
     def _load_forms(name):
         p = aachen_dir / f"{name}.uttlist"
@@ -314,10 +316,11 @@ def load_iam_aachen(repo_root: Path, iam_words_override: str = "", iam_root_over
                 # forms outside the official Aachen partitions are SKIPPED:
                 # their writers may overlap val/test writers.
 
-    # ---- on-islenmis goruntu onbellegi ---------------------------------
-    # 75k PNG'yi okuyup 64x256'ya getirmek ~7 dk suruyor; bes ablation kosusu
-    # icin bir kez yapip cache/ altina yaziyoruz. Anahtar, split dosyalarinin
-    # icerigi + calisma cozunurlugu: split degisirse onbellek gecersiz olur.
+    # ---- cache of the pre-processed crops -------------------------------
+    # Reading 75k PNGs and resizing them to 64x256 takes about 7 minutes; we
+    # do it once for the five ablation runs and write the result under cache/.
+    # The key is the content of the split files plus the working resolution,
+    # so the cache is invalidated whenever the split changes.
     import hashlib
     _h = hashlib.md5()
     for _k in ("train", "val", "test"):
@@ -456,10 +459,10 @@ def evaluate_test_set(model, test_loader, trigram_lm, model_dir: Path) -> dict:
 
 
 def save_training_log(history: dict, model_dir: Path, results_dir: Path):
-    """Her epoch için train/val metriklerini ve süreyi CSV'e yazar.
+    """Writes the train/val metrics and the wall time of every epoch to a CSV.
 
-    Ablation'da her mod ayri model_dir'e yazar; results_dir'deki kopya her
-    kosuda uzerine yazildigi icin asil kopya model_dir'dedir.
+    In the ablation every mode writes to its own model_dir; the copy under
+    results_dir is overwritten by each run, so model_dir holds the real one.
     """
     last = None
     for log_path in (model_dir / "training_log.csv",
@@ -497,17 +500,17 @@ def _write_training_log(history: dict, log_path):
 
 def evaluate_wbs(model, test_loader, iam_words_path: str) -> dict:
     """
-    Word Beam Search değerlendirmesi.
-    CTC decode sırasında sözlük kısıtlaması uygular — post-hoc trigram'dan çok daha etkili.
-    word-beam-search paketi yoksa boş dict döner.
+    Word beam search evaluation.
+    Constrains CTC decoding to dictionary words, i.e. the lexicon is applied
+    while decoding rather than afterwards. Returns {} if the package is absent.
     """
     try:
         from word_beam_search import WordBeamSearch
     except ImportError:
-        print("  ⚠️  word-beam-search kurulu değil, WBS atlandı")
+        print("  !  word-beam-search is not installed, WBS skipped")
         return {}
 
-    # IAM "ok" kelimelerinden sözlük corpus'u oluştur
+    # build the dictionary corpus from the IAM words flagged "ok"
     ok_words = set()
     if iam_words_path and os.path.exists(iam_words_path):
         with open(iam_words_path, encoding="utf-8") as f:
@@ -521,7 +524,7 @@ def evaluate_wbs(model, test_loader, iam_words_path: str) -> dict:
                         ok_words.add(w)
 
     if not ok_words:
-        print("  ⚠️  WBS: corpus boş (iam_words_path geçerli değil?), atlandı")
+        print("  !  WBS: the corpus is empty (is iam_words_path valid?), skipped")
         return {}
 
     corpus = " ".join(sorted(ok_words))
@@ -530,7 +533,7 @@ def evaluate_wbs(model, test_loader, iam_words_path: str) -> dict:
     chars_str = CHAR_LIST + "|"
     word_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-    print(f"\n  WBS kurulumu: {len(ok_words):,} kelime, beam=25 ...")
+    print(f"\n  WBS setup: {len(ok_words):,} words, beam=25 ...")
     try:
         wbs = WordBeamSearch(
             25, "Words", 0.01,
@@ -539,7 +542,7 @@ def evaluate_wbs(model, test_loader, iam_words_path: str) -> dict:
             word_chars.encode("utf8"),
         )
     except Exception as e:
-        print(f"  ⚠️  WBS init hatası: {e}")
+        print(f"  !  WBS failed to initialise: {e}")
         return {}
 
     model.eval()
@@ -577,9 +580,9 @@ def evaluate_wbs(model, test_loader, iam_words_path: str) -> dict:
 def compare_with_baseline(result: dict, baseline_csv: str) -> dict:
     """McNemar testi. Baseline CSV'si okunamazsa sessizce atlanir.
 
-    Sutun adi surumler arasinda degisiyor: yeni cikti "correct", eski
-    Model_aachen_v3 ciktisi "Is_Correct" kullaniyor. Deger de "1"/"0" ya da
-    "True"/"False" olabiliyor. Ikisini de kabul ediyoruz.
+    The column name differs between versions: the current dumps use
+    "correct", the older Model_aachen_v3 ones "Is_Correct", and the value
+    may be "1"/"0" or "True"/"False". Both spellings are accepted.
     """
     if not baseline_csv or not os.path.exists(baseline_csv):
         return {}
@@ -596,8 +599,8 @@ def compare_with_baseline(result: dict, baseline_csv: str) -> dict:
             key = next((c for c in ("correct", "Is_Correct", "is_correct")
                         if c in cols), None)
             if key is None:
-                print(f"  McNemar atlandi: baseline CSV'de 'correct' sutunu yok "
-                      f"({baseline_csv})")
+                print(f"  McNemar skipped: the baseline CSV has no 'correct' "
+                      f"column ({baseline_csv})")
                 return {}
             for row in rd:
                 baseline_flags.append(_flag(row[key]))
@@ -607,7 +610,7 @@ def compare_with_baseline(result: dict, baseline_csv: str) -> dict:
 
     new_flags = result["correct_flags"]
     if len(baseline_flags) != len(new_flags):
-        print(f"  ⚠️  McNemar: sample sayısı eşleşmiyor ({len(baseline_flags)} vs {len(new_flags)})")
+        print(f"  !  McNemar: sample counts differ ({len(baseline_flags)} vs {len(new_flags)})")
         return {}
     chi2, p = mcnemar_test(baseline_flags, new_flags)
     delta = result["word_accuracy"] - (sum(baseline_flags) / len(baseline_flags))
@@ -664,16 +667,16 @@ def main():
 
     # ── DataLoaders ───────────────────────────────────────────────────────────
     print("\n[2/4] Creating DataLoaders (IAMDatasetV4 with elastic + morph aug)...")
-    # Dataset'i CPU'da tutuyoruz. Onceden device=DEVICE idi: her ornek TEK TEK
-    # GPU'ya tasiniyor, elastic/morfoloji icin CPU'ya geri donuyor ve tekrar
-    # GPU'ya cikiyordu. Bu, epoch suresini ~11 dakikaya cikariyordu.
-    # CPU'da tutunca augmentation DataLoader iscileri arasinda paralellesiyor;
-    # batch'i GPU'ya tasima isini egitim/degerlendirme donguleri zaten
-    # kendileri yapiyor (model_v3.py: images.to(self.device)).
+    # The dataset stays on the CPU. It used to be created with device=DEVICE,
+    # which moved every sample to the GPU one at a time, back to the CPU for
+    # the elastic and morphological steps, and up again -- about 11 minutes
+    # per epoch. Keeping it on the CPU lets the DataLoader workers run the
+    # augmentation in parallel; moving each batch to the GPU is already done
+    # by the training and evaluation loops (model_v3.py: images.to(...)).
     if args.gpu_aug:
-        # Tum split tek bir uint8 tensor olarak GPU'da; augmentation toplu ve
-        # ornek-basina-rastgele olarak GPU'da yapilir (cloud/gpu_aug.py).
-        print(f"  Loader    : GPUBatchLoader  ({AUG_H}x{AUG_W} calisma cozunurlugu, num-workers yok sayildi)")
+        # The whole split sits on the GPU as one uint8 tensor; augmentation is
+        # applied to whole batches, with per-sample randomness (cloud/gpu_aug.py).
+        print(f"  Loader    : GPUBatchLoader  ({AUG_H}x{AUG_W} working resolution, num-workers ignored)")
         _train_aug = None if args.aug_mode == "none" else args.aug_mode
         train_loader = GPUBatchLoader(train_imgs, train_labs, args.batch, True,  _train_aug, DEVICE, drop_last=True)
         val_loader   = GPUBatchLoader(val_imgs,   val_labs,   args.batch, False, None, DEVICE)
@@ -685,9 +688,10 @@ def main():
         val_ds   = IAMDatasetV4(val_imgs,   val_labs,   is_training=False, device=_ds_device)
         test_ds  = IAMDatasetV4(test_imgs,  test_labs,  is_training=False, device=_ds_device)
 
-        # Augmentation CPU'da yapiliyor (elastic deformation + morfoloji pahali).
-        # num_workers=0 ile tek cekirdekte kaliyor ve epoch suresini birkac kat
-        # uzatiyor; --num-workers ile ayarlanabilir.
+        # The augmentation runs on the CPU (elastic deformation and the
+        # morphological ops are expensive). With num_workers=0 it stays on a
+        # single core and lengthens an epoch several times over; use
+        # --num-workers to change that.
         _nw = args.num_workers
         _pw = _nw > 0          # persistent_workers + pin_memory
         train_loader = DataLoader(train_ds, batch_size=args.batch, shuffle=True,
@@ -708,17 +712,17 @@ def main():
     trigram_lm = None
     lm_src = _find_path([
         str(REPO_ROOT / "aachen_splits" / "train_words.txt"),
-        args.iam_words,   # Kaggle'da zaten mevcut — en geniş vocab
+        args.iam_words,   # already present on Kaggle; the widest vocabulary
         str(REPO_ROOT / "HTR_Using_CRNN" / "IAM" / "processed" / "archive" /
             "iam_words" / "words.txt"),
     ])
     if lm_src:
         try:
             from trigram_lm import TrigramLanguageModel
-            print(f"\n  Trigram LM yükleniyor: {lm_src}")
+            print(f"\n  Loading the trigram LM: {lm_src}")
             trigram_lm = TrigramLanguageModel(lm_src)
         except ImportError:
-            print("  ⚠️  trigram_lm.py bulunamadı, trigram'sız devam")
+            print("  !  trigram_lm.py not found, continuing without it")
 
     # ── Model (scratch) ───────────────────────────────────────────────────────
     print("\n[3/4] Building V3 model from scratch...")
@@ -745,20 +749,21 @@ def main():
 
     # ── Test evaluation (ONE-SHOT) ────────────────────────────────────────────
     print("\n[4/4] Evaluating on Aachen test set (ONE-SHOT)...")
-    print("  KURALLAR: test set'e sadece bir kez bakılır.")
+    print("  RULE: the test set is looked at exactly once.")
 
     best_ckpt = model_dir / "best_model_wa.pth"
     if best_ckpt.exists():
         model.load_state_dict(torch.load(str(best_ckpt), map_location=DEVICE))
-        print(f"  Best WA checkpoint yüklendi: {best_ckpt}")
+        print(f"  Loaded the best-WA checkpoint: {best_ckpt}")
 
     test_result = evaluate_test_set(model, test_loader, trigram_lm, model_dir)
 
     # McNemar vs V3 baseline
     mcnemar_result = {}
-    # Varsayilan baseline: ayni ortamda egitilmis CRNN-L (narrow). Eski
-    # Model_aachen_v3 yarim veriyle egitildigi icin (5,338 vs 20,310 ornek)
-    # McNemar zaten uzunluk uyusmazligindan atlanir.
+    # Default baseline: the CRNN-L (narrow) run trained in the same
+    # environment. The older Model_aachen_v3 was trained on half the data
+    # (5,338 against 20,310 samples), so McNemar would be skipped anyway on
+    # the length mismatch.
     baseline_csv = args.baseline_csv
     if not baseline_csv:
         for cand in (REPO_ROOT / "Model_abl_narrow" / "test_results_analysis.csv",
@@ -772,7 +777,7 @@ def main():
         mcnemar_result = compare_with_baseline(test_result, baseline_csv)
 
     # WBS evaluation
-    print("\n  Word Beam Search değerlendirmesi ...")
+    print("\n  Word beam search evaluation ...")
     wbs_result = evaluate_wbs(model, test_loader, args.iam_words)
 
     # Save results
@@ -789,18 +794,19 @@ def main():
         "mcnemar_vs_v3_base": mcnemar_result,
         "training_best_val_wa_pct": round(max(history["val_wa"]) * 100, 4),
     }
-    # Geriye dönük uyumluluk için test_wa_pct en iyi sonucu gösterir
+    # for backward compatibility test_wa_pct carries the best figure
     best_wa = max(filter(None, [final["greedy_trigram_wa_pct"], final["wbs_wa_pct"]]))
     final["test_wa_pct"] = best_wa
 
-    # Asil kopya model_dir'de; results_dir'deki her kosuda uzerine yazilir.
+    # The real copy lives in model_dir; the one in results_dir is overwritten
+    # by every run.
     for out_path in (model_dir / "results.json",
                      results_dir / "v3_augmented_results.json"):
         with open(out_path, "w") as f:
             json.dump(final, f, indent=2, default=lambda o: o.item() if hasattr(o, "item") else str(o))
 
     print("\n" + "=" * 60)
-    print(" SONUÇ")
+    print(" RESULT")
     print("=" * 60)
     print(f" Greedy+Trigram WA: {final['greedy_trigram_wa_pct']:.2f}%")
     if wbs_result:
