@@ -1010,7 +1010,7 @@ curves stay close together.}
 
 Table~\ref{tab:lexicon} holds the optical model fixed (\ours, best
 checkpoint) and varies only what happens after greedy decoding. The
-effect is an order of magnitude larger than that of the augmentation.
+effect is an order of magnitude larger than that of the proposed transforms.
 Table~\ref{tab:lexicon} separates the two things a lexical corrector
 consists of: \emph{which} words it may produce (the lexicon, down the rows)
 and \emph{how} it chooses among them (the ranking and the line decoding,
@@ -1061,8 +1061,8 @@ for the trigram and the line context; on the word-list lexicon the same three
 steps give $+0.67$,
 $+1.23$ and
 $+0.93$.
-The ranking terms are almost the same in both; the lexicon is where the two
-lexicons part company.
+The ranking terms are almost the same in both; only the lexicon term differs
+($+2.89$ against $+0.67$).
 
 Which decoder is best depends on the lexicon, and the whole-line column of
 Table~\ref{tab:lexicon} changes two things at once: the line is decoded
