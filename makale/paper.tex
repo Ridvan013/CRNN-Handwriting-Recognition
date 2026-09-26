@@ -445,16 +445,18 @@ forms whose prompt text also occurs in the test set were removed from
 the validation partition so that checkpoint selection is independent
 of the test prompts; each of them is the second half of a prompt whose
 first half is a test form, written by a different writer, so what
-overlaps is the text and not the hand. IAM writes 57 of its prompts in two
-halves, and these five are the only ones whose halves fall in different
-partitions; none of them involves the training partition, so no prompt is
-shared between training and test. The test partition is used exactly
+overlaps is the text and not the hand. IAM writes 57 of its prompt texts out in
+more than one form --- in groups of two to thirteen, which the form
+identifiers make checkable --- and these five are the only groups whose forms
+fall in different partitions; none of the 57 involves the training partition
+alongside another, so no prompt is shared between training and test. The test partition is used exactly
 as published. This yields 47\,997 training words (two IAM image files are
 empty and are skipped), 7\,205 validation words from 111 forms and 55
 writers, and \nsamples\ test words from all 336 test forms. Writer, prompt
 and form disjointness between the three partitions, the counts just given,
 and the integrity of every record and image are verified by
-\texttt{cloud/verify\_split.py}, distributed with the code. The label alphabet contains 78 symbols (upper- and lower-case
+\texttt{verify\_aachen\_splits.py}, distributed with the
+code; it runs 25 checks and prints the outcome of each. The label alphabet contains 78 symbols (upper- and lower-case
 Latin letters, digits and punctuation), plus the CTC blank.
 
 \subsection{Model Naming}
