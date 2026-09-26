@@ -190,7 +190,7 @@ CRNN-S / CRNN-M no longer appear (their numbers came from the truncated data).
 Checked by two scripts in `cloud/` (both must print OK before a commit that
 touches the paper) plus two that produce what they check against:
 `verify_paper_numbers.py`, `check_paper_consistency.py`,
-`../verify_aachen_splits.py` (25 checks: writer, form and prompt
+`../verify_aachen_splits.py` (26 checks: writer, form and prompt
 disjointness, the shared-prompt groups, record and image integrity,
 Section 3.1), `count_oov_hypotheses.py` (the out-of-lexicon counts of
 Section 3.5), `ablation_keep_oov.py` (the two ingredients of the whole-line

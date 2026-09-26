@@ -157,6 +157,29 @@ def main():
     check("in those groups only the test form is kept",
           len(kept_one_test) == len(straddle),
           f"{len(kept_one_test)}/{len(straddle)}")
+    # Section 3.1 also says that each dropped validation form shares between
+    # 51% and 90% of its word types with its test form.  The dropped forms are
+    # not in the split files, so this needs IAM's own words.txt.
+    words_txt = os.path.join(os.path.dirname(IMG_ROOT), "words.txt")
+    if os.path.exists(words_txt):
+        types = collections.defaultdict(set)
+        with open(words_txt, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                p = line.split()
+                if len(p) >= 9 and not line.startswith("#") and p[1] == "ok":
+                    types[form_of(p[0])].add(p[-1])
+        jac = []
+        for v in straddle.values():
+            t = [x for x in v if x in utt["test"]]
+            d = [x for x in v if x in utt["val"]]
+            for a in t:
+                for b in d:
+                    jac.append(len(types[a] & types[b]) / len(types[a] | types[b]))
+        lo, hi = round(100 * min(jac)), round(100 * max(jac))
+        check("dropped forms share 51-90% of word types with their test form",
+              (lo, hi) == (51, 90), f"{len(jac)} pairs, {lo}-{hi}%")
+    else:
+        skip("word-type overlap of the dropped forms", "words.txt missing")
     if os.path.exists(fw_path):
         pub = len({f2w[f] for f in utt["val"] if f in f2w})
         kept = len({f2w[f] for f in forms["val"] if f in f2w})

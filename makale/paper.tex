@@ -6,18 +6,20 @@
 %          Dept. of Software Engineering, Sakarya University
 % Template: IJPRAI (World Scientific, ws-ijprai.cls)
 %
-% The IEEEtran conference version of this paper is kept in paper_ieee.tex.
+% paper_ieee.tex is an earlier IEEEtran conference draft (15 September);
+% its numbers predate the corpus lexicon and are superseded by this file.
 %
-% SABLON KURALLARI (ws-ijprai.pdf, ijprai-2e paketi):
-%   - Ozet 200 kelimeden kisa, atifsiz ve denklemsiz olmali.
-%   - Anahtar kelimeler noktali virgulle ayrilir, nokta ile biter.
-%   - Tablo basligi USTTE (\tbl), sekil basligi ALTTA.
-%   - Cizgiler \toprule / \colrule / \botrule -- booktabs YUKLENMEZ,
-%     sinif kendi tanimlarini verir; graphicx'i de sinif yukler.
-%   - Tek kolon duzen: figure* yok.
-%   - Kaynakca alfabetik, ws-ijprai.bst ile; atiflar ust simge (overcite).
-%   - Tablo \label'i \tbl{...\label{}} icinde olmali, disarida bolum
-%     numarasini yakalar.
+% TEMPLATE RULES (ws-ijprai.pdf, ijprai-2e package):
+%   - Abstract under 200 words, without citations or equations.
+%   - Keywords separated by semicolons, ending with a full stop.
+%   - Table captions ABOVE (\tbl), figure captions BELOW.
+%   - Rules via \toprule / \colrule / \botrule -- booktabs is NOT loaded,
+%     the class defines its own; the class also loads graphicx.
+%   - Single-column layout: no figure*.
+%   - Bibliography alphabetical, via ws-ijprai.bst; superscript citations
+%     (overcite).
+%   - A table's \label must sit inside \tbl{...\label{}}; outside it
+%     picks up the section number.
 %
 % MODEL NAMING (used consistently throughout the paper):
 %   no augmentation           = zero-augmentation anchor (positive control)
@@ -45,6 +47,9 @@
 % results/ablation_trigram.json (the IAM-only and oracle-context figures),
 % results/mcnemar_left_pair.json (the left-to-right pair in Section 5.1),
 % results/paper_stats_final.json (per-word counts), results/brown_leakage.json,
+% results/ablation_keep_oov.json (the whole-line split of Section 5.2),
+% results/oov_hypotheses.json (the out-of-lexicon counts of Section 3.5),
+% results/writer_bootstrap*.json (the clustering bootstraps of Section 6.4),
 % per-word predictions in results/preds_final/ and results/preds_final_seeds/.
 % cloud/verify_paper_numbers.py checks every table cell and macro against
 % these files; cloud/check_paper_consistency.py checks the structure.
@@ -443,20 +448,22 @@ respectively). Following common practice, only word crops whose
 segmentation is flagged \texttt{ok} are retained. Five validation
 forms whose prompt text also occurs in the test set were removed from
 the validation partition so that checkpoint selection is independent
-of the test prompts; each of them is the second half of a prompt whose
-first half is a test form, written by a different writer, so what
-overlaps is the text and not the hand. IAM writes 57 of its prompt texts out in
-more than one form --- in groups of two to thirteen, which the form
-identifiers make checkable --- and these five are the only groups whose forms
-fall in different partitions; none of the 57 involves the training partition
-alongside another, so no prompt is shared between training and test. The test partition is used exactly
-as published. This yields 47\,997 training words (two IAM image files are
+of the test prompts. Each of them carries the same prompt number as a test
+form, was written by a different writer, and shares between 51\% and
+90\% of its word types with that form, so what overlaps is the text and
+not the hand. IAM writes 57 of its prompt texts out in more than one
+form --- in groups of two to thirteen, which the form identifiers make
+checkable --- and these five are the only groups whose forms fall in
+different partitions; none of the 57 spans the training partition and
+another, so no prompt is shared between training and test. The test
+partition is used exactly as published. This yields 47\,997 training words (two IAM image files are
 empty and are skipped), 7\,205 validation words from 111 forms and 55
 writers, and \nsamples\ test words from all 336 test forms. Writer, prompt
 and form disjointness between the three partitions, the counts just given,
 and the integrity of every record and image are verified by
 \texttt{verify\_aachen\_splits.py}, distributed with the
-code; it runs 25 checks and prints the outcome of each. The label alphabet contains 78 symbols (upper- and lower-case
+code; it runs 26 checks and prints the outcome of each. The label alphabet
+contains 78 symbols (upper- and lower-case
 Latin letters, digits and punctuation), plus the CTC blank.
 
 \subsection{Model Naming}
@@ -573,8 +580,7 @@ resampling chain.
 uses the corrected amplitude (2\,px RMS); the last panel shows the
 compound elastic$+$morphological effect. The parameter values are
 illustrative ones from within the ranges of Section~\ref{sec:aug}; the noise
-panel is labelled in grey levels ($\sigma=15$ of 255), which is the
-$\sigma=0.05$ of Section~\ref{sec:aug} on the normalized scale.}
+level is given on the $[0,1]$ intensity scale.}
 \label{fig:augmentation}
 \alttext{Eight versions of the same handwritten word crop, showing the original and seven augmentation transforms applied to it.}
 \end{figure}
@@ -855,8 +861,8 @@ seeds 123 and 456. The difference between the two changes sign:
 \ours\ is \deltawa\ above CRNN-B at seed 42, $0.45$\,pp
 \emph{below} it at seed 123 and $0.66$\,pp above it at seed 456. All
 three per-seed comparisons fall under the conventional $0.05$ threshold ---
-at $p=0.049$, $0.026$ and $1\times10^{-3}$ --- yet two of them point in
-opposite directions: seed 123 favours the baseline, seed 456 the transforms. Averaged over the three
+at $p=0.049$, $0.026$ and $1\times10^{-3}$ --- yet they do not agree in
+direction: seed 123 favours the baseline, seeds 42 and 456 the transforms. Averaged over the three
 seeds the difference is $+0.20\pm0.58$\,pp (paired $t(2)=0.60$,
 $p=0.61$), and one unchanged configuration spans 0.8\,pp on its own
 (\ours: 83.44--84.21\%).
@@ -1134,8 +1140,8 @@ table. With the word-list lexicon it reaches
 81.26\%
 (81.70\% once the
 dictionary also holds the capitalized forms), and with the corpus lexicon
-84.13\%. Changing the lexicon is therefore worth
-2.4\,pp to WBS, whereas its language model is worth nothing: adding
+84.13\%. Replacing the word list by the corpus lexicon is therefore worth
+2.4--2.9\,pp to WBS, whereas its language model is worth nothing: adding
 the word bigram model leaves word accuracy at
 84.07\% and raises the character
 error rate. The case variants that help the other two dictionaries do not
@@ -1395,7 +1401,7 @@ prior by a trigram with line context nearly another; the trigram earns
 that only because the corpus is large enough to have seen the contexts (on
 IAM text alone the same context was worth $0.10$\,pp). Neither approaches
 the lexicon term, and the ceiling is close: the corrector only ever touches
-the 15.2\% of hypotheses that fall outside the lexicon, and feeding it the
+the 15.2\% of hypotheses that fall outside the corpus lexicon, and feeding it the
 reference transcriptions of the neighbouring crops instead of its own outputs
 adds $0.06$\,pp --- this figure and the $0.10$\,pp above were both
 measured on the word-list lexicon.

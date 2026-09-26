@@ -130,7 +130,7 @@ def fig_pipeline():
     box(xs[0], Y_TOP, "IAM Aachen",
         ["writer-disjoint", "48.0K / 7.2K / 20.3K", "word crops"], GREY_F, GREY_E)
     box(xs[1], Y_TOP, "Augmentation*",
-        ["affine $+$ photometric", "$+$ elastic, morphological",
+        ["affine, photometric,", "elastic, morphological",
          "$64{\\times}256$, training only"], OURS_F, OURS_E, lw=1.8)
     box(xs[2], Y_TOP, "Preprocessing",
         ["invert, scale $[-1,1]$", "resize to $32{\\times}128$"],
@@ -152,7 +152,7 @@ def fig_pipeline():
     # --- Bottom row (right to left): CTC -> trigram -> output -> eval ------
     box(xs[3], Y_BOT, "CTC decoding",
         ["training: CTC loss", "test: greedy decode"], BLUE_F, BLUE_E)
-    box(xs[2], Y_BOT, "Lexical corrector*",
+    box(xs[2], Y_BOT, "Post-corrector*",
         ["57K corpus lexicon", r"$\leq$2 edits, KN trigram",
          "own left context"],
         OURS_F, OURS_E, lw=1.8)
@@ -403,8 +403,8 @@ def fig_augmentation_grid():
 
     # Gaussian noise
     rng = np.random.default_rng(1)
-    noisy = np.clip(img.astype(np.float32) + rng.normal(0, 15, img.shape), 0, 255).astype(np.uint8)
-    variants.append(("Gauss noise σ=15", noisy))
+    noisy = np.clip(img.astype(np.float32) + rng.normal(0, 0.05 * 255, img.shape), 0, 255).astype(np.uint8)
+    variants.append(("Gauss noise σ=0.05", noisy))
 
     # Random erasing
     er = img.copy()
@@ -421,7 +421,7 @@ def fig_augmentation_grid():
     # spent a third of a column on transforms the ablation shows do not
     # matter, and "Random erasing" was visually indistinguishable anyway.
     keep = ["Original", "Rotation +7\u00b0", "Elastic (2 px RMS)", "Erode 2\u00d72",
-            "Dilate 2\u00d72", "Brightness\u00d70.75", "Gauss noise \u03c3=15",
+            "Dilate 2\u00d72", "Brightness\u00d70.75", "Gauss noise \u03c3=0.05",
             "Elastic + Erode"]
     order = {k: i for i, k in enumerate(keep)}
     variants = sorted((v for v in variants if v[0] in keep),
