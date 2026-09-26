@@ -199,7 +199,7 @@ sets. This \emph{writer-disjoint} protocol is stricter than a random
 split and is the realistic condition for deploying a recognizer on
 handwriting it has never seen.
 
-Modern recognizers are trained with the \emph{connectionist temporal
+Many modern recognizers are trained with the \emph{connectionist temporal
 classification} (CTC) objective~\cite{graves2006connectionist}, which
 removes the need for character-level alignment between the image and
 its transcription. Two model families dominate: convolutional-recurrent
@@ -301,9 +301,9 @@ The claims of this paper are about measurement, not about rank. Our optical
 model is a plain CRNN trained from scratch on the 48\,K Aachen training
 words, with no synthetic pre-training, no transfer from scene text and no
 ensembling. With the lexical corrector it reaches \ourwa\ on the Aachen
-test set, which is 1.3\,pp above the 2018 attention model of Kang et
-al.~\cite{kang2018convolve} and
-0.8--1.1\,pp below the two strongest published word-level systems, which use
+test set, which is 1.3\,pp above the lexicon-free 2018 attention model of
+Kang et al.~\cite{kang2018convolve}, whose recognizer alone is 3.7\,pp ahead
+of our optical model, and 0.8--1.1\,pp below the two strongest published word-level systems, which use
 a language model or scene-text pre-training (Table~\ref{tab:priorwork}). What
 the paper contributes is the anatomy of two components that word-level
 recognizers commonly rely on, measured where each can be isolated. The lexical corrector is taken
@@ -360,8 +360,10 @@ the lexical prior.
 
 \paragraph{Attention and transformer recognizers.}
 Sueiras et al.~\cite{sueiras2018offline} and Kang et
-al.~\cite{kang2018convolve} introduced sequence-to-sequence
-recognizers with content-based attention for isolated IAM words.
+al.~\cite{kang2018convolve} introduced attention-based
+sequence-to-sequence recognizers for isolated IAM words, with content-based
+attention in the former and location-based attention in the best model of
+the latter.
 Kang et al.~\cite{kang2021candidate} later integrated a language model
 into the decoder itself through candidate fusion, and Kass and
 Vats~\cite{kass2022attentionhtr} combined a residual-network (ResNet)

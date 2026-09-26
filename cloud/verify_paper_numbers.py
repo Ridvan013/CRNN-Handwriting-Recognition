@@ -604,7 +604,7 @@ chk("5.4 CER range lo", after("At\ncharacter level the gap remains", 1),
 chk("5.4 CER range hi", after("At\ncharacter level the gap remains", 2),
     max(v[1] for k, v in LIT.items() if k.startswith(("kang", "kass"))))
 top2 = sorted((A["kang2021candidate"], A["kass2022attentionhtr"]))
-for where, phrase in (("1 scope", "al.~\\cite{kang2018convolve} and\n"),
+for where, phrase in (("1 scope", "ahead\nof our optical model, and "),
                       ("7 conclusion", "system is 1.3\\,pp above the latter and ")):
     chk(f"{where}: below strongest lo", after(phrase, 1), round(top2[0] - LX, 1), tol=0.05)
     chk(f"{where}: below strongest hi", after(phrase, 2), round(top2[1] - LX, 1), tol=0.05)
@@ -614,6 +614,8 @@ chk("6.3 HWRCNet below no-context", before(r"below its no-context"),
     round(NC - A["Rajesh et al.~\\cite{rajesh2022hwrcnet}"], 2))
 chk("6.3 HWRCNet above CRNN-G", before(r"above \\oursnolm\. It"),
     round(A["Rajesh et al.~\\cite{rajesh2022hwrcnet}"] - G, 2))
+chk("1 scope: Kang 2018 recognizer ahead of CRNN-G", before(r"ahead of our optical model"),
+    round(A["kang2018convolve"] - G, 1), tol=0.05)
 chk("6.3 CRNN-G below Kang 2018", before(r"less accurate without a lexicon"),
     round(A["kang2018convolve"] - G, 2))
 chk("6.3 CRNN-G below Kang 2018 (closing)", before(r"below the second"),
